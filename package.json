@@ -1,0 +1,57 @@
+{
+  "name": "iobroker.growmanager",
+  "version": "0.1.0",
+  "description": "GrowManager – monitoring and climate control adapter for ioBroker",
+  "author": "GrowManager Contributors",
+  "license": "MIT",
+  "main": "build/main.js",
+  "scripts": {
+    "prebuild": "rimraf build",
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch",
+    "build:admin": "cd admin && npm run build",
+    "build:all": "npm run build && npm run build:admin",
+    "test:unit": "jest --testPathPattern=test/unit",
+    "test:integration": "jest --testPathPattern=test/integration",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts admin/src/**/*.tsx",
+    "start": "node build/main.js"
+  },
+  "dependencies": {
+    "@iobroker/adapter-core": "^3.1.4"
+  },
+  "devDependencies": {
+    "@iobroker/testing": "^4.1.3",
+    "@types/iobroker": "^4.0.5",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.14.2",
+    "@typescript-eslint/eslint-plugin": "^7.13.0",
+    "@typescript-eslint/parser": "^7.13.0",
+    "eslint": "^9.5.0",
+    "jest": "^29.7.0",
+    "rimraf": "^5.0.7",
+    "ts-jest": "^29.1.5",
+    "typescript": "~5.4.5"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {
+      "^.+\\.tsx?$": [
+        "ts-jest",
+        {}
+      ]
+    },
+    "testRegex": "(/test/.*\\.(test|spec))\\.[tj]sx?$"
+  },
+  "files": [
+    "admin/build",
+    "build",
+    "io-package.json",
+    "LICENSE",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iobroker-community/ioBroker.growmanager"
+  }
+}
