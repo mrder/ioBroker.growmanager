@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { GrowManagerConfig, GroupConfig, ClimateProfile } from '../../src/models/config';
+import type { GrowManagerConfig, GroupConfig, ClimateProfile } from './types';
 
 // ioBroker Admin-Globals (werden vom Admin-Framework bereitgestellt)
 declare const socket: {
@@ -901,7 +901,7 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, onSave, onCa
                             <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                                 <span style={{ fontWeight: 600 }}>{z.name}</span>
                                 <span style={{ fontSize: 12, color: '#666' }}>
-                                    Pumpe: {edit.actuators.find(a => a.id === z.pumpActuatorId)?.name ?? z.pumpActuatorId || '–'} ·
+                                    Pumpe: {(edit.actuators.find(a => a.id === z.pumpActuatorId)?.name ?? z.pumpActuatorId) || '–'} ·
                                     Feuchte: {z.startMoisture}% → {z.targetMoisture}% ·
                                     Max: {z.maxRunSeconds}s
                                     {z.moistureSensorIds.length === 0 && ' · nur Timer'}
@@ -1205,17 +1205,23 @@ const App: React.FC = () => {
     const [liveStates, setLiveStates] = useState<Record<string, GroupLiveState>>({});
     const [dirty, setDirty] = useState(false);
 
-    // ioBroker-Anbindung (wird in echter Admin-Umgebung genutzt)
+    // ioBroker-Anbindung
     useEffect(() => {
-        // Config laden
-        if (typeof (window as Window & { loadConfig?: (cb: (c: GrowManagerConfig) => void) => void }).loadConfig === 'function') {
-            (window as Window & { loadConfig?: (cb: (c: GrowManagerConfig) => void) => void }).loadConfig!((c: GrowManagerConfig) => setConfig(c));
-        }
+        const load = () => {
+            const w = window as Window & { loadConfig?: (cb: (c: GrowManagerConfig) => void) => void };
+            if (typeof w.loadConfig === 'function') {
+                w.loadConfig((c: GrowManagerConfig) => setConfig(c));
+            }
+        };
+        load();
+        window.addEventListener('iobroker-ready', load);
+        return () => window.removeEventListener('iobroker-ready', load);
     }, []);
 
     const handleSave = useCallback(() => {
-        if (typeof (window as Window & { saveConfig?: (c: GrowManagerConfig) => void }).saveConfig === 'function') {
-            (window as Window & { saveConfig?: (c: GrowManagerConfig) => void }).saveConfig!(config);
+        const w = window as Window & { saveConfig?: (c: GrowManagerConfig) => void };
+        if (typeof w.saveConfig === 'function') {
+            w.saveConfig(config);
         }
         setDirty(false);
     }, [config]);

@@ -37,9 +37,6 @@
     "allowInit": true,
     "connectionType": "local",
     "dataSource": "push",
-    "adminUI": {
-      "config": "json"
-    },
     "dependencies": [
       {
         "js-controller": ">=4.0.0"
