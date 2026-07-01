@@ -1,0 +1,18 @@
+# Dev sources - not needed at runtime
+src/
+test/
+admin/src/
+admin/vite.config.ts
+admin/package.json
+admin/node_modules/
+admin/public/
+
+# Config files
+tsconfig.json
+.eslintrc*
+eslint.config*
+.gitignore
+*.log
+.env
+.DS_Store
+Thumbs.db
