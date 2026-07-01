@@ -7,3 +7,9 @@ admin/public/
 Thumbs.db
 
 package-lock.json
+
+# Admin build tools (not needed at runtime, exclude from git so npm includes admin/)
+admin/package.json
+admin/package-lock.json
+admin/vite.config.ts
+admin/src/tsconfig.json

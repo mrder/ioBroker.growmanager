@@ -2,11 +2,7 @@
 src/
 test/
 admin/src/
-admin/vite.config.ts
-admin/package.json
-admin/package-lock.json
 admin/node_modules/
-admin/public/
 
 # Config files
 tsconfig.json
