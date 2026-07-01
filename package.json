@@ -44,7 +44,8 @@
     "testRegex": "(/test/.*\\.(test|spec))\\.[tj]sx?$"
   },
   "files": [
-    "admin/build",
+    "admin/jsonConfig.json",
+    "admin/web",
     "build",
     "io-package.json",
     "LICENSE",
@@ -52,6 +53,6 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/iobroker-community/ioBroker.growmanager"
+    "url": "https://github.com/mrder/ioBroker.growmanager"
   }
 }
