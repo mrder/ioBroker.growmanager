@@ -4,8 +4,8 @@
     "version": "0.1.0",
     "news": {
       "0.1.0": {
-        "en": "Initial release: full implementation of phases 1-11, optional sensors/actuators, live dashboard, VPD/temperature/humidity/irrigation control, shared actuators, 4-level diagnostics",
-        "de": "Erste Version: vollständige Implementierung der Phasen 1–11, optionale Sensorik/Aktorik, Live-Dashboard, VPD/Temperatur/Feuchte/Bewässerungsregelung, geteilte Aktoren, 4-Ebenen-Diagnose"
+        "en": "Initial release",
+        "de": "Erste Version"
       }
     },
     "title": "GrowManager",
@@ -14,43 +14,29 @@
       "de": "GrowManager"
     },
     "desc": {
-      "en": "Modular adapter for monitoring and controlling grow tents, rooms and irrigation zones. Supports VPD, temperature, humidity and irrigation control with optional sensors and actuators.",
-      "de": "Modularer Adapter zur Überwachung und Regelung von Growzelten, Räumen und Bewässerungszonen. Unterstützt VPD-, Temperatur-, Feuchte- und Bewässerungsregelung mit optionaler Sensorik und Aktorik."
+      "en": "Modular adapter for monitoring and controlling grow tents, rooms and irrigation zones.",
+      "de": "Modularer Adapter zur Überwachung und Regelung von Growzelten, Räumen und Bewässerungszonen."
     },
     "authors": [
-      "GrowManager Contributors"
+      "mrder <mrder@hotmail.de>"
     ],
     "keywords": [
-      "grow",
-      "growroom",
-      "growtent",
-      "climate",
-      "vpd",
-      "humidity",
-      "temperature",
-      "irrigation",
-      "plant",
-      "cannabis",
-      "hydroponics"
+      "grow", "climate", "vpd", "humidity", "temperature", "irrigation"
     ],
     "license": "MIT",
     "platform": "Javascript/Node.js",
     "main": "build/main.js",
     "icon": "admin/growmanager.png",
     "enabled": true,
-    "extIcon": "https://raw.githubusercontent.com/iobroker-community/ioBroker.growmanager/main/admin/growmanager.png",
-    "readme": "https://github.com/iobroker-community/ioBroker.growmanager/blob/main/README.md",
+    "extIcon": "https://raw.githubusercontent.com/mrder/Growmanager/main/admin/growmanager.png",
+    "readme": "https://github.com/mrder/Growmanager/blob/main/README.md",
     "loglevel": "info",
     "mode": "daemon",
-    "type": "garden",
-    "category": "garden",
+    "type": "general",
     "singleton": false,
     "allowInit": true,
     "connectionType": "local",
     "dataSource": "push",
-    "compact": true,
-    "supportCustoms": false,
-    "visWidgets": {},
     "adminUI": {
       "config": "json"
     },
@@ -64,17 +50,7 @@
         "admin": ">=6.0.0"
       }
     ],
-    "tier": 3,
-    "plugins": {
-      "webservers": {
-        "8097": {
-          "description": {
-            "en": "GrowManager Live Dashboard",
-            "de": "GrowManager Live-Dashboard"
-          }
-        }
-      }
-    }
+    "tier": 3
   },
   "native": {
     "language": "de",
@@ -96,22 +72,14 @@
     {
       "_id": "info",
       "type": "channel",
-      "common": {
-        "name": {
-          "en": "Information",
-          "de": "Information"
-        }
-      },
+      "common": { "name": { "en": "Information", "de": "Information" } },
       "native": {}
     },
     {
       "_id": "info.connection",
       "type": "state",
       "common": {
-        "name": {
-          "en": "Connection state",
-          "de": "Verbindungsstatus"
-        },
+        "name": { "en": "Connection state", "de": "Verbindungsstatus" },
         "type": "boolean",
         "role": "indicator.connected",
         "read": true,
@@ -124,10 +92,7 @@
       "_id": "info.status",
       "type": "state",
       "common": {
-        "name": {
-          "en": "Adapter status",
-          "de": "Adapter-Status"
-        },
+        "name": { "en": "Adapter status", "de": "Adapter-Status" },
         "type": "string",
         "role": "text",
         "read": true,
@@ -140,10 +105,7 @@
       "_id": "info.version",
       "type": "state",
       "common": {
-        "name": {
-          "en": "Adapter version",
-          "de": "Adapter-Version"
-        },
+        "name": { "en": "Adapter version", "de": "Adapter-Version" },
         "type": "string",
         "role": "text",
         "read": true,
@@ -156,10 +118,7 @@
       "_id": "info.lastCycle",
       "type": "state",
       "common": {
-        "name": {
-          "en": "Last control cycle timestamp",
-          "de": "Zeitstempel des letzten Regelzyklus"
-        },
+        "name": { "en": "Last cycle timestamp", "de": "Letzter Zyklus" },
         "type": "number",
         "role": "value.time",
         "read": true,
@@ -172,10 +131,7 @@
       "_id": "info.activeAlarms",
       "type": "state",
       "common": {
-        "name": {
-          "en": "Number of active alarms",
-          "de": "Anzahl aktiver Alarme"
-        },
+        "name": { "en": "Active alarms", "de": "Aktive Alarme" },
         "type": "number",
         "role": "value",
         "read": true,
@@ -187,22 +143,14 @@
     {
       "_id": "control",
       "type": "channel",
-      "common": {
-        "name": {
-          "en": "Control",
-          "de": "Steuerung"
-        }
-      },
+      "common": { "name": { "en": "Control", "de": "Steuerung" } },
       "native": {}
     },
     {
       "_id": "control.enabled",
       "type": "state",
       "common": {
-        "name": {
-          "en": "Adapter enabled",
-          "de": "Adapter aktiv"
-        },
+        "name": { "en": "Adapter enabled", "de": "Adapter aktiv" },
         "type": "boolean",
         "role": "switch",
         "read": true,
@@ -215,10 +163,7 @@
       "_id": "control.maintenance",
       "type": "state",
       "common": {
-        "name": {
-          "en": "Global maintenance mode",
-          "de": "Globaler Wartungsmodus"
-        },
+        "name": { "en": "Maintenance mode", "de": "Wartungsmodus" },
         "type": "boolean",
         "role": "switch",
         "read": true,
@@ -231,10 +176,7 @@
       "_id": "control.emergencyStop",
       "type": "state",
       "common": {
-        "name": {
-          "en": "Emergency stop – all actuators to safe state",
-          "de": "Not-Aus – alle Aktoren in sicheren Zustand"
-        },
+        "name": { "en": "Emergency stop", "de": "Not-Aus" },
         "type": "boolean",
         "role": "switch",
         "read": true,
@@ -247,10 +189,7 @@
       "_id": "control.acknowledgeAll",
       "type": "state",
       "common": {
-        "name": {
-          "en": "Acknowledge all alarms",
-          "de": "Alle Alarme quittieren"
-        },
+        "name": { "en": "Acknowledge all alarms", "de": "Alle Alarme quittieren" },
         "type": "boolean",
         "role": "button",
         "read": false,
