@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "news": {
+      "0.1.2": {
+        "en": "Fix admin UI loading",
+        "de": "Admin UI Ladefehler behoben"
+      },
       "0.1.1": {
         "en": "Initial release",
         "de": "Erste Version"
@@ -21,7 +25,12 @@
       "mrder <mrder@hotmail.de>"
     ],
     "keywords": [
-      "grow", "climate", "vpd", "humidity", "temperature", "irrigation"
+      "grow",
+      "climate",
+      "vpd",
+      "humidity",
+      "temperature",
+      "irrigation"
     ],
     "license": "MIT",
     "platform": "Javascript/Node.js",
@@ -47,7 +56,10 @@
         "admin": ">=6.0.0"
       }
     ],
-    "tier": 3
+    "tier": 3,
+    "adminUI": {
+      "config": "html"
+    }
   },
   "native": {
     "language": "de",
@@ -69,14 +81,22 @@
     {
       "_id": "info",
       "type": "channel",
-      "common": { "name": { "en": "Information", "de": "Information" } },
+      "common": {
+        "name": {
+          "en": "Information",
+          "de": "Information"
+        }
+      },
       "native": {}
     },
     {
       "_id": "info.connection",
       "type": "state",
       "common": {
-        "name": { "en": "Connection state", "de": "Verbindungsstatus" },
+        "name": {
+          "en": "Connection state",
+          "de": "Verbindungsstatus"
+        },
         "type": "boolean",
         "role": "indicator.connected",
         "read": true,
@@ -89,7 +109,10 @@
       "_id": "info.status",
       "type": "state",
       "common": {
-        "name": { "en": "Adapter status", "de": "Adapter-Status" },
+        "name": {
+          "en": "Adapter status",
+          "de": "Adapter-Status"
+        },
         "type": "string",
         "role": "text",
         "read": true,
@@ -102,7 +125,10 @@
       "_id": "info.version",
       "type": "state",
       "common": {
-        "name": { "en": "Adapter version", "de": "Adapter-Version" },
+        "name": {
+          "en": "Adapter version",
+          "de": "Adapter-Version"
+        },
         "type": "string",
         "role": "text",
         "read": true,
@@ -115,7 +141,10 @@
       "_id": "info.lastCycle",
       "type": "state",
       "common": {
-        "name": { "en": "Last cycle timestamp", "de": "Letzter Zyklus" },
+        "name": {
+          "en": "Last cycle timestamp",
+          "de": "Letzter Zyklus"
+        },
         "type": "number",
         "role": "value.time",
         "read": true,
@@ -128,7 +157,10 @@
       "_id": "info.activeAlarms",
       "type": "state",
       "common": {
-        "name": { "en": "Active alarms", "de": "Aktive Alarme" },
+        "name": {
+          "en": "Active alarms",
+          "de": "Aktive Alarme"
+        },
         "type": "number",
         "role": "value",
         "read": true,
@@ -140,14 +172,22 @@
     {
       "_id": "control",
       "type": "channel",
-      "common": { "name": { "en": "Control", "de": "Steuerung" } },
+      "common": {
+        "name": {
+          "en": "Control",
+          "de": "Steuerung"
+        }
+      },
       "native": {}
     },
     {
       "_id": "control.enabled",
       "type": "state",
       "common": {
-        "name": { "en": "Adapter enabled", "de": "Adapter aktiv" },
+        "name": {
+          "en": "Adapter enabled",
+          "de": "Adapter aktiv"
+        },
         "type": "boolean",
         "role": "switch",
         "read": true,
@@ -160,7 +200,10 @@
       "_id": "control.maintenance",
       "type": "state",
       "common": {
-        "name": { "en": "Maintenance mode", "de": "Wartungsmodus" },
+        "name": {
+          "en": "Maintenance mode",
+          "de": "Wartungsmodus"
+        },
         "type": "boolean",
         "role": "switch",
         "read": true,
@@ -173,7 +216,10 @@
       "_id": "control.emergencyStop",
       "type": "state",
       "common": {
-        "name": { "en": "Emergency stop", "de": "Not-Aus" },
+        "name": {
+          "en": "Emergency stop",
+          "de": "Not-Aus"
+        },
         "type": "boolean",
         "role": "switch",
         "read": true,
@@ -186,7 +232,10 @@
       "_id": "control.acknowledgeAll",
       "type": "state",
       "common": {
-        "name": { "en": "Acknowledge all alarms", "de": "Alle Alarme quittieren" },
+        "name": {
+          "en": "Acknowledge all alarms",
+          "de": "Alle Alarme quittieren"
+        },
         "type": "boolean",
         "role": "button",
         "read": false,
