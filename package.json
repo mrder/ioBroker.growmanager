@@ -46,6 +46,7 @@
   "files": [
     "admin/jsonConfig.json",
     "admin/web",
+    "admin/growmanager.png",
     "build",
     "io-package.json",
     "LICENSE",
