@@ -44,9 +44,7 @@
     "testRegex": "(/test/.*\\.(test|spec))\\.[tj]sx?$"
   },
   "files": [
-    "admin/jsonConfig.json",
-    "admin/web",
-    "admin/growmanager.png",
+    "admin",
     "build",
     "io-package.json",
     "LICENSE",
