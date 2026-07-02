@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.13",
+    "version": "0.1.14",
     "news": {
+      "0.1.14": {
+        "en": "Dynamic staleness check per cycle; staleAfterSeconds default 900s; first-read uses Date.now() as ts; device health state support (available/link_quality/alive) for sensors and actuators",
+        "de": "Dynamischer Stale-Check je Zyklus; staleAfterSeconds Standard 900s; Erstlesen nutzt Date.now() als Timestamp; Gerätestatus-State (available/link_quality/alive) für Sensoren und Aktoren"
+      },
       "0.1.13": {
         "en": "Fix sensor quality 0%: staleAfterSeconds default 300→3600; fix lc/q parameter bug on startup; add live polling in admin dashboard; add collapsible adapter categories in object picker",
         "de": "Sensorqualität 0% behoben: staleAfterSeconds Standard 300→3600; lc/q-Parameter-Bug beim Start behoben; Live-Polling im Admin-Dashboard; aufklappbare Adapter-Kategorien im Objektpicker"

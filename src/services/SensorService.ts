@@ -14,6 +14,13 @@ import {
 import { isStale } from '../utils/time';
 import type { ILogger } from '../utils/logger';
 
+// Device-health state registry: stateId → true(healthy)/false(unhealthy)
+const deviceHealthMap = new Map<string, boolean>();
+
+export function setDeviceHealth(stateId: string, healthy: boolean): void {
+    deviceHealthMap.set(stateId, healthy);
+}
+
 export class SensorService {
     private readonly states = new Map<string, SensorState>();
     private readonly emaValues = new Map<string, number>();
@@ -134,16 +141,23 @@ export class SensorService {
         }
 
         const validStates = relevant
-            .map(c => this.states.get(c.id))
-            .filter((s): s is SensorState => {
+            .map(c => ({ cfg: c, state: this.states.get(c.id) }))
+            .filter(({ cfg, state: s }): boolean => {
                 if (!s || !s.valid || typeof s.processedValue !== 'number') return false;
+                // Dynamischer Stale-Check: aktuell re-evaluieren statt eingefrorenem valid-Flag
+                if (isStale(s.lastTs, cfg.staleAfterSeconds)) return false;
                 // Stabilitätsprüfung: Sensor in Recovery → als ungültig behandeln
                 if (stabilitySeconds !== undefined && stabilitySeconds > 0) {
                     const until = this.recoveringUntil.get(s.id);
                     if (until !== undefined && Date.now() < until) return false;
                 }
+                // Health-State-Check: falls konfiguriert und Gerät als unhealthy bekannt
+                if (cfg.healthStateId && deviceHealthMap.has(cfg.healthStateId)) {
+                    if (!deviceHealthMap.get(cfg.healthStateId)) return false;
+                }
                 return true;
-            });
+            })
+            .map(({ state }) => state as SensorState);
 
         let values = validStates.map(s => s.processedValue as number);
         const weights = validStates.map(s => {

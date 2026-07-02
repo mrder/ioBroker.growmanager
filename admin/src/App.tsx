@@ -224,7 +224,7 @@ const defaultSensor = (): GroupConfig['sensors'][0] => ({
     weight: 1,
     validMin: -40,
     validMax: 100,
-    staleAfterSeconds: 3600,
+    staleAfterSeconds: 900,
     unchangedAlarmSeconds: 3600,
     minUpdateRateSeconds: 0,
     smoothing: 'none',
@@ -388,6 +388,37 @@ const SensorEditor: React.FC<SensorEditorProps> = ({ sensor, onSave, onClose }) 
                     <option value="activateSafeMode">Sicherheitsmodus</option>
                 </select>
 
+                <hr style={{ margin: '14px 0', borderColor: '#e0e0e0' }} />
+
+                <StateIdInput
+                    label="Gerätestatus-State (optional, z.B. available, link_quality, alive)"
+                    value={edit.healthStateId ?? ''}
+                    onChange={v => setEdit(prev => ({ ...prev, healthStateId: v || undefined }))}
+                    placeholder="z.B. zigbee.0.device.available"
+                />
+
+                {edit.healthStateId && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
+                        <div>
+                            <label style={styles.fieldLabel}>Typ des Status-Werts</label>
+                            <select style={styles.select}
+                                value={edit.healthCheckType ?? 'boolean'}
+                                onChange={e => setEdit(prev => ({ ...prev, healthCheckType: e.target.value as 'boolean' | 'number' }))}>
+                                <option value="boolean">Boolean (true = ok)</option>
+                                <option value="number">Zahl (≥ Mindestwert = ok)</option>
+                            </select>
+                        </div>
+                        {(edit.healthCheckType ?? 'boolean') === 'number' && (
+                            <div>
+                                <label style={styles.fieldLabel}>Mindestwert (z.B. 10 für link_quality)</label>
+                                <input style={styles.input} type="number" min={0}
+                                    value={edit.healthCheckMin ?? 1}
+                                    onChange={e => setEdit(prev => ({ ...prev, healthCheckMin: +e.target.value }))} />
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <div style={{ display: 'flex', gap: 16, marginTop: 12 }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
                         <input type="checkbox" checked={edit.useForControl}
@@ -534,6 +565,37 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, onSave, onClo
                         Aktiv
                     </label>
                 </div>
+
+                <hr style={{ margin: '14px 0', borderColor: '#e0e0e0' }} />
+
+                <StateIdInput
+                    label="Gerätestatus-State (optional, z.B. alive, ENERGY_Power)"
+                    value={edit.healthStateId ?? ''}
+                    onChange={v => setEdit(prev => ({ ...prev, healthStateId: v || undefined }))}
+                    placeholder="z.B. sonoff.0.device.alive"
+                />
+
+                {edit.healthStateId && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
+                        <div>
+                            <label style={styles.fieldLabel}>Typ des Status-Werts</label>
+                            <select style={styles.select}
+                                value={edit.healthCheckType ?? 'boolean'}
+                                onChange={e => setEdit(prev => ({ ...prev, healthCheckType: e.target.value as 'boolean' | 'number' }))}>
+                                <option value="boolean">Boolean (true = ok)</option>
+                                <option value="number">Zahl (≥ Mindestwert = ok)</option>
+                            </select>
+                        </div>
+                        {(edit.healthCheckType ?? 'boolean') === 'number' && (
+                            <div>
+                                <label style={styles.fieldLabel}>Mindestwert (z.B. 0.1 für ENERGY_Power)</label>
+                                <input style={styles.input} type="number" min={0} step="0.1"
+                                    value={edit.healthCheckMin ?? 1}
+                                    onChange={e => setEdit(prev => ({ ...prev, healthCheckMin: +e.target.value }))} />
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 <div style={styles.editorButtons}>
                     <button style={styles.btnPrimary} onClick={() => onSave({ ...edit, id: edit.id || `actuator-${Date.now()}` })}>Speichern</button>
@@ -1590,15 +1652,19 @@ const App: React.FC = () => {
         return () => window.removeEventListener('iobroker-ready', load);
     }, []);
 
+    // Stabile Referenz der Gruppen-IDs — verhindert Neustart des Intervals bei jedem Keystroke
+    const groupIds = config.groups.map(g => g.id).join(',');
+
     // Live-Polling der Adapter-States alle 5 Sekunden
     useEffect(() => {
-        if (!socketReady) return;
+        if (!socketReady || !groupIds) return;
         const instanceId = (window as Window & { _growInstanceId?: string })._growInstanceId ?? '0';
+        const groups = config.groups;
 
         async function poll() {
             type SV = { val: unknown } | null;
             const updates: Record<string, GroupLiveState> = {};
-            for (const g of config.groups) {
+            for (const g of groups) {
                 const base = `growmanager.${instanceId}.groups.${g.id}`;
                 const [temp, hum, vpd, sq, health, mode, phase, lastDec] = await Promise.all([
                     emitSocket('getState', `${base}.climate.temperature`) as Promise<SV>,
@@ -1630,7 +1696,8 @@ const App: React.FC = () => {
         poll();
         const timer = setInterval(poll, 5000);
         return () => clearInterval(timer);
-    }, [socketReady, config.groups]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [socketReady, groupIds]);
 
     const saveToIoBroker = useCallback((newConfig: GrowManagerConfig) => {
         const w = window as Window & { saveConfig?: (c: GrowManagerConfig) => Promise<void> };

@@ -1,5 +1,6 @@
 import type { SensorConfig, SensorState, SensorType } from '../models/config';
 import type { ILogger } from '../utils/logger';
+export declare function setDeviceHealth(stateId: string, healthy: boolean): void;
 export declare class SensorService {
     private readonly log;
     private readonly states;

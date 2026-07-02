@@ -4,9 +4,15 @@
 // Liest, validiert und aggregiert Sensorwerte
 // ============================================================
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SensorService = void 0;
+exports.SensorService = exports.setDeviceHealth = void 0;
 const calculations_1 = require("../utils/calculations");
 const time_1 = require("../utils/time");
+// Device-health state registry: stateId → true(healthy)/false(unhealthy)
+const deviceHealthMap = new Map();
+function setDeviceHealth(stateId, healthy) {
+    deviceHealthMap.set(stateId, healthy);
+}
+exports.setDeviceHealth = setDeviceHealth;
 class SensorService {
     constructor(log) {
         this.log = log;
@@ -109,9 +115,12 @@ class SensorService {
             return { value: null, quality: 0, validCount: 0, totalCount: 0 };
         }
         const validStates = relevant
-            .map(c => this.states.get(c.id))
-            .filter((s) => {
+            .map(c => ({ cfg: c, state: this.states.get(c.id) }))
+            .filter(({ cfg, state: s }) => {
             if (!s || !s.valid || typeof s.processedValue !== 'number')
+                return false;
+            // Dynamischer Stale-Check: aktuell re-evaluieren statt eingefrorenem valid-Flag
+            if ((0, time_1.isStale)(s.lastTs, cfg.staleAfterSeconds))
                 return false;
             // Stabilitätsprüfung: Sensor in Recovery → als ungültig behandeln
             if (stabilitySeconds !== undefined && stabilitySeconds > 0) {
@@ -119,8 +128,14 @@ class SensorService {
                 if (until !== undefined && Date.now() < until)
                     return false;
             }
+            // Health-State-Check: falls konfiguriert und Gerät als unhealthy bekannt
+            if (cfg.healthStateId && deviceHealthMap.has(cfg.healthStateId)) {
+                if (!deviceHealthMap.get(cfg.healthStateId))
+                    return false;
+            }
             return true;
-        });
+        })
+            .map(({ state }) => state);
         let values = validStates.map(s => s.processedValue);
         const weights = validStates.map(s => {
             const cfg = relevant.find(c => c.id === s.id);

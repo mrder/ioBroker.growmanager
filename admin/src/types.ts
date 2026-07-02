@@ -17,6 +17,7 @@ export interface SensorConfig {
     unchangedAlarmSeconds: number; minUpdateRateSeconds: number;
     smoothing: SmoothingMethod; outlierFilter: boolean;
     errorBehavior: SensorErrorBehavior; useForControl: boolean; enabled: boolean;
+    healthStateId?: string; healthCheckType?: 'boolean' | 'number'; healthCheckMin?: number;
 }
 
 export type ActuatorType =
@@ -38,6 +39,7 @@ export interface ActuatorConfig {
     safeState: ActuatorSafeState; feedbackMissingBehavior: 'warn' | 'alarm' | 'disable';
     manualOverride: boolean; overrideDurationMinutes: number;
     invertLogic: boolean; interlockIds: string[]; shared: boolean; enabled: boolean;
+    healthStateId?: string; healthCheckType?: 'boolean' | 'number'; healthCheckMin?: number;
 }
 
 export interface TimeWindow { startHH: number; startMM: number; endHH: number; endMM: number; }

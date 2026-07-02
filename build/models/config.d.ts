@@ -23,6 +23,9 @@ export interface SensorConfig {
     errorBehavior: SensorErrorBehavior;
     useForControl: boolean;
     enabled: boolean;
+    healthStateId?: string;
+    healthCheckType?: 'boolean' | 'number';
+    healthCheckMin?: number;
 }
 export type ActuatorType = 'light' | 'circulationFan' | 'exhaustFan' | 'supplyFan' | 'heating' | 'cooling' | 'humidifier' | 'dehumidifier' | 'irrigation' | 'co2Valve' | 'damper' | 'custom';
 export type ActuatorDataType = 'boolean' | 'number' | 'string';
@@ -56,6 +59,9 @@ export interface ActuatorConfig {
     interlockIds: string[];
     shared: boolean;
     enabled: boolean;
+    healthStateId?: string;
+    healthCheckType?: 'boolean' | 'number';
+    healthCheckMin?: number;
 }
 export interface TimeWindow {
     startHH: number;

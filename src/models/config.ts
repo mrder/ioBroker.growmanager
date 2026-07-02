@@ -56,6 +56,10 @@ export interface SensorConfig {
     errorBehavior: SensorErrorBehavior;
     useForControl: boolean;
     enabled: boolean;
+    // Optional device-health companion state
+    healthStateId?: string;
+    healthCheckType?: 'boolean' | 'number';
+    healthCheckMin?: number;
 }
 
 // ---- Aktor -------------------------------------------------
@@ -108,6 +112,10 @@ export interface ActuatorConfig {
     interlockIds: string[];
     shared: boolean;
     enabled: boolean;
+    // Optional device-health companion state
+    healthStateId?: string;
+    healthCheckType?: 'boolean' | 'number';
+    healthCheckMin?: number;
 }
 
 // ---- Zeitplan ----------------------------------------------

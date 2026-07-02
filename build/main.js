@@ -172,9 +172,18 @@ class GrowManagerAdapter extends utils.Adapter {
             }
             const current = await this.getForeignStateAsync(sensor.stateId);
             if (current) {
-                const ss = this.sensorService.processValue(sensor, current.val, current.ts, current.lc ?? current.ts);
+                // Date.now() als ts: Wert gilt ab Erststart als frisch, Stale-Timer beginnt jetzt
+                const ss = this.sensorService.processValue(sensor, current.val, Date.now(), current.lc ?? current.ts);
                 if (ss)
                     groupState.sensors.set(sensor.id, ss);
+            }
+            // Health-State abonnieren falls konfiguriert
+            if (sensor.healthStateId && !this.subscribedStateIds.has(sensor.healthStateId)) {
+                await this.subscribeForeignStatesAsync(sensor.healthStateId);
+                this.subscribedStateIds.add(sensor.healthStateId);
+                const h = await this.getForeignStateAsync(sensor.healthStateId);
+                if (h)
+                    this.applyHealthState(sensor.healthStateId, h.val, sensor.healthCheckType, sensor.healthCheckMin);
             }
         }
         // Feedback- und Leistungs-States abonnieren
@@ -186,6 +195,13 @@ class GrowManagerAdapter extends utils.Adapter {
             if (actuator.powerStateId && !this.subscribedStateIds.has(actuator.powerStateId)) {
                 await this.subscribeForeignStatesAsync(actuator.powerStateId);
                 this.subscribedStateIds.add(actuator.powerStateId);
+            }
+            if (actuator.healthStateId && !this.subscribedStateIds.has(actuator.healthStateId)) {
+                await this.subscribeForeignStatesAsync(actuator.healthStateId);
+                this.subscribedStateIds.add(actuator.healthStateId);
+                const h = await this.getForeignStateAsync(actuator.healthStateId);
+                if (h)
+                    this.applyHealthState(actuator.healthStateId, h.val, actuator.healthCheckType, actuator.healthCheckMin);
             }
         }
     }
@@ -231,6 +247,19 @@ class GrowManagerAdapter extends utils.Adapter {
             this.handleControlState(id, state);
             return;
         }
+        // Health-State-Änderungen verarbeiten
+        for (const group of this.growConfig.groups) {
+            for (const sensor of group.sensors) {
+                if (sensor.healthStateId === id) {
+                    this.applyHealthState(id, state.val, sensor.healthCheckType, sensor.healthCheckMin);
+                }
+            }
+            for (const actuator of group.actuators) {
+                if (actuator.healthStateId === id) {
+                    this.applyHealthState(id, state.val, actuator.healthCheckType, actuator.healthCheckMin);
+                }
+            }
+        }
         // Fremde States Sensoren zuordnen
         for (const group of this.growConfig.groups) {
             for (const sensor of group.sensors) {
@@ -253,6 +282,20 @@ class GrowManagerAdapter extends utils.Adapter {
                     }
                 }
             }
+        }
+    }
+    applyHealthState(stateId, val, checkType, checkMin) {
+        let healthy;
+        if (checkType === 'number') {
+            healthy = typeof val === 'number' && val >= (checkMin ?? 1);
+        }
+        else {
+            // boolean (default): true/1/"true" = healthy
+            healthy = val === true || val === 1 || val === 'true';
+        }
+        (0, SensorService_1.setDeviceHealth)(stateId, healthy);
+        if (!healthy) {
+            this.log.debug(`Health-State ${stateId} = ${val} → Gerät nicht erreichbar`);
         }
     }
     handleControlState(id, state) {
