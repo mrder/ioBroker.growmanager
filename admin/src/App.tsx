@@ -996,98 +996,212 @@ const AlarmView: React.FC<{ alarms: AlarmRecord[]; onAck: (id: string) => void }
 
 // ---- ObjectPicker ------------------------------------------
 
-interface ObjEntry { id: string; name: string; type: string; role: string }
+interface ObjEntry {
+    id: string;
+    name: string;
+    type: string;
+    role: string;
+    unit: string;
+    rooms: string[];
+    funcs: string[];
+}
 
-function fetchObjects(filter: string): Promise<ObjEntry[]> {
+type EnumMap = Record<string, string[]>; // stateId → [label, ...]
+
+function emitSocket(event: string, ...args: unknown[]): Promise<unknown> {
     return new Promise(resolve => {
         const sock = (window as Window & { _growSocket?: { emit: (...a: unknown[]) => void } })._growSocket;
-        if (!sock) { resolve([]); return; }
-        sock.emit(
-            'getObjectView', 'system', 'state',
-            { startkey: filter || '', endkey: filter ? filter + '香' : '香' },
-            (_err: unknown, res: unknown) => {
-                const rows = (res as { rows?: Array<{ id: string; value: { common?: { name?: unknown; type?: string; role?: string } } }> } | null)?.rows ?? [];
-                resolve(
-                    rows.slice(0, 200).map(r => ({
-                        id: r.id,
-                        name: typeof r.value?.common?.name === 'string'
-                            ? r.value.common.name
-                            : (r.value?.common?.name as Record<string, string> | undefined)?.de ?? '',
-                        type: r.value?.common?.type ?? '',
-                        role: r.value?.common?.role ?? '',
-                    }))
-                );
-            }
-        );
+        if (!sock) { resolve(null); return; }
+        sock.emit(event, ...args, ((_err: unknown, res: unknown) => resolve(res)) as never);
     });
+}
+
+function getName(raw: unknown): string {
+    if (typeof raw === 'string') return raw;
+    if (raw && typeof raw === 'object') {
+        const o = raw as Record<string, string>;
+        return o.de ?? o.en ?? Object.values(o)[0] ?? '';
+    }
+    return '';
+}
+
+async function loadAllObjects(): Promise<{ entries: ObjEntry[]; rooms: EnumMap; funcs: EnumMap }> {
+    type Row = { id: string; value: { common?: Record<string, unknown>; members?: string[] } };
+    type ViewRes = { rows?: Row[] } | null;
+
+    const [stateRes, enumRes] = await Promise.all([
+        emitSocket('getObjectView', 'system', 'state', { startkey: '', endkey: '香' }) as Promise<ViewRes>,
+        emitSocket('getObjectView', 'system', 'enum', { startkey: 'enum.', endkey: 'enum.香' }) as Promise<ViewRes>,
+    ]);
+
+    const stateRows = stateRes?.rows ?? [];
+    const enumRows = enumRes?.rows ?? [];
+
+    const rooms: EnumMap = {};
+    const funcs: EnumMap = {};
+    for (const r of enumRows) {
+        const members = (r.value?.common?.members ?? []) as string[];
+        const label = getName(r.value?.common?.name);
+        const target = r.id.startsWith('enum.rooms') ? rooms : r.id.startsWith('enum.functions') ? funcs : null;
+        if (!target) continue;
+        for (const m of members) {
+            if (!target[m]) target[m] = [];
+            target[m].push(label);
+        }
+    }
+
+    const entries: ObjEntry[] = stateRows.map(r => ({
+        id: r.id,
+        name: getName(r.value?.common?.name),
+        type: (r.value?.common?.type as string) ?? '',
+        role: (r.value?.common?.role as string) ?? '',
+        unit: (r.value?.common?.unit as string) ?? '',
+        rooms: rooms[r.id] ?? [],
+        funcs: funcs[r.id] ?? [],
+    }));
+
+    return { entries, rooms, funcs };
+}
+
+const TYPE_TABS = [
+    { key: '', label: 'Alle' },
+    { key: 'temperature', label: 'Temperatur' },
+    { key: 'humidity', label: 'Feuchte' },
+    { key: 'boolean', label: 'Schalter' },
+    { key: 'number', label: 'Zahl' },
+];
+
+function matchesTab(e: ObjEntry, tab: string): boolean {
+    if (!tab) return true;
+    if (tab === 'boolean') return e.type === 'boolean';
+    if (tab === 'number') return e.type === 'number';
+    if (tab === 'temperature') return e.role.includes('temperature') || e.unit === '°C';
+    if (tab === 'humidity') return e.role.includes('humidity') || e.unit === '%';
+    return true;
+}
+
+function matchesSearch(e: ObjEntry, q: string): boolean {
+    if (!q) return true;
+    const lq = q.toLowerCase();
+    return e.id.toLowerCase().includes(lq) || e.name.toLowerCase().includes(lq) ||
+        e.role.toLowerCase().includes(lq) || e.rooms.some(r => r.toLowerCase().includes(lq)) ||
+        e.funcs.some(f => f.toLowerCase().includes(lq));
 }
 
 interface ObjectPickerProps {
     onSelect: (id: string) => void;
     onClose: () => void;
-    typeFilter?: string; // 'boolean' | 'number' | ''
+    typeFilter?: string;
 }
 
 const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilter }) => {
+    const [allEntries, setAllEntries] = React.useState<ObjEntry[]>([]);
     const [search, setSearch] = React.useState('');
-    const [results, setResults] = React.useState<ObjEntry[]>([]);
-    const [loading, setLoading] = React.useState(false);
+    const [tab, setTab] = React.useState(typeFilter ?? '');
+    const [loading, setLoading] = React.useState(true);
 
-    const doSearch = React.useCallback((q: string) => {
-        setLoading(true);
-        fetchObjects(q).then(res => {
-            const filtered = typeFilter ? res.filter(r => r.type === typeFilter) : res;
-            setResults(filtered);
+    React.useEffect(() => {
+        loadAllObjects().then(({ entries }) => {
+            setAllEntries(entries);
             setLoading(false);
         });
-    }, [typeFilter]);
+    }, []);
 
-    React.useEffect(() => { doSearch(''); }, [doSearch]);
+    const visible = React.useMemo(() => {
+        return allEntries.filter(e => matchesTab(e, tab) && matchesSearch(e, search)).slice(0, 300);
+    }, [allEntries, tab, search]);
 
-    const handleSearch = (q: string) => {
-        setSearch(q);
-        doSearch(q);
+    const thStyle: React.CSSProperties = {
+        padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600,
+        color: '#555', borderBottom: '2px solid #e0e0e0', background: '#fafafa',
+        position: 'sticky', top: 0, whiteSpace: 'nowrap',
     };
+    const tdStyle: React.CSSProperties = { padding: '5px 8px', fontSize: 12, verticalAlign: 'top' };
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ background: '#fff', borderRadius: 8, padding: 20, width: 560, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px rgba(0,0,0,0.25)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <h4 style={{ margin: 0 }}>ioBroker Objektbaum</h4>
-                    <button style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }} onClick={onClose}>×</button>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: '#fff', borderRadius: 8, width: '90vw', maxWidth: 1000, height: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
+                {/* Header */}
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontWeight: 600, fontSize: 15 }}>Objekt-ID auswählen</span>
+                    <input
+                        style={{ ...styles.input, flex: 1, marginBottom: 0 }}
+                        autoFocus
+                        placeholder="Suche nach ID, Name, Raum, Funktion, Rolle…"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                    />
+                    <button style={{ border: 'none', background: 'none', fontSize: 22, cursor: 'pointer', color: '#666' }} onClick={onClose}>×</button>
                 </div>
-                <input
-                    style={{ ...styles.input, marginBottom: 8 }}
-                    placeholder="Suchen: z.B. zigbee, temperature, 0.sensor…"
-                    value={search}
-                    autoFocus
-                    onChange={e => handleSearch(e.target.value)}
-                />
-                {typeFilter && (
-                    <p style={{ fontSize: 11, color: '#888', margin: '0 0 8px' }}>Nur Typ: <strong>{typeFilter}</strong></p>
-                )}
-                <div style={{ overflowY: 'auto', flex: 1, border: '1px solid #e0e0e0', borderRadius: 4 }}>
-                    {loading && <div style={{ padding: 16, color: '#888' }}>Lade…</div>}
-                    {!loading && results.length === 0 && (
-                        <div style={{ padding: 16, color: '#888' }}>
-                            Keine Objekte gefunden. Suche verfeinern oder manuell eingeben.
-                        </div>
-                    )}
-                    {results.map(r => (
-                        <div
-                            key={r.id}
-                            style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 2 }}
-                            onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
-                            onMouseLeave={e => (e.currentTarget.style.background = '')}
-                            onClick={() => { onSelect(r.id); onClose(); }}
-                        >
-                            <span style={{ fontSize: 13, fontFamily: 'monospace', color: '#1976d2' }}>{r.id}</span>
-                            {r.name && <span style={{ fontSize: 11, color: '#666' }}>{r.name}</span>}
-                            <span style={{ fontSize: 11, color: '#999' }}>{r.type}{r.role ? ` · ${r.role}` : ''}</span>
-                        </div>
+
+                {/* Tabs */}
+                <div style={{ display: 'flex', gap: 4, padding: '8px 16px', borderBottom: '1px solid #e0e0e0', background: '#fafafa' }}>
+                    {TYPE_TABS.map(t => (
+                        <button
+                            key={t.key}
+                            onClick={() => setTab(t.key)}
+                            style={{
+                                padding: '4px 12px', borderRadius: 16, border: '1px solid',
+                                fontSize: 12, cursor: 'pointer',
+                                borderColor: tab === t.key ? '#2e7d32' : '#ccc',
+                                background: tab === t.key ? '#2e7d32' : '#fff',
+                                color: tab === t.key ? '#fff' : '#333',
+                            }}
+                        >{t.label}</button>
                     ))}
+                    <span style={{ marginLeft: 'auto', fontSize: 12, color: '#888', alignSelf: 'center' }}>
+                        {loading ? 'Lade…' : `${visible.length} von ${allEntries.length} Datenpunkten`}
+                    </span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+
+                {/* Table */}
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                    {loading ? (
+                        <div style={{ padding: 32, textAlign: 'center', color: '#888' }}>Datenpunkte werden geladen…</div>
+                    ) : visible.length === 0 ? (
+                        <div style={{ padding: 32, textAlign: 'center', color: '#888' }}>Keine Datenpunkte gefunden.</div>
+                    ) : (
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr>
+                                    <th style={thStyle}>ID</th>
+                                    <th style={thStyle}>Name</th>
+                                    <th style={thStyle}>Rolle</th>
+                                    <th style={thStyle}>Typ</th>
+                                    <th style={thStyle}>Raum</th>
+                                    <th style={thStyle}>Funktion</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {visible.map(r => (
+                                    <tr
+                                        key={r.id}
+                                        style={{ cursor: 'pointer', borderBottom: '1px solid #f0f0f0' }}
+                                        onMouseEnter={e => (e.currentTarget.style.background = '#e8f5e9')}
+                                        onMouseLeave={e => (e.currentTarget.style.background = '')}
+                                        onClick={() => { onSelect(r.id); onClose(); }}
+                                    >
+                                        <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 11, color: '#1565c0', maxWidth: 320, wordBreak: 'break-all' }}>{r.id}</td>
+                                        <td style={{ ...tdStyle, maxWidth: 160 }}>{r.name}</td>
+                                        <td style={{ ...tdStyle, color: '#555', whiteSpace: 'nowrap' }}>{r.role}</td>
+                                        <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                                            <span style={{
+                                                padding: '1px 6px', borderRadius: 10, fontSize: 10, fontWeight: 600,
+                                                background: r.type === 'boolean' ? '#fff3e0' : r.type === 'number' ? '#e3f2fd' : '#f3e5f5',
+                                                color: r.type === 'boolean' ? '#e65100' : r.type === 'number' ? '#0d47a1' : '#6a1b9a',
+                                            }}>{r.type}{r.unit ? ` (${r.unit})` : ''}</span>
+                                        </td>
+                                        <td style={{ ...tdStyle, color: '#2e7d32', fontSize: 11 }}>{r.rooms.join(', ')}</td>
+                                        <td style={{ ...tdStyle, color: '#1565c0', fontSize: 11 }}>{r.funcs.join(', ')}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div style={{ padding: '10px 16px', borderTop: '1px solid #e0e0e0', display: 'flex', justifyContent: 'flex-end' }}>
                     <button style={styles.btnSecondary} onClick={onClose}>Abbrechen</button>
                 </div>
             </div>

@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.10",
+    "version": "0.1.11",
     "news": {
+      "0.1.11": {
+        "en": "Read sensor initial values on startup; redesigned object picker with table, type tabs and room/function columns",
+        "de": "Sensor-Startwerte beim Start einlesen; Objektpicker komplett überarbeitet mit Tabelle, Typ-Tabs und Raum/Funktion-Spalten"
+      },
       "0.1.10": {
         "en": "Fix crash when opening group editor with missing climateProfiles in saved config",
         "de": "Absturz beim Öffnen des Gruppen-Editors behoben wenn climateProfiles in gespeicherter Config fehlt"

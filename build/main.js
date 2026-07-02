@@ -164,11 +164,17 @@ class GrowManagerAdapter extends utils.Adapter {
         this.groupStates.set(group.id, groupState);
         // ioBroker-States für Gruppe anlegen
         await this.createGroupObjects(group);
-        // Sensor-States abonnieren
+        // Sensor-States abonnieren + aktuelle Werte sofort einlesen
         for (const sensor of group.sensors) {
             if (!this.subscribedStateIds.has(sensor.stateId)) {
                 await this.subscribeForeignStatesAsync(sensor.stateId);
                 this.subscribedStateIds.add(sensor.stateId);
+            }
+            const current = await this.getForeignStateAsync(sensor.stateId);
+            if (current) {
+                const ss = this.sensorService.processValue(sensor, current.val, current.ts, current.q ?? 0);
+                if (ss)
+                    groupState.sensors.set(sensor.id, ss);
             }
         }
         // Feedback- und Leistungs-States abonnieren
