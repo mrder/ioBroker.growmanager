@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.7",
+    "version": "0.1.8",
     "news": {
+      "0.1.8": {
+        "en": "Robust socket bridge: check window.io immediately + polling fallback if onload does not fire",
+        "de": "Robuste Socket-Bridge: window.io sofort prüfen + Polling-Fallback falls onload ausbleibt"
+      },
       "0.1.7": {
         "en": "Fix ioBroker WebSockets v3 API (io.connect instead of io())",
         "de": "ioBroker WebSockets v3 API korrigiert (io.connect statt io())"

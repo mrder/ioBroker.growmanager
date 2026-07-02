@@ -57,39 +57,56 @@ function wireSocket(socket: IoBrokerSocket, source: string): void {
     window.dispatchEvent(new CustomEvent('iobroker-ready'));
 }
 
+type IoLib = { connect: (url: string, opts: object) => IoBrokerSocket };
+
+function doConnect(io: IoLib, label: string): void {
+    console.log(`[GrowManager] io.connect() via ${label}`);
+    const socket = io.connect(window.location.origin, {
+        name: 'GrowManager Admin',
+        pongTimeout: 60000,
+        pingInterval: 5000,
+    });
+    socket.on('connect', () => wireSocket(socket, label));
+    setTimeout(() => {
+        if (!window._growSocket) {
+            console.warn('[GrowManager] Socket timeout nach 10 s → fetch fallback');
+            wireFetchFallback();
+        }
+    }, 10000);
+}
+
 function connectViaSocketIo(): void {
-    // ioBroker admin v6 lädt socket.io.js im Elternframe, nicht im iframe.
-    // Wir laden es selbst – dann ist window.io = { connect: fn } in UNSEREM Frame verfügbar.
+    // Falls window.io bereits vorhanden (z.B. durch admin vorgeladen), direkt verwenden
+    const ioNow = (window as unknown as { io?: IoLib }).io;
+    if (ioNow?.connect) { doConnect(ioNow, 'window.io (direkt)'); return; }
+
+    // Script-Tag einfügen
     const script = document.createElement('script');
     script.src = '/socket.io/socket.io.js';
     script.onload = () => {
-        type IoLib = { connect: (url: string, opts: object) => IoBrokerSocket };
         const io = (window as unknown as { io?: IoLib }).io;
-        if (!io?.connect) {
-            console.warn('[GrowManager] socket.io.js geladen aber io.connect fehlt');
-            wireFetchFallback();
-            return;
-        }
-        console.log('[GrowManager] socket.io.js geladen, verbinde...');
-        const socket = io.connect(window.location.origin, {
-            name: 'GrowManager Admin',
-            pongTimeout: 60000,
-            pingInterval: 5000,
-        });
-        // 'connect' feuert nach Erhalt des ___ready___-Protokollnachrichte
-        socket.on('connect', () => wireSocket(socket, 'io.connect()'));
-        setTimeout(() => {
-            if (!window._growSocket) {
-                console.warn('[GrowManager] Socket timeout nach 10 s → fetch fallback');
-                wireFetchFallback();
-            }
-        }, 10000);
+        if (io?.connect) { doConnect(io, 'window.io (onload)'); return; }
+        console.warn('[GrowManager] socket.io.js geladen aber io.connect fehlt');
+        startPolling();
     };
     script.onerror = () => {
-        console.warn('[GrowManager] socket.io.js nicht ladbar → fetch fallback');
-        wireFetchFallback();
+        console.warn('[GrowManager] socket.io.js nicht ladbar, polling...');
+        startPolling();
     };
     document.head.appendChild(script);
+
+    // Polling-Fallback: onload kann in Firefox bei gecachtem Script ausbleiben
+    let polls = 0;
+    function startPolling(): void {
+        const iv = setInterval(() => {
+            if (window._growSocket) { clearInterval(iv); return; }
+            const io = (window as unknown as { io?: IoLib }).io;
+            if (io?.connect) { clearInterval(iv); doConnect(io, 'window.io (poll)'); return; }
+            if (++polls > 40) { clearInterval(iv); wireFetchFallback(); }
+        }, 250);
+    }
+    // Polling startet immer parallel zum Script-Load als Absicherung
+    startPolling();
 }
 
 function wireFetchFallback(): void {

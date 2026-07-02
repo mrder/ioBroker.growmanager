@@ -2,6 +2,34 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.1.8] - 2026-07-02
+
+### Fixed
+- Socket bridge now works reliably in Firefox: `window.io` is checked immediately at startup
+  before loading the script (covers the case where admin already loaded `socket.io.js`).
+- Added polling fallback (every 250 ms, up to 10 s): if Firefox does not fire `onload` for
+  a cached/duplicate script URL, the poll detects `window.io` as soon as it becomes available.
+- Extracted `doConnect()` helper so all code paths (direct, onload, poll) share one connection
+  setup — no risk of creating duplicate sockets.
+
+---
+
+## [0.1.7] - 2026-07-02
+
+### Fixed
+- Socket bridge: removed stale `window.io()` call in comment; `io.connect()` was already correct
+  in 0.1.6 but onload path only — now all paths are consistent.
+
+---
+
+## [0.1.6] - 2026-07-02
+
+### Fixed
+- Socket bridge now also checks `window.io` in addition to `window.socket` / `parent.socket`
+  before falling back to loading `socket.io.js` dynamically.
+
+---
+
 ## [0.1.5] - 2026-07-02
 
 ### Fixed
