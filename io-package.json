@@ -1,8 +1,9 @@
-{
+﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.1.15",
+    "version": "0.1.16",
     "news": {
+      "0.1.16": { "en": "Fix blank admin UI: add missing script tag in index.html", "de": "Leere Admin-UI behoben: fehlender Script-Tag in index.html ergänzt" },
       "0.1.15": {
         "en": "Fix admin UI render failure: switch from IIFE to ES module format in Vite build",
         "de": "Admin-UI-Render-Fehler behoben: Vite-Build von IIFE auf ES-Modul-Format umgestellt"
@@ -21,19 +22,19 @@
       },
       "0.1.11": {
         "en": "Read sensor initial values on startup; redesigned object picker with table, type tabs and room/function columns",
-        "de": "Sensor-Startwerte beim Start einlesen; Objektpicker komplett überarbeitet mit Tabelle, Typ-Tabs und Raum/Funktion-Spalten"
+        "de": "Sensor-Startwerte beim Start einlesen; Objektpicker komplett Ã¼berarbeitet mit Tabelle, Typ-Tabs und Raum/Funktion-Spalten"
       },
       "0.1.10": {
         "en": "Fix crash when opening group editor with missing climateProfiles in saved config",
-        "de": "Absturz beim Öffnen des Gruppen-Editors behoben wenn climateProfiles in gespeicherter Config fehlt"
+        "de": "Absturz beim Ã–ffnen des Gruppen-Editors behoben wenn climateProfiles in gespeicherter Config fehlt"
       },
       "0.1.9": {
         "en": "Fix build: reset index.html to TypeScript source entry; previous builds repackaged old bundle",
-        "de": "Build-Fehler behoben: index.html auf TypeScript-Quelle zurückgesetzt; vorherige Builds hatten altes Bundle neu verpackt"
+        "de": "Build-Fehler behoben: index.html auf TypeScript-Quelle zurÃ¼ckgesetzt; vorherige Builds hatten altes Bundle neu verpackt"
       },
       "0.1.8": {
         "en": "Robust socket bridge: check window.io immediately + polling fallback if onload does not fire",
-        "de": "Robuste Socket-Bridge: window.io sofort prüfen + Polling-Fallback falls onload ausbleibt"
+        "de": "Robuste Socket-Bridge: window.io sofort prÃ¼fen + Polling-Fallback falls onload ausbleibt"
       },
       "0.1.7": {
         "en": "Fix ioBroker WebSockets v3 API (io.connect instead of io())",
@@ -63,7 +64,7 @@
     },
     "desc": {
       "en": "Modular adapter for monitoring and controlling grow tents, rooms and irrigation zones.",
-      "de": "Modularer Adapter zur Überwachung und Regelung von Growzelten, Räumen und Bewässerungszonen."
+      "de": "Modularer Adapter zur Ãœberwachung und Regelung von Growzelten, RÃ¤umen und BewÃ¤sserungszonen."
     },
     "authors": [
       "mrder <mrder@hotmail.de>"
