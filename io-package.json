@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.11",
+    "version": "0.1.12",
     "news": {
+      "0.1.12": {
+        "en": "Fix recurring build bug: switch to fixed bundle filename so index.html never needs updating",
+        "de": "Wiederkehrenden Build-Bug behoben: fester Bundle-Dateiname, index.html muss nie mehr aktualisiert werden"
+      },
       "0.1.11": {
         "en": "Read sensor initial values on startup; redesigned object picker with table, type tabs and room/function columns",
         "de": "Sensor-Startwerte beim Start einlesen; Objektpicker komplett überarbeitet mit Tabelle, Typ-Tabs und Raum/Funktion-Spalten"
