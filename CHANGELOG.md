@@ -2,6 +2,32 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.1.5] - 2026-07-02
+
+### Fixed
+- Socket bridge now uses ioBroker WebSockets v3.0.4 correctly:
+  `globalThis.io` is an object `{ connect: fn }`, NOT a callable function.
+  Previous code called `window.io()` which is not a function → fell through
+  to fetch fallback → no save, no object picker.
+  Fix: `window.io.connect('/', { name, pongTimeout, pingInterval })`.
+- ioBroker SocketClient buffers `emit()` calls internally when not yet connected
+  (`pending[]` array), so `wireSocket` no longer needs to wait for the `connect`
+  event — the emit for `loadConfig` will replay automatically once the WebSocket
+  handshake completes.
+- Polling also checks `window.io` (was only checking `window.socket`), so the
+  bridge connects within milliseconds of page load instead of timing out.
+
+---
+
+## [0.1.4] - 2026-07-02
+
+### Added
+- 5-level socket fallback bridge in `admin/src/index.tsx`
+- Save feedback header indicator (● Verbunden / ○ Verbinde…)
+- Auto-save on GroupEditor close (no second click required)
+
+---
+
 ## [0.1.3] - 2026-07-02
 
 ### Added

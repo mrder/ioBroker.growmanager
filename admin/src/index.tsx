@@ -9,9 +9,14 @@ interface IoBrokerSocket {
     connected?: boolean;
 }
 
+// ioBroker WebSockets v3 setzt globalThis.io = { connect: fn }, KEIN aufrufbares io()
+type IoBrokerIo =
+    | ((url?: string, opts?: object) => IoBrokerSocket)
+    | { connect: (url?: string, opts?: object) => IoBrokerSocket };
+
 declare global {
     interface Window {
-        io?: (url?: string, opts?: object) => IoBrokerSocket;
+        io?: IoBrokerIo;
         socket?: IoBrokerSocket;
         _growSocket?: IoBrokerSocket;
         _growInstanceId?: string;
@@ -21,26 +26,24 @@ declare global {
 }
 
 function detectInstanceId(): string {
-    // URL param: ?instance=0
     const m = window.location.search.match(/[?&]instance=([^&]+)/);
     if (m) return `system.adapter.growmanager.${m[1]}`;
-    // URL path: /adapter/growmanager/
     const p = window.location.pathname.match(/adapter\/([^/]+)/);
     if (p) return `system.adapter.${p[1]}.0`;
     return 'system.adapter.growmanager.0';
 }
 
 function wireSocket(socket: IoBrokerSocket, source: string): void {
-    console.log(`[GrowManager] Socket verbunden via: ${source}`);
+    console.log(`[GrowManager] Socket bereit via: ${source}`);
     window._growSocket = socket;
-    window._growInstanceId = detectInstanceId();
-    const instanceId = window._growInstanceId;
+    const instanceId = detectInstanceId();
+    window._growInstanceId = instanceId;
     console.log(`[GrowManager] Instance ID: ${instanceId}`);
 
     window.loadConfig = (cb) => {
         socket.emit('getObject', instanceId, (_err: unknown, obj: unknown) => {
             const o = obj as { native?: GrowManagerConfig } | null;
-            console.log('[GrowManager] loadConfig:', o?.native ? 'OK' : 'leer');
+            console.log('[GrowManager] loadConfig:', o?.native ? 'OK' : 'kein native-Objekt');
             if (o?.native) cb(o.native);
         });
     };
@@ -61,100 +64,86 @@ function wireSocket(socket: IoBrokerSocket, source: string): void {
     window.dispatchEvent(new CustomEvent('iobroker-ready'));
 }
 
-function trySocket(socket: IoBrokerSocket | undefined, source: string): boolean {
-    if (!socket) return false;
-    try {
-        wireSocket(socket, source);
-        return true;
-    } catch { return false; }
+function createSocket(io: IoBrokerIo): IoBrokerSocket {
+    // ioBroker WebSockets v3: io = { connect: fn }
+    if (typeof io === 'function') {
+        return io('/');
+    }
+    // Muss options-Objekt haben, sonst wirft SocketClient "No options provided!"
+    return io.connect('/', { name: 'GrowManager Admin', pongTimeout: 60000, pingInterval: 5000 });
 }
 
 function setupBridge(): void {
-    // 1. Eigenes window.socket (ioBroker admin inject)
-    if (trySocket(window.socket, 'window.socket')) return;
+    // 1. window.socket direkt (ältere ioBroker admin Versionen)
+    if (window.socket) {
+        wireSocket(window.socket, 'window.socket');
+        return;
+    }
 
-    // 2. Parent-Fenster (ioBroker admin iframe — selbe Origin)
+    // 2. window.io sofort verfügbar (ioBroker WebSockets bereits injected)
+    if (window.io) {
+        const socket = createSocket(window.io);
+        // ioBroker SocketClient queued emits intern → wireSocket sofort, nicht erst nach connect
+        wireSocket(socket, 'window.io (sofort)');
+        return;
+    }
+
+    // 3. window.parent.socket (iframe, selbe Origin)
     try {
-        const parentWin = window.parent as Window & { socket?: IoBrokerSocket };
-        if (parentWin && parentWin !== window && trySocket(parentWin.socket, 'window.parent.socket')) return;
+        const pw = window.parent as Window & { socket?: IoBrokerSocket };
+        if (pw && pw !== window && pw.socket) {
+            wireSocket(pw.socket, 'window.parent.socket');
+            return;
+        }
     } catch { /* cross-origin */ }
 
-    // 3. Warten bis admin socket injiziert
+    // 4. Polling – ioBroker admin injiziert socket ggf. leicht verzögert
     let tries = 0;
     const poll = setInterval(() => {
-        if (trySocket(window.socket, 'window.socket (poll)')) { clearInterval(poll); return; }
+        if (window.socket) { clearInterval(poll); wireSocket(window.socket, 'window.socket (poll)'); return; }
+        if (window.io) {
+            clearInterval(poll);
+            wireSocket(createSocket(window.io), 'window.io (poll)');
+            return;
+        }
         try {
             const pw = window.parent as Window & { socket?: IoBrokerSocket };
-            if (pw && pw !== window && trySocket(pw.socket, 'window.parent.socket (poll)')) { clearInterval(poll); return; }
+            if (pw && pw !== window && pw.socket) { clearInterval(poll); wireSocket(pw.socket, 'parent.socket (poll)'); return; }
         } catch { /* ok */ }
-        if (++tries >= 15) {
+
+        if (++tries >= 20) { // 4 Sekunden
             clearInterval(poll);
-            // 4. socket.io manuell laden
-            loadSocketManually();
+            console.warn('[GrowManager] Kein ioBroker-Socket gefunden nach 4 s – Fallback auf fetch API');
+            wireFetchFallback();
         }
     }, 200);
 }
 
-function loadSocketManually(): void {
-    console.log('[GrowManager] Versuche socket.io manuell zu laden...');
-    const script = document.createElement('script');
-    script.src = '/socket.io/socket.io.js';
-    script.onerror = () => {
-        console.warn('[GrowManager] socket.io nicht gefunden – versuche Fetch-API');
-        wireFetchFallback();
-    };
-    script.onload = () => {
-        if (typeof window.io !== 'function') { wireFetchFallback(); return; }
-        const socket = window.io();
-        if (socket.connected) {
-            wireSocket(socket, 'socket.io (bereits verbunden)');
-        } else {
-            socket.on('connect', () => wireSocket(socket, 'socket.io (nach connect)'));
-        }
-    };
-    document.head.appendChild(script);
-}
-
-// Letzter Ausweg: ioBroker REST-API via fetch (kein socket nötig)
 function wireFetchFallback(): void {
     const instanceId = detectInstanceId();
     window._growInstanceId = instanceId;
-    console.log('[GrowManager] Fallback: fetch-API, instanceId:', instanceId);
+    console.log('[GrowManager] Fetch-Fallback, instanceId:', instanceId);
 
     window.loadConfig = async (cb) => {
-        try {
-            const res = await fetch(`/v1/objects/${instanceId}`);
-            if (res.ok) {
-                const obj = await res.json() as { native?: GrowManagerConfig };
-                if (obj?.native) { cb(obj.native); return; }
-            }
-            // Fallback auf ältere admin-API
-            const res2 = await fetch(`/objects/${instanceId}`);
-            if (res2.ok) {
-                const obj2 = await res2.json() as { native?: GrowManagerConfig };
-                if (obj2?.native) cb(obj2.native);
-            }
-        } catch (e) { console.error('[GrowManager] loadConfig fetch Fehler:', e); }
-    };
-
-    window.saveConfig = async (config: GrowManagerConfig): Promise<void> => {
-        // Erst GET um vollständiges Objekt zu bekommen
-        let obj: Record<string, unknown> | null = null;
         for (const url of [`/v1/objects/${instanceId}`, `/objects/${instanceId}`]) {
             try {
                 const r = await fetch(url);
-                if (r.ok) { obj = await r.json(); break; }
+                if (r.ok) { const o = await r.json() as { native?: GrowManagerConfig }; if (o?.native) { cb(o.native); return; } }
             } catch { /* weiter */ }
         }
-        if (!obj) throw new Error('Objekt nicht gefunden via REST: ' + instanceId);
-        obj['native'] = config;
+        console.error('[GrowManager] loadConfig: kein Objekt via fetch gefunden');
+    };
 
-        for (const [url, method] of [[`/v1/objects/${instanceId}`, 'PUT'], [`/objects/${instanceId}`, 'PUT']] as const) {
+    window.saveConfig = async (config: GrowManagerConfig): Promise<void> => {
+        let obj: Record<string, unknown> | null = null;
+        for (const url of [`/v1/objects/${instanceId}`, `/objects/${instanceId}`]) {
+            try { const r = await fetch(url); if (r.ok) { obj = await r.json(); break; } } catch { /* ok */ }
+        }
+        if (!obj) throw new Error('Objekt nicht via REST gefunden: ' + instanceId);
+        obj['native'] = config;
+        for (const url of [`/v1/objects/${instanceId}`, `/objects/${instanceId}`]) {
             try {
-                const r = await fetch(url, {
-                    method, headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(obj),
-                });
+                const r = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
                 if (r.ok) { console.log('[GrowManager] gespeichert via fetch!'); return; }
             } catch { /* weiter */ }
         }
