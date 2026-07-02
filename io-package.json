@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.9",
+    "version": "0.1.10",
     "news": {
+      "0.1.10": {
+        "en": "Fix crash when opening group editor with missing climateProfiles in saved config",
+        "de": "Absturz beim Öffnen des Gruppen-Editors behoben wenn climateProfiles in gespeicherter Config fehlt"
+      },
       "0.1.9": {
         "en": "Fix build: reset index.html to TypeScript source entry; previous builds repackaged old bundle",
         "de": "Build-Fehler behoben: index.html auf TypeScript-Quelle zurückgesetzt; vorherige Builds hatten altes Bundle neu verpackt"
@@ -94,6 +98,7 @@
     "webBindAddress": "0.0.0.0",
     "webAuth": false,
     "groups": [],
+    "climateProfiles": [],
     "alarmChannels": []
   },
   "objects": [],

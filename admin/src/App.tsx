@@ -1411,7 +1411,13 @@ const App: React.FC = () => {
             const w = window as Window & { loadConfig?: (cb: (c: GrowManagerConfig) => void) => void };
             if (typeof w.loadConfig === 'function') {
                 setSocketReady(true);
-                w.loadConfig((c: GrowManagerConfig) => setConfig(c));
+                w.loadConfig((c: GrowManagerConfig) => setConfig(prev => ({
+                    ...prev,
+                    ...c,
+                    groups: c.groups ?? [],
+                    climateProfiles: c.climateProfiles ?? [],
+                    alarmChannels: c.alarmChannels ?? [],
+                })));
             }
         };
         load();
