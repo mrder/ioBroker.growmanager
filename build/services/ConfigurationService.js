@@ -308,6 +308,7 @@ class ConfigurationService {
             minValidSensors: 1,
             fallbackChain: ['vpd', 'temperature', 'schedule', 'monitorOnly'],
             stabilityTimeSeconds: 120,
+            sensorDisagreementThreshold: 5,
         };
         return {
             language: 'de',

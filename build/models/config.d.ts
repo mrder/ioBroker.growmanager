@@ -222,6 +222,7 @@ export interface GroupConfig {
     minValidSensors: number;
     fallbackChain: GroupMode[];
     stabilityTimeSeconds: number;
+    sensorDisagreementThreshold: number;
 }
 export type StartBehavior = 'lastState' | 'delayedStart' | 'safeTurnOff' | 'monitorOnly';
 export interface GrowManagerConfig {

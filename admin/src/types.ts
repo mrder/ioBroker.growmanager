@@ -86,6 +86,7 @@ export interface GroupConfig {
     profileId: string; alarmProfileId: string; priority: number;
     aggregationMethod: AggregationMethod; minValidSensors: number;
     fallbackChain: GroupMode[]; stabilityTimeSeconds: number;
+    sensorDisagreementThreshold: number;
 }
 
 export type StartBehavior = 'lastState' | 'delayedStart' | 'safeTurnOff' | 'monitorOnly';

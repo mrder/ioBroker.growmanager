@@ -355,6 +355,7 @@ export interface GroupConfig {
     minValidSensors: number;
     fallbackChain: GroupMode[];
     stabilityTimeSeconds: number;
+    sensorDisagreementThreshold: number;
 }
 
 // ---- Globale Konfiguration ---------------------------------

@@ -101,7 +101,12 @@ class GrowManagerAdapter extends utils.Adapter {
         await this.subscribeStatesAsync('control.*');
         // Gruppen initialisieren
         for (const group of this.growConfig.groups) {
-            await this.initGroup(group);
+            try {
+                await this.initGroup(group);
+            }
+            catch (err) {
+                this.log.error(`Gruppe ${group.name}: Initialisierung fehlgeschlagen – ${err}`);
+            }
         }
         // Start-Verhalten
         await this.applyStartBehavior();
@@ -344,7 +349,12 @@ class GrowManagerAdapter extends utils.Adapter {
             for (const group of this.growConfig.groups) {
                 if (!group.enabled)
                     continue;
-                await this.processGroup(group);
+                try {
+                    await this.processGroup(group);
+                }
+                catch (err) {
+                    this.log.error(`Gruppe ${group.name}: Fehler im Zyklus – ${err}`);
+                }
             }
             // Gemeinsame Aktoren: Konflikte auflösen und Befehle schreiben
             const sharedResults = this.sharedActorManager.resolveAll();
@@ -552,7 +562,8 @@ class GrowManagerAdapter extends utils.Adapter {
             .filter((s) => s !== undefined && s.valid && typeof s.processedValue === 'number')
             .map(s => s.processedValue);
         if (tempValues.length > 1) {
-            this.diagnosticsEngine.checkSensorDisagreement(config.id, 'Temperatur', tempValues, 3);
+            const threshold = config.sensorDisagreementThreshold ?? 5;
+            this.diagnosticsEngine.checkSensorDisagreement(config.id, 'Temperatur', tempValues, threshold);
         }
         // 8) ioBroker-States aktualisieren
         await this.updateGroupStates(config, state);

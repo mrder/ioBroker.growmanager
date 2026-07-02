@@ -210,6 +210,7 @@ const defaultGroup = (): GroupConfig => ({
     minValidSensors: 1,
     fallbackChain: ['temperature', 'schedule', 'monitorOnly'],
     stabilityTimeSeconds: 120,
+    sensorDisagreementThreshold: 5,
 });
 
 const defaultSensor = (): GroupConfig['sensors'][0] => ({
@@ -845,6 +846,11 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, onSave, onCa
                             <label style={styles.fieldLabel}>Stabilitätszeit Sensor (s)</label>
                             <input style={styles.input} type="number" min={0} value={edit.stabilityTimeSeconds}
                                 onChange={e => setEdit(prev => ({ ...prev, stabilityTimeSeconds: +e.target.value }))} />
+                        </div>
+                        <div>
+                            <label style={styles.fieldLabel}>Sensor-Abweichungsalarm (°C)</label>
+                            <input style={styles.input} type="number" min={1} value={edit.sensorDisagreementThreshold ?? 5}
+                                onChange={e => setEdit(prev => ({ ...prev, sensorDisagreementThreshold: +e.target.value }))} />
                         </div>
                     </div>
                 </div>

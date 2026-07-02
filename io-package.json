@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.1.16",
+    "version": "0.1.17",
     "news": {
+      "0.1.17": {
+        "en": "Isolate group errors so one group cannot crash the adapter; configurable sensor disagreement threshold per group (default 5)",
+        "de": "Gruppenfehler isoliert — ein Fehler in einer Gruppe crasht nicht den Adapter; konfigurierbarer Sensor-Abweichungsalarm pro Gruppe (Standard 5)"
+      },
       "0.1.16": { "en": "Fix blank admin UI: add missing script tag in index.html", "de": "Leere Admin-UI behoben: fehlender Script-Tag in index.html ergänzt" },
       "0.1.15": {
         "en": "Fix admin UI render failure: switch from IIFE to ES module format in Vite build",
