@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.6",
+    "version": "0.1.7",
     "news": {
-      "0.1.6": {
+      "0.1.7": {
         "en": "Fix ioBroker WebSockets v3 API (io.connect instead of io())",
         "de": "ioBroker WebSockets v3 API korrigiert (io.connect statt io())"
       },
