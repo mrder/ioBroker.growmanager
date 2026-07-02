@@ -1403,12 +1403,14 @@ const App: React.FC = () => {
     const [dirty, setDirty] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'ok' | 'err'>('idle');
     const [saveError, setSaveError] = useState('');
+    const [socketReady, setSocketReady] = useState(false);
 
     // ioBroker-Anbindung
     useEffect(() => {
         const load = () => {
             const w = window as Window & { loadConfig?: (cb: (c: GrowManagerConfig) => void) => void };
             if (typeof w.loadConfig === 'function') {
+                setSocketReady(true);
                 w.loadConfig((c: GrowManagerConfig) => setConfig(c));
             }
         };
@@ -1417,15 +1419,15 @@ const App: React.FC = () => {
         return () => window.removeEventListener('iobroker-ready', load);
     }, []);
 
-    const handleSave = useCallback(() => {
+    const saveToIoBroker = useCallback((newConfig: GrowManagerConfig) => {
         const w = window as Window & { saveConfig?: (c: GrowManagerConfig) => Promise<void> };
         if (typeof w.saveConfig !== 'function') {
             setSaveStatus('err');
-            setSaveError('Keine Verbindung zu ioBroker (socket nicht verbunden)');
+            setSaveError('Keine Verbindung zu ioBroker – prüfe Browser-Konsole (F12)');
             return;
         }
         setSaveStatus('saving');
-        w.saveConfig(config)
+        w.saveConfig(newConfig)
             .then(() => {
                 setDirty(false);
                 setSaveStatus('ok');
@@ -1435,18 +1437,24 @@ const App: React.FC = () => {
                 setSaveStatus('err');
                 setSaveError(String(e));
             });
-    }, [config]);
+    }, []);
 
     const handleGroupSave = useCallback((g: GroupConfig) => {
-        setConfig(prev => ({
-            ...prev,
-            groups: editingGroup && editingGroup !== 'new'
-                ? prev.groups.map(gr => gr.id === g.id ? g : gr)
-                : [...prev.groups, g],
-        }));
+        setConfig(prev => {
+            const newConfig = {
+                ...prev,
+                groups: editingGroup && editingGroup !== 'new'
+                    ? prev.groups.map(gr => gr.id === g.id ? g : gr)
+                    : [...prev.groups, g],
+            };
+            // Direkt speichern — kein zweiter "Speichern"-Klick nötig
+            setTimeout(() => saveToIoBroker(newConfig), 0);
+            return newConfig;
+        });
         setEditingGroup(null);
-        setDirty(true);
-    }, [editingGroup]);
+    }, [editingGroup, saveToIoBroker]);
+
+    const handleSave = useCallback(() => saveToIoBroker(config), [config, saveToIoBroker]);
 
     const handleAck = useCallback((alarmId: string) => {
         setAlarms(prev => prev.map(a => a.id === alarmId ? { ...a, acknowledged: true } : a));
@@ -1561,15 +1569,20 @@ const App: React.FC = () => {
             <div style={styles.header}>
                 <h2 style={{ margin: 0 }}>🌿 GrowManager</h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    {saveStatus === 'ok' && (
-                        <span style={{ color: '#4caf50', fontSize: 13 }}>✓ Gespeichert</span>
-                    )}
+                    <span style={{ fontSize: 11, color: socketReady ? '#4caf50' : '#f57c00' }}
+                          title={socketReady ? (window as Window & {_growInstanceId?: string})._growInstanceId ?? '' : 'Warte auf ioBroker-Verbindung…'}>
+                        {socketReady ? '● Verbunden' : '○ Verbinde…'}
+                    </span>
+                    {saveStatus === 'saving' && <span style={{ fontSize: 13, color: '#888' }}>⏳ Speichern…</span>}
+                    {saveStatus === 'ok' && <span style={{ color: '#4caf50', fontSize: 13 }}>✓ Gespeichert</span>}
                     {saveStatus === 'err' && (
-                        <span style={{ color: '#d32f2f', fontSize: 13 }} title={saveError}>✗ Fehler beim Speichern</span>
+                        <span style={{ color: '#d32f2f', fontSize: 13, cursor: 'help' }} title={saveError}>
+                            ✗ Fehler – F12 für Details
+                        </span>
                     )}
                     {(dirty || saveStatus === 'saving') && (
                         <button style={styles.btnPrimary} onClick={handleSave} disabled={saveStatus === 'saving'}>
-                            {saveStatus === 'saving' ? '⏳ Speichern…' : '💾 Speichern'}
+                            💾 Speichern
                         </button>
                     )}
                 </div>

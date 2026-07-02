@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "news": {
+      "0.1.4": {
+        "en": "Fix save and socket connection",
+        "de": "Speichern und Socket-Verbindung repariert"
+      },
       "0.1.3": {
         "en": "Object picker, profile editor, save feedback",
         "de": "Objektbaum-Picker, Klimaprofile, Speicher-Feedback"
