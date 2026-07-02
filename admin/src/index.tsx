@@ -65,55 +65,45 @@ function wireSocket(socket: IoBrokerSocket, source: string): void {
 }
 
 function createSocket(io: IoBrokerIo): IoBrokerSocket {
-    // ioBroker WebSockets v3: io = { connect: fn }
-    if (typeof io === 'function') {
-        return io('/');
-    }
-    // Muss options-Objekt haben, sonst wirft SocketClient "No options provided!"
-    return io.connect('/', { name: 'GrowManager Admin', pongTimeout: 60000, pingInterval: 5000 });
+    // URL muss Origin sein – '/' expandiert im iframe zu /adapter/growmanager (falsch)
+    const url = window.location.origin;
+    const opts = { name: 'GrowManager Admin', pongTimeout: 60000, pingInterval: 5000 };
+    if (typeof io === 'function') return io(url, opts);
+    return io.connect(url, opts);
 }
 
 function setupBridge(): void {
-    // 1. window.socket direkt (ältere ioBroker admin Versionen)
-    if (window.socket) {
-        wireSocket(window.socket, 'window.socket');
-        return;
-    }
+    // 1. window.socket direkt (von ioBroker admin in iframe injiziert)
+    if (window.socket) { wireSocket(window.socket, 'window.socket'); return; }
 
-    // 2. window.io sofort verfügbar (ioBroker WebSockets bereits injected)
-    if (window.io) {
-        const socket = createSocket(window.io);
-        // ioBroker SocketClient queued emits intern → wireSocket sofort, nicht erst nach connect
-        wireSocket(socket, 'window.io (sofort)');
-        return;
-    }
+    // 2. window.io direkt (ioBroker WebSockets bereits in diesem Frame)
+    if (window.io) { wireSocket(createSocket(window.io), 'window.io'); return; }
 
-    // 3. window.parent.socket (iframe, selbe Origin)
+    // 3. parent.socket / parent.io (admin lädt socket.io im Elternframe, selbe Origin)
     try {
-        const pw = window.parent as Window & { socket?: IoBrokerSocket };
-        if (pw && pw !== window && pw.socket) {
-            wireSocket(pw.socket, 'window.parent.socket');
-            return;
+        const pw = window.parent as Window & { socket?: IoBrokerSocket; io?: IoBrokerIo };
+        if (pw && pw !== window) {
+            if (pw.socket) { wireSocket(pw.socket, 'parent.socket'); return; }
+            if (pw.io)     { wireSocket(createSocket(pw.io), 'parent.io'); return; }
         }
     } catch { /* cross-origin */ }
 
-    // 4. Polling – ioBroker admin injiziert socket ggf. leicht verzögert
+    // 4. Polling – admin injiziert ggf. leicht verzögert
     let tries = 0;
     const poll = setInterval(() => {
         if (window.socket) { clearInterval(poll); wireSocket(window.socket, 'window.socket (poll)'); return; }
-        if (window.io) {
-            clearInterval(poll);
-            wireSocket(createSocket(window.io), 'window.io (poll)');
-            return;
-        }
+        if (window.io)     { clearInterval(poll); wireSocket(createSocket(window.io), 'window.io (poll)'); return; }
         try {
-            const pw = window.parent as Window & { socket?: IoBrokerSocket };
-            if (pw && pw !== window && pw.socket) { clearInterval(poll); wireSocket(pw.socket, 'parent.socket (poll)'); return; }
+            const pw = window.parent as Window & { socket?: IoBrokerSocket; io?: IoBrokerIo };
+            if (pw && pw !== window) {
+                if (pw.socket) { clearInterval(poll); wireSocket(pw.socket, 'parent.socket (poll)'); return; }
+                if (pw.io)     { clearInterval(poll); wireSocket(createSocket(pw.io), 'parent.io (poll)'); return; }
+            }
         } catch { /* ok */ }
 
-        if (++tries >= 20) { // 4 Sekunden
+        if (++tries >= 20) {
             clearInterval(poll);
-            console.warn('[GrowManager] Kein ioBroker-Socket gefunden nach 4 s – Fallback auf fetch API');
+            console.warn('[GrowManager] Kein Socket nach 4 s – Fallback fetch');
             wireFetchFallback();
         }
     }, 200);
