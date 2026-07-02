@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.8",
+    "version": "0.1.9",
     "news": {
+      "0.1.9": {
+        "en": "Fix build: reset index.html to TypeScript source entry; previous builds repackaged old bundle",
+        "de": "Build-Fehler behoben: index.html auf TypeScript-Quelle zurückgesetzt; vorherige Builds hatten altes Bundle neu verpackt"
+      },
       "0.1.8": {
         "en": "Robust socket bridge: check window.io immediately + polling fallback if onload does not fire",
         "de": "Robuste Socket-Bridge: window.io sofort prüfen + Polling-Fallback falls onload ausbleibt"
