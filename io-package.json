@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.12",
+    "version": "0.1.13",
     "news": {
+      "0.1.13": {
+        "en": "Fix sensor quality 0%: staleAfterSeconds default 300→3600; fix lc/q parameter bug on startup; add live polling in admin dashboard; add collapsible adapter categories in object picker",
+        "de": "Sensorqualität 0% behoben: staleAfterSeconds Standard 300→3600; lc/q-Parameter-Bug beim Start behoben; Live-Polling im Admin-Dashboard; aufklappbare Adapter-Kategorien im Objektpicker"
+      },
       "0.1.12": {
         "en": "Fix recurring build bug: switch to fixed bundle filename so index.html never needs updating",
         "de": "Wiederkehrenden Build-Bug behoben: fester Bundle-Dateiname, index.html muss nie mehr aktualisiert werden"

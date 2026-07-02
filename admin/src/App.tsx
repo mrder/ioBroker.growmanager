@@ -224,7 +224,7 @@ const defaultSensor = (): GroupConfig['sensors'][0] => ({
     weight: 1,
     validMin: -40,
     validMax: 100,
-    staleAfterSeconds: 300,
+    staleAfterSeconds: 3600,
     unchangedAlarmSeconds: 3600,
     minUpdateRateSeconds: 0,
     smoothing: 'none',
@@ -1099,6 +1099,7 @@ const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilt
     const [search, setSearch] = React.useState('');
     const [tab, setTab] = React.useState(typeFilter ?? '');
     const [loading, setLoading] = React.useState(true);
+    const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
 
     React.useEffect(() => {
         loadAllObjects().then(({ entries }) => {
@@ -1107,14 +1108,35 @@ const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilt
         });
     }, []);
 
-    const visible = React.useMemo(() => {
-        return allEntries.filter(e => matchesTab(e, tab) && matchesSearch(e, search)).slice(0, 300);
+    // Filtered entries grouped by adapter prefix
+    const grouped = React.useMemo(() => {
+        const filtered = allEntries.filter(e => matchesTab(e, tab) && matchesSearch(e, search));
+        const map: Record<string, ObjEntry[]> = {};
+        for (const e of filtered) {
+            const key = e.id.split('.')[0];
+            if (!map[key]) map[key] = [];
+            map[key].push(e);
+        }
+        return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
     }, [allEntries, tab, search]);
 
+    const totalVisible = grouped.reduce((s, [, es]) => s + es.length, 0);
+
+    // Auto-expand when search is active
+    React.useEffect(() => {
+        if (search) {
+            const expanded: Record<string, boolean> = {};
+            for (const [key] of grouped) expanded[key] = false; // false = not collapsed
+            setCollapsed(expanded);
+        }
+    }, [search, grouped]);
+
+    const toggleGroup = (key: string) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
+
     const thStyle: React.CSSProperties = {
-        padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600,
-        color: '#555', borderBottom: '2px solid #e0e0e0', background: '#fafafa',
-        position: 'sticky', top: 0, whiteSpace: 'nowrap',
+        padding: '5px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600,
+        color: '#555', borderBottom: '1px solid #e0e0e0', background: '#fafafa',
+        whiteSpace: 'nowrap',
     };
     const tdStyle: React.CSSProperties = { padding: '5px 8px', fontSize: 12, verticalAlign: 'top' };
 
@@ -1150,54 +1172,83 @@ const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilt
                         >{t.label}</button>
                     ))}
                     <span style={{ marginLeft: 'auto', fontSize: 12, color: '#888', alignSelf: 'center' }}>
-                        {loading ? 'Lade…' : `${visible.length} von ${allEntries.length} Datenpunkten`}
+                        {loading ? 'Lade…' : `${totalVisible} von ${allEntries.length} Datenpunkten`}
                     </span>
                 </div>
 
-                {/* Table */}
+                {/* Grouped content */}
                 <div style={{ flex: 1, overflowY: 'auto' }}>
                     {loading ? (
                         <div style={{ padding: 32, textAlign: 'center', color: '#888' }}>Datenpunkte werden geladen…</div>
-                    ) : visible.length === 0 ? (
+                    ) : grouped.length === 0 ? (
                         <div style={{ padding: 32, textAlign: 'center', color: '#888' }}>Keine Datenpunkte gefunden.</div>
-                    ) : (
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr>
-                                    <th style={thStyle}>ID</th>
-                                    <th style={thStyle}>Name</th>
-                                    <th style={thStyle}>Rolle</th>
-                                    <th style={thStyle}>Typ</th>
-                                    <th style={thStyle}>Raum</th>
-                                    <th style={thStyle}>Funktion</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {visible.map(r => (
-                                    <tr
-                                        key={r.id}
-                                        style={{ cursor: 'pointer', borderBottom: '1px solid #f0f0f0' }}
-                                        onMouseEnter={e => (e.currentTarget.style.background = '#e8f5e9')}
-                                        onMouseLeave={e => (e.currentTarget.style.background = '')}
-                                        onClick={() => { onSelect(r.id); onClose(); }}
-                                    >
-                                        <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 11, color: '#1565c0', maxWidth: 320, wordBreak: 'break-all' }}>{r.id}</td>
-                                        <td style={{ ...tdStyle, maxWidth: 160 }}>{r.name}</td>
-                                        <td style={{ ...tdStyle, color: '#555', whiteSpace: 'nowrap' }}>{r.role}</td>
-                                        <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
-                                            <span style={{
-                                                padding: '1px 6px', borderRadius: 10, fontSize: 10, fontWeight: 600,
-                                                background: r.type === 'boolean' ? '#fff3e0' : r.type === 'number' ? '#e3f2fd' : '#f3e5f5',
-                                                color: r.type === 'boolean' ? '#e65100' : r.type === 'number' ? '#0d47a1' : '#6a1b9a',
-                                            }}>{r.type}{r.unit ? ` (${r.unit})` : ''}</span>
-                                        </td>
-                                        <td style={{ ...tdStyle, color: '#2e7d32', fontSize: 11 }}>{r.rooms.join(', ')}</td>
-                                        <td style={{ ...tdStyle, color: '#1565c0', fontSize: 11 }}>{r.funcs.join(', ')}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
+                    ) : grouped.map(([adapterKey, entries]) => {
+                        const isCollapsed = collapsed[adapterKey] !== false && !search;
+                        return (
+                            <div key={adapterKey}>
+                                {/* Category header */}
+                                <div
+                                    onClick={() => toggleGroup(adapterKey)}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: 8,
+                                        padding: '7px 16px', cursor: 'pointer',
+                                        background: '#f5f5f5', borderBottom: '1px solid #e0e0e0',
+                                        position: 'sticky', top: 0, zIndex: 1,
+                                        userSelect: 'none',
+                                    }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = '#eeeeee')}
+                                    onMouseLeave={e => (e.currentTarget.style.background = '#f5f5f5')}
+                                >
+                                    <span style={{ fontSize: 12, color: '#555', width: 14 }}>{isCollapsed ? '▶' : '▼'}</span>
+                                    <span style={{ fontWeight: 700, fontSize: 13, fontFamily: 'monospace', color: '#1565c0' }}>{adapterKey}</span>
+                                    <span style={{ fontSize: 11, color: '#888', marginLeft: 4 }}>{entries.length} Datenpunkte</span>
+                                </div>
+
+                                {/* Entries table */}
+                                {!isCollapsed && (
+                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                        <thead>
+                                            <tr>
+                                                <th style={thStyle}>ID</th>
+                                                <th style={thStyle}>Name</th>
+                                                <th style={thStyle}>Rolle</th>
+                                                <th style={thStyle}>Typ</th>
+                                                <th style={thStyle}>Raum</th>
+                                                <th style={thStyle}>Funktion</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {entries.slice(0, 500).map(r => (
+                                                <tr
+                                                    key={r.id}
+                                                    style={{ cursor: 'pointer', borderBottom: '1px solid #f5f5f5' }}
+                                                    onMouseEnter={e => (e.currentTarget.style.background = '#e8f5e9')}
+                                                    onMouseLeave={e => (e.currentTarget.style.background = '')}
+                                                    onClick={() => { onSelect(r.id); onClose(); }}
+                                                >
+                                                    <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 11, color: '#1565c0', maxWidth: 300, wordBreak: 'break-all' }}>{r.id}</td>
+                                                    <td style={{ ...tdStyle, maxWidth: 140 }}>{r.name}</td>
+                                                    <td style={{ ...tdStyle, color: '#555', whiteSpace: 'nowrap' }}>{r.role}</td>
+                                                    <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                                                        <span style={{
+                                                            padding: '1px 6px', borderRadius: 10, fontSize: 10, fontWeight: 600,
+                                                            background: r.type === 'boolean' ? '#fff3e0' : r.type === 'number' ? '#e3f2fd' : '#f3e5f5',
+                                                            color: r.type === 'boolean' ? '#e65100' : r.type === 'number' ? '#0d47a1' : '#6a1b9a',
+                                                        }}>{r.type}{r.unit ? ` (${r.unit})` : ''}</span>
+                                                    </td>
+                                                    <td style={{ ...tdStyle, color: '#2e7d32', fontSize: 11 }}>{r.rooms.join(', ')}</td>
+                                                    <td style={{ ...tdStyle, color: '#1565c0', fontSize: 11 }}>{r.funcs.join(', ')}</td>
+                                                </tr>
+                                            ))}
+                                            {entries.length > 500 && (
+                                                <tr><td colSpan={6} style={{ padding: '6px 16px', fontSize: 11, color: '#888' }}>… und {entries.length - 500} weitere – Suche verfeinern</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
 
                 {/* Footer */}
@@ -1538,6 +1589,48 @@ const App: React.FC = () => {
         window.addEventListener('iobroker-ready', load);
         return () => window.removeEventListener('iobroker-ready', load);
     }, []);
+
+    // Live-Polling der Adapter-States alle 5 Sekunden
+    useEffect(() => {
+        if (!socketReady) return;
+        const instanceId = (window as Window & { _growInstanceId?: string })._growInstanceId ?? '0';
+
+        async function poll() {
+            type SV = { val: unknown } | null;
+            const updates: Record<string, GroupLiveState> = {};
+            for (const g of config.groups) {
+                const base = `growmanager.${instanceId}.groups.${g.id}`;
+                const [temp, hum, vpd, sq, health, mode, phase, lastDec] = await Promise.all([
+                    emitSocket('getState', `${base}.climate.temperature`) as Promise<SV>,
+                    emitSocket('getState', `${base}.climate.humidity`) as Promise<SV>,
+                    emitSocket('getState', `${base}.climate.vpd`) as Promise<SV>,
+                    emitSocket('getState', `${base}.climate.sensorQuality`) as Promise<SV>,
+                    emitSocket('getState', `${base}.info.health`) as Promise<SV>,
+                    emitSocket('getState', `${base}.info.mode`) as Promise<SV>,
+                    emitSocket('getState', `${base}.info.phase`) as Promise<SV>,
+                    emitSocket('getState', `${base}.diagnostics.lastDecision`) as Promise<SV>,
+                ]);
+                updates[g.id] = {
+                    temperature: typeof temp?.val === 'number' ? temp.val : null,
+                    humidity: typeof hum?.val === 'number' ? hum.val : null,
+                    vpd: typeof vpd?.val === 'number' ? vpd.val : null,
+                    sensorQuality: typeof sq?.val === 'number' ? sq.val : 0,
+                    health: typeof health?.val === 'string' ? health.val : 'FAULT',
+                    mode: typeof mode?.val === 'string' ? mode.val : g.mode,
+                    phase: typeof phase?.val === 'string' ? phase.val : g.phase,
+                    alarmSeverity: 'none',
+                    nextChange: '',
+                    actuators: {},
+                    lastDecision: typeof lastDec?.val === 'string' ? lastDec.val : '',
+                };
+            }
+            setLiveStates(updates);
+        }
+
+        poll();
+        const timer = setInterval(poll, 5000);
+        return () => clearInterval(timer);
+    }, [socketReady, config.groups]);
 
     const saveToIoBroker = useCallback((newConfig: GrowManagerConfig) => {
         const w = window as Window & { saveConfig?: (c: GrowManagerConfig) => Promise<void> };

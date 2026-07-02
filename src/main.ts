@@ -209,7 +209,7 @@ class GrowManagerAdapter extends utils.Adapter {
             }
             const current = await this.getForeignStateAsync(sensor.stateId);
             if (current) {
-                const ss = this.sensorService.processValue(sensor, current.val as number, current.ts, current.q ?? 0);
+                const ss = this.sensorService.processValue(sensor, current.val as number, current.ts, current.lc ?? current.ts);
                 if (ss) groupState.sensors.set(sensor.id, ss);
             }
         }
