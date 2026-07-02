@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.14",
+    "version": "0.1.15",
     "news": {
+      "0.1.15": {
+        "en": "Fix admin UI render failure: switch from IIFE to ES module format in Vite build",
+        "de": "Admin-UI-Render-Fehler behoben: Vite-Build von IIFE auf ES-Modul-Format umgestellt"
+      },
       "0.1.14": {
         "en": "Dynamic staleness check per cycle; staleAfterSeconds default 900s; first-read uses Date.now() as ts; device health state support (available/link_quality/alive) for sensors and actuators",
         "de": "Dynamischer Stale-Check je Zyklus; staleAfterSeconds Standard 900s; Erstlesen nutzt Date.now() als Timestamp; Gerätestatus-State (available/link_quality/alive) für Sensoren und Aktoren"
