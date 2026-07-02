@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "news": {
+      "0.1.3": {
+        "en": "Object picker, profile editor, save feedback",
+        "de": "Objektbaum-Picker, Klimaprofile, Speicher-Feedback"
+      },
       "0.1.2": {
         "en": "Fix admin UI loading",
         "de": "Admin UI Ladefehler behoben"

@@ -994,6 +994,107 @@ const AlarmView: React.FC<{ alarms: AlarmRecord[]; onAck: (id: string) => void }
     );
 };
 
+// ---- ObjectPicker ------------------------------------------
+
+interface ObjEntry { id: string; name: string; type: string; role: string }
+
+function fetchObjects(filter: string): Promise<ObjEntry[]> {
+    return new Promise(resolve => {
+        const sock = (window as Window & { _growSocket?: { emit: (...a: unknown[]) => void } })._growSocket;
+        if (!sock) { resolve([]); return; }
+        sock.emit(
+            'getObjectView', 'system', 'state',
+            { startkey: filter || '', endkey: filter ? filter + '香' : '香' },
+            (_err: unknown, res: unknown) => {
+                const rows = (res as { rows?: Array<{ id: string; value: { common?: { name?: unknown; type?: string; role?: string } } }> } | null)?.rows ?? [];
+                resolve(
+                    rows.slice(0, 200).map(r => ({
+                        id: r.id,
+                        name: typeof r.value?.common?.name === 'string'
+                            ? r.value.common.name
+                            : (r.value?.common?.name as Record<string, string> | undefined)?.de ?? '',
+                        type: r.value?.common?.type ?? '',
+                        role: r.value?.common?.role ?? '',
+                    }))
+                );
+            }
+        );
+    });
+}
+
+interface ObjectPickerProps {
+    onSelect: (id: string) => void;
+    onClose: () => void;
+    typeFilter?: string; // 'boolean' | 'number' | ''
+}
+
+const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilter }) => {
+    const [search, setSearch] = React.useState('');
+    const [results, setResults] = React.useState<ObjEntry[]>([]);
+    const [loading, setLoading] = React.useState(false);
+
+    const doSearch = React.useCallback((q: string) => {
+        setLoading(true);
+        fetchObjects(q).then(res => {
+            const filtered = typeFilter ? res.filter(r => r.type === typeFilter) : res;
+            setResults(filtered);
+            setLoading(false);
+        });
+    }, [typeFilter]);
+
+    React.useEffect(() => { doSearch(''); }, [doSearch]);
+
+    const handleSearch = (q: string) => {
+        setSearch(q);
+        doSearch(q);
+    };
+
+    return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: '#fff', borderRadius: 8, padding: 20, width: 560, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px rgba(0,0,0,0.25)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <h4 style={{ margin: 0 }}>ioBroker Objektbaum</h4>
+                    <button style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }} onClick={onClose}>×</button>
+                </div>
+                <input
+                    style={{ ...styles.input, marginBottom: 8 }}
+                    placeholder="Suchen: z.B. zigbee, temperature, 0.sensor…"
+                    value={search}
+                    autoFocus
+                    onChange={e => handleSearch(e.target.value)}
+                />
+                {typeFilter && (
+                    <p style={{ fontSize: 11, color: '#888', margin: '0 0 8px' }}>Nur Typ: <strong>{typeFilter}</strong></p>
+                )}
+                <div style={{ overflowY: 'auto', flex: 1, border: '1px solid #e0e0e0', borderRadius: 4 }}>
+                    {loading && <div style={{ padding: 16, color: '#888' }}>Lade…</div>}
+                    {!loading && results.length === 0 && (
+                        <div style={{ padding: 16, color: '#888' }}>
+                            Keine Objekte gefunden. Suche verfeinern oder manuell eingeben.
+                        </div>
+                    )}
+                    {results.map(r => (
+                        <div
+                            key={r.id}
+                            style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 2 }}
+                            onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                            onMouseLeave={e => (e.currentTarget.style.background = '')}
+                            onClick={() => { onSelect(r.id); onClose(); }}
+                        >
+                            <span style={{ fontSize: 13, fontFamily: 'monospace', color: '#1976d2' }}>{r.id}</span>
+                            {r.name && <span style={{ fontSize: 11, color: '#666' }}>{r.name}</span>}
+                            <span style={{ fontSize: 11, color: '#999' }}>{r.type}{r.role ? ` · ${r.role}` : ''}</span>
+                        </div>
+                    ))}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+                    <button style={styles.btnSecondary} onClick={onClose}>Abbrechen</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // ---- StateIdInput ------------------------------------------
 
 interface StateIdInputProps {
@@ -1001,69 +1102,165 @@ interface StateIdInputProps {
     onChange: (id: string) => void;
     label: string;
     placeholder?: string;
+    typeFilter?: string;
 }
 
-const StateIdInput: React.FC<StateIdInputProps> = ({ value, onChange, label, placeholder }) => {
-    const [dialogOpen, setDialogOpen] = React.useState(false);
-    const [draft, setDraft] = React.useState(value);
-
-    const handleConfirm = () => {
-        onChange(draft);
-        setDialogOpen(false);
-    };
+const StateIdInput: React.FC<StateIdInputProps> = ({ value, onChange, label, placeholder, typeFilter }) => {
+    const [pickerOpen, setPickerOpen] = React.useState(false);
 
     return (
         <div>
             <label style={styles.fieldLabel}>{label}</label>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <input
-                    style={{ ...styles.input, flex: 1 }}
+                    style={{ ...styles.input, flex: 1, fontFamily: 'monospace', fontSize: 12 }}
                     type="text"
                     value={value}
                     placeholder={placeholder ?? 'z.B. zigbee.0.device.temperature'}
                     onChange={e => onChange(e.target.value)}
                 />
                 <button
-                    style={styles.btnSecondary}
+                    style={{ ...styles.btnSecondary, whiteSpace: 'nowrap' }}
                     type="button"
-                    title="State-ID eingeben"
-                    onClick={() => { setDraft(value); setDialogOpen(true); }}
+                    title="Aus ioBroker Objektbaum wählen"
+                    onClick={() => setPickerOpen(true)}
                 >
-                    ...
+                    🔍 Wählen
                 </button>
             </div>
-            {dialogOpen && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.4)', zIndex: 1000,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                    <div style={{
-                        background: '#fff', borderRadius: 8, padding: 24, minWidth: 400,
-                        boxShadow: '0 4px 24px rgba(0,0,0,0.2)',
-                    }}>
-                        <h4 style={{ margin: '0 0 12px' }}>State-ID eingeben</h4>
-                        <p style={{ fontSize: 12, color: '#666', margin: '0 0 12px' }}>
-                            Gib die ioBroker-State-ID direkt ein.<br />
-                            Beispiele: <code>zigbee.0.device.temperature</code>,
-                            <code>tasmota.0.switch.POWER</code>
-                        </p>
-                        <input
-                            style={styles.input}
-                            type="text"
-                            value={draft}
-                            autoFocus
-                            placeholder="adapter.instance.channel.state"
-                            onChange={e => setDraft(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') handleConfirm(); if (e.key === 'Escape') setDialogOpen(false); }}
-                        />
-                        <div style={{ display: 'flex', gap: 12, marginTop: 16, justifyContent: 'flex-end' }}>
-                            <button style={styles.btnSecondary} onClick={() => setDialogOpen(false)}>Abbrechen</button>
-                            <button style={styles.btnPrimary} onClick={handleConfirm}>Übernehmen</button>
-                        </div>
+            {pickerOpen && (
+                <ObjectPicker
+                    typeFilter={typeFilter}
+                    onSelect={onChange}
+                    onClose={() => setPickerOpen(false)}
+                />
+            )}
+        </div>
+    );
+};
+
+// ---- ProfilesView ------------------------------------------
+
+import type { ClimateSetpoint } from './types';
+
+const defaultSetpoint = (): ClimateSetpoint => ({
+    temperature: 24, temperatureTolerance: 1, humidity: 60, humidityTolerance: 5,
+    vpdMin: 0.8, vpdMax: 1.2, temperatureMin: 18, temperatureMax: 30,
+    temperatureCritical: 35, humidityMin: 40, humidityMax: 80, humidityCritical: 85,
+    condensationRiskMaxHumidity: 80,
+});
+
+const defaultProfile = (): ClimateProfile => ({
+    id: `profile-${Date.now()}`,
+    name: 'Neues Profil',
+    phase: 'growth',
+    transitionMinutes: 30,
+    day: defaultSetpoint(),
+    night: { ...defaultSetpoint(), temperature: 20, humidity: 55 },
+});
+
+function SetpointForm({ label, sp, onChange }: { label: string; sp: ClimateSetpoint; onChange: (s: ClimateSetpoint) => void }) {
+    const n = (key: keyof ClimateSetpoint) => ({
+        value: sp[key],
+        onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...sp, [key]: +e.target.value }),
+    });
+    const row = (lbl: string, k: keyof ClimateSetpoint, step = 0.1) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span style={{ width: 220, fontSize: 13 }}>{lbl}</span>
+            <input style={{ ...styles.input, width: 80 }} type="number" step={step} {...n(k)} />
+        </div>
+    );
+    return (
+        <div style={{ marginBottom: 16 }}>
+            <div style={{ fontWeight: 600, marginBottom: 8, color: '#2e7d32' }}>{label}</div>
+            {row('Ziel-Temperatur (°C)', 'temperature')}
+            {row('Toleranz Temp. (±°C)', 'temperatureTolerance')}
+            {row('Min Temp (°C)', 'temperatureMin')}
+            {row('Max Temp (°C)', 'temperatureMax')}
+            {row('Kritisch Temp (°C)', 'temperatureCritical')}
+            {row('Ziel-Luftfeuchte (%)', 'humidity', 1)}
+            {row('Toleranz Feuchte (±%)', 'humidityTolerance', 1)}
+            {row('Min Feuchte (%)', 'humidityMin', 1)}
+            {row('Max Feuchte (%)', 'humidityMax', 1)}
+            {row('VPD Min (kPa)', 'vpdMin')}
+            {row('VPD Max (kPa)', 'vpdMax')}
+        </div>
+    );
+}
+
+const ProfilesView: React.FC<{
+    profiles: ClimateProfile[];
+    onChange: (p: ClimateProfile[]) => void;
+}> = ({ profiles, onChange }) => {
+    const [editing, setEditing] = React.useState<ClimateProfile | null>(null);
+
+    if (editing) {
+        return (
+            <div style={styles.editor}>
+                <h3 style={{ margin: '0 0 16px' }}>{editing.name}</h3>
+
+                <label style={styles.fieldLabel}>Name</label>
+                <input style={styles.input} value={editing.name}
+                    onChange={e => setEditing(prev => prev && ({ ...prev, name: e.target.value }))} />
+
+                <label style={styles.fieldLabel}>Pflanzenphase</label>
+                <select style={styles.select} value={editing.phase}
+                    onChange={e => setEditing(prev => prev && ({ ...prev, phase: e.target.value as ClimateProfile['phase'] }))}>
+                    <option value="seedling">Keimling</option>
+                    <option value="growth">Wachstum</option>
+                    <option value="bloom">Blüte</option>
+                    <option value="drying">Trocknung</option>
+                    <option value="custom">Benutzerdefiniert</option>
+                </select>
+
+                <label style={styles.fieldLabel}>Tag/Nacht-Übergang (min)</label>
+                <input style={styles.input} type="number" value={editing.transitionMinutes}
+                    onChange={e => setEditing(prev => prev && ({ ...prev, transitionMinutes: +e.target.value }))} />
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 16 }}>
+                    <SetpointForm label="☀️ Tag" sp={editing.day}
+                        onChange={day => setEditing(prev => prev && ({ ...prev, day }))} />
+                    <SetpointForm label="🌙 Nacht" sp={editing.night}
+                        onChange={night => setEditing(prev => prev && ({ ...prev, night }))} />
+                </div>
+
+                <div style={styles.editorButtons}>
+                    <button style={styles.btnPrimary} onClick={() => {
+                        onChange(profiles.some(p => p.id === editing.id)
+                            ? profiles.map(p => p.id === editing.id ? editing : p)
+                            : [...profiles, editing]);
+                        setEditing(null);
+                    }}>💾 Speichern</button>
+                    <button style={styles.btnSecondary} onClick={() => setEditing(null)}>Abbrechen</button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div>
+            <button style={styles.btnPrimary} onClick={() => setEditing(defaultProfile())}>+ Neues Klimaprofil</button>
+            {profiles.length === 0 && (
+                <p style={{ color: '#888', marginTop: 16 }}>Noch keine Klimaprofile. Erstelle Profile mit Tag/Nacht-Sollwerten für Temperatur, Feuchte und VPD.</p>
+            )}
+            {profiles.map(p => (
+                <div key={p.id} style={styles.listRow}>
+                    <div>
+                        <strong>{p.name}</strong>
+                        <span style={{ color: '#666', marginLeft: 12, fontSize: 12 }}>{p.phase}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#888' }}>
+                        Tag: {p.day.temperature}°C / {p.day.humidity}% · Nacht: {p.night.temperature}°C / {p.night.humidity}%
+                    </div>
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                        <button style={styles.btnSecondary} onClick={() => setEditing({ ...p })}>Bearbeiten</button>
+                        <button style={{ ...styles.btnSecondary, color: '#d32f2f' }}
+                            onClick={() => { if (window.confirm(`Profil „${p.name}" löschen?`)) onChange(profiles.filter(x => x.id !== p.id)); }}>
+                            Löschen
+                        </button>
                     </div>
                 </div>
-            )}
+            ))}
         </div>
     );
 };
@@ -1204,6 +1401,8 @@ const App: React.FC = () => {
     const [alarms, setAlarms] = useState<AlarmRecord[]>([]);
     const [liveStates, setLiveStates] = useState<Record<string, GroupLiveState>>({});
     const [dirty, setDirty] = useState(false);
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'ok' | 'err'>('idle');
+    const [saveError, setSaveError] = useState('');
 
     // ioBroker-Anbindung
     useEffect(() => {
@@ -1219,11 +1418,23 @@ const App: React.FC = () => {
     }, []);
 
     const handleSave = useCallback(() => {
-        const w = window as Window & { saveConfig?: (c: GrowManagerConfig) => void };
-        if (typeof w.saveConfig === 'function') {
-            w.saveConfig(config);
+        const w = window as Window & { saveConfig?: (c: GrowManagerConfig) => Promise<void> };
+        if (typeof w.saveConfig !== 'function') {
+            setSaveStatus('err');
+            setSaveError('Keine Verbindung zu ioBroker (socket nicht verbunden)');
+            return;
         }
-        setDirty(false);
+        setSaveStatus('saving');
+        w.saveConfig(config)
+            .then(() => {
+                setDirty(false);
+                setSaveStatus('ok');
+                setTimeout(() => setSaveStatus('idle'), 3000);
+            })
+            .catch((e: unknown) => {
+                setSaveStatus('err');
+                setSaveError(String(e));
+            });
     }, [config]);
 
     const handleGroupSave = useCallback((g: GroupConfig) => {
@@ -1334,20 +1545,10 @@ const App: React.FC = () => {
                 );
 
             case 'profiles':
-                return (
-                    <div>
-                        <h3>Klimaprofile</h3>
-                        {config.climateProfiles.length === 0 && (
-                            <p>Noch keine Profile angelegt. Profile werden in einer späteren Version editierbar.</p>
-                        )}
-                        {config.climateProfiles.map(p => (
-                            <div key={p.id} style={styles.listRow}>
-                                <span>{p.name}</span>
-                                <span style={{ color: '#666', marginLeft: 16 }}>{p.phase}</span>
-                            </div>
-                        ))}
-                    </div>
-                );
+                return <ProfilesView
+                    profiles={config.climateProfiles}
+                    onChange={profiles => { setConfig(prev => ({ ...prev, climateProfiles: profiles })); setDirty(true); }}
+                />;
 
             default:
                 return null;
@@ -1359,11 +1560,19 @@ const App: React.FC = () => {
             {/* Header */}
             <div style={styles.header}>
                 <h2 style={{ margin: 0 }}>🌿 GrowManager</h2>
-                {dirty && (
-                    <button style={styles.btnPrimary} onClick={handleSave}>
-                        💾 Speichern
-                    </button>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {saveStatus === 'ok' && (
+                        <span style={{ color: '#4caf50', fontSize: 13 }}>✓ Gespeichert</span>
+                    )}
+                    {saveStatus === 'err' && (
+                        <span style={{ color: '#d32f2f', fontSize: 13 }} title={saveError}>✗ Fehler beim Speichern</span>
+                    )}
+                    {(dirty || saveStatus === 'saving') && (
+                        <button style={styles.btnPrimary} onClick={handleSave} disabled={saveStatus === 'saving'}>
+                            {saveStatus === 'saving' ? '⏳ Speichern…' : '💾 Speichern'}
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Navigation */}
