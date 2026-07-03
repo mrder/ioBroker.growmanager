@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.1.17",
+    "version": "0.1.18",
     "news": {
+      "0.1.18": {
+        "en": "Fix blank admin UI: switch from ES module to IIFE bundle for compatibility with ioBroker admin iframe",
+        "de": "Leere Admin-UI behoben: von ES-Modul auf IIFE-Bundle umgestellt für Kompatibilität mit ioBroker Admin-iframe"
+      },
       "0.1.17": {
         "en": "Isolate group errors so one group cannot crash the adapter; configurable sensor disagreement threshold per group (default 5)",
         "de": "Gruppenfehler isoliert — ein Fehler in einer Gruppe crasht nicht den Adapter; konfigurierbarer Sensor-Abweichungsalarm pro Gruppe (Standard 5)"
