@@ -2,6 +2,26 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.1.24] - 2026-07-03
+
+### Added
+- **ObjectPicker Unterordner-Navigation**: Der Objektpicker zeigt jetzt einen 2-Ebenen-Baum
+  (Adapter-Instanz → Unterordner). Vorher wurden alle Einträge flach unter dem Adapter-Namen
+  angezeigt; jetzt sind z.B. `0_userdata.0` → `Macros`, `variables` separat aufklappbar.
+- **Klimaprofil-Presets**: Jeder Tag/Nacht-Sollwert-Block hat einen „Preset laden"-Button
+  mit 7 vorkonfigurierten Pflanzenphasen (Keimling, Wachstum, Blüte früh/spät, Trocknung,
+  Gemüse/Tomate, Salat/Kräuter). Presets zeigen Temperatur, Feuchte und VPD als Vorschau.
+
+### Fixed
+- Admin: `feedbackMissingBehavior` Select enthielt ungültige Option `'block'` — korrigiert auf `'disable'`.
+- Admin: `cameras: unknown[]` in `admin/src/types.ts` durch korrekte `CameraConfig`-Typdefinition ersetzt.
+- `ClimateController.requestByTarget()`: Aktoren mit `controlDirection='both'` wurden bei
+  gerichteten Notfall-Anfragen fälschlich übersprungen.
+- Außenluft-Guard nutzt jetzt die konfigurierten Schwellwerte aus `group.outdoorSensor`
+  statt fest codierten Standardwerten.
+
+---
+
 ## [0.1.23] - 2026-07-03
 
 ### Added

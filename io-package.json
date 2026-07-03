@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.1.23",
+    "version": "0.1.24",
     "news": {
+      "0.1.24": {
+        "en": "ObjectPicker nested folder navigation; climate profile presets for all plant phases; fix feedbackMissingBehavior invalid option; fix CameraConfig type in admin",
+        "de": "ObjectPicker Unterordner-Navigation; Klimaprofil-Presets für alle Pflanzenphasen; feedbackMissingBehavior ungültige Option behoben; CameraConfig Typ in Admin korrigiert"
+      },
       "0.1.23": {
         "en": "Per-actuator control targets (controlTarget/controlDirection); outdoor air guard sensor per group; full climate profile editor with CO2 and soil moisture setpoints",
         "de": "Per-Aktor Regelziel (controlTarget/controlDirection); Außenluft-Vergleichssensor pro Gruppe; vollständiger Klimaprofil-Editor mit CO₂- und Bodenfeuchte-Sollwerten"
