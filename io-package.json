@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.1.28",
+    "version": "0.1.29",
     "news": {
+      "0.1.29": {
+        "en": "Fix admin live data: re-add socket bridge (window.io.connect) removed during index.html cleanup; emitSocket now tries direct method calls before raw emit",
+        "de": "Admin-Livedaten behoben: Socket-Bridge (window.io.connect) wieder hinzugefügt die beim index.html-Umbau entfernt wurde; emitSocket versucht jetzt direkte Methodenaufrufe vor raw emit"
+      },
       "0.1.28": {
         "en": "Fix alive-state stale logic: when healthStateId is set and alive=true, timestamp check is skipped entirely (not just used as fallback)",
         "de": "Alive-State Stale-Logik korrigiert: wenn healthStateId gesetzt und alive=true, wird der Timestamp-Check komplett übersprungen statt nur als Fallback genutzt"

@@ -1201,9 +1201,18 @@ type EnumMap = Record<string, string[]>; // stateId → [label, ...]
 
 function emitSocket(event: string, ...args: unknown[]): Promise<unknown> {
     return new Promise(resolve => {
-        const sock = (window as Window & { _growSocket?: { emit: (...a: unknown[]) => void } })._growSocket;
+        type Sock = Record<string, unknown> & { emit: (...a: unknown[]) => void };
+        const w = window as Window & { _growSocket?: Sock; socket?: Sock };
+        const sock = w._growSocket ?? w.socket;
         if (!sock) { resolve(null); return; }
-        sock.emit(event, ...args, ((_err: unknown, res: unknown) => resolve(res)) as never);
+        const cb = (_err: unknown, res: unknown) => resolve(res);
+        // ioBroker admin v6 sometimes wraps methods directly (sock.getState, sock.getObjectView …)
+        // instead of routing through sock.emit. Try the direct method first.
+        if (typeof sock[event] === 'function') {
+            (sock[event] as (...a: unknown[]) => void)(...args, cb);
+            return;
+        }
+        sock.emit(event, ...args, cb as never);
     });
 }
 
@@ -1959,19 +1968,43 @@ const App: React.FC = () => {
     const [saveError, setSaveError] = useState('');
     const [socketReady, setSocketReady] = useState(false);
 
-    // ioBroker-Anbindung
+    // Socket-Bridge: ioBroker admin lädt socket.io in den Parent-Frame.
+    // window.io ist die socket.io-Lib; window.io.connect() baut die Verbindung auf.
+    // Fallback: window.socket (ältere Admin-Versionen injizieren eine fertige Instanz).
+    useEffect(() => {
+        type W = Window & {
+            io?: { connect: (url?: string) => SocketLike };
+            socket?: SocketLike;
+            _growSocket?: SocketLike;
+            _growInstanceId?: string;
+        };
+        type SocketLike = { emit: (...a: unknown[]) => void; on: (ev: string, cb: (...a: unknown[]) => void) => void };
+
+        function doConnect(w: W) {
+            if (w._growSocket) return;
+            // Prefer window.socket if already available (some admin versions inject it)
+            if (w.socket?.emit) { w._growSocket = w.socket; return; }
+            // Otherwise connect via socket.io library (window.io injected by ioBroker admin)
+            if (w.io?.connect) {
+                const s = w.io.connect();
+                s.on('connect', () => { w._growSocket = s; });
+            }
+        }
+
+        const w = window as W;
+        doConnect(w);
+        // Retry a few times — socket.io script may not be ready on first mount
+        const t1 = setTimeout(() => doConnect(w), 200);
+        const t2 = setTimeout(() => doConnect(w), 800);
+        const t3 = setTimeout(() => doConnect(w), 2000);
+        return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    }, []);
+
+    // ioBroker-Anbindung: config laden sobald loadConfig verfügbar
     useEffect(() => {
         const load = () => {
-            const w = window as Window & {
-                loadConfig?: (cb: (c: GrowManagerConfig) => void) => void;
-                socket?: { emit: (...a: unknown[]) => void };
-                _growSocket?: { emit: (...a: unknown[]) => void };
-                _growInstanceId?: string;
-            };
+            const w = window as Window & { loadConfig?: (cb: (c: GrowManagerConfig) => void) => void };
             if (typeof w.loadConfig === 'function') {
-                // ioBroker admin v6+ injects window.socket with a pre-connected socket instance.
-                // Wire it up as _growSocket so emitSocket() can use it for getState calls.
-                if (!w._growSocket && w.socket?.emit) w._growSocket = w.socket;
                 setSocketReady(true);
                 w.loadConfig((c: GrowManagerConfig) => setConfig(prev => ({
                     ...prev,
