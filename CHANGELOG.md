@@ -4,271 +4,108 @@ All notable changes to the GrowManager ioBroker adapter are documented here.
 
 ## [0.1.26] - 2026-07-03
 
-### Fixed / Improved
-- **Toleranterer Stale-Check**: Standard `staleAfterSeconds` von 900 s auf 1200 s (20 min) angehoben.
-- **Alive-State überschreibt Timestamp**: Wenn `healthStateId` konfiguriert ist und das Gerät
-  als offline markiert ist → Fehler "Gerät offline"; wenn Gerät alive=true → kein Stale-Fehler,
-  egal wie alt der letzte Timestamp ist.
-- **Multi-Wert-Sensoren teilen Gerätezeitstempel**: Temp- und Feuchtigkeitssensor am selben
-  physischen Gerät (gleicher ID-Prefix, z.B. `zigbee.0.abc123`) teilen jetzt einen gemeinsamen
-  Liveness-Timestamp. Wenn Temperatur aktualisiert, gilt auch Feuchtigkeit als frisch —
-  verhindert Stale-Fehler bei Sensoren die beide Werte separat melden aber nicht immer gleichzeitig.
+### Verbesserungen seit v0.1.0 — Gesamtübersicht
+
+Diese Version fasst alle wesentlichen Neuerungen und Bugfixes seit dem Initial-Release zusammen.
 
 ---
 
-## [0.1.25] - 2026-07-03
+### Kernfunktionen
 
-### Fixed
-- Admin-Dashboard: Werte zeigten `---` und Status `Fault` direkt nach Adapterstart, weil der
-  Gesundheits-Fallback auf `'FAULT'` statt `'FULL'` stand, bevor der erste Zyklus den State schreibt.
-- Sensorqualität 0% nach Neustart: `onStateChange` nutzte `state.ts` als Sensor-Timestamp —
-  dieser kann bei unverändertem Sensorwert alt sein. Jetzt wird `Math.max(state.ts, Date.now() - 5000)`
-  verwendet, damit der empfangene Event als maximal 5 Sekunden alt gilt.
+- **Sensorverwaltung**: Primär-, Backup- und Monitor-Rollen mit konfigurierbarer Priorität.
+  Backup-Sensoren aktivieren sich automatisch wenn alle Primärsensoren ausfallen.
+- **Aggregation**: Median, Mittelwert, gewichteter Mittelwert, Min, Max; Ausreißerfilter ab 3+ Sensoren.
+- **Glättung**: Keine / gleitender Mittelwert / Median / Exponential (EMA) je Sensor konfigurierbar.
+- **Stabilitätszeit**: Sensor gilt nach Ausfall erst nach konfigurierbarer Stabilisierungszeit wieder als gültig.
+- **Startwerte**: Beim Adapterstart werden alle konfigurierten Sensor-States sofort eingelesen.
 
----
+### Klimaregelung
 
-## [0.1.24] - 2026-07-03
+- **VPD / Temperatur / Feuchte / CO₂ / Bodenfeuchte**: Separat oder kombiniert regelbar.
+  Wenn VPD als Regelgröße gewählt wird, berechnet der Adapter den notwendigen Feuchte-Sollwert
+  dynamisch — Temperatur- und Feuchte-Sollwerte bleiben als Schutzgrenzen aktiv.
+- **PID-Regler** pro Regelgröße mit konfigurierbaren Kp/Ki/Kd-Werten und Anti-Windup.
+- **Tag/Nacht-Profile**: Jede Gruppe hat einen vollständigen Klimaprofil-Editor mit separaten
+  Tag- und Nacht-Sollwerten für Temperatur, Feuchte, VPD, CO₂ und Bodenfeuchte.
+- **Klimaprofil-Presets**: 7 vorkonfigurierte Pflanzenphasen im Admin-Editor auswählbar:
+  Keimling, Wachstum, Blüte früh, Blüte spät, Trocknung, Gemüse/Tomate, Salat/Kräuter.
+- **Per-Aktor Regelziel** (`controlTarget` / `controlDirection`): Jeder Aktor kann explizit
+  konfigurieren welche Messgröße er regelt und ob er in positive/negative Richtung wirkt.
+  Fehlende Werte werden automatisch aus dem Aktortyp abgeleitet (rückwärtskompatibel).
 
-### Added
-- **ObjectPicker Unterordner-Navigation**: Der Objektpicker zeigt jetzt einen 2-Ebenen-Baum
-  (Adapter-Instanz → Unterordner). Vorher wurden alle Einträge flach unter dem Adapter-Namen
-  angezeigt; jetzt sind z.B. `0_userdata.0` → `Macros`, `variables` separat aufklappbar.
-- **Klimaprofil-Presets**: Jeder Tag/Nacht-Sollwert-Block hat einen „Preset laden"-Button
-  mit 7 vorkonfigurierten Pflanzenphasen (Keimling, Wachstum, Blüte früh/spät, Trocknung,
-  Gemüse/Tomate, Salat/Kräuter). Presets zeigen Temperatur, Feuchte und VPD als Vorschau.
+### Außenluft-Guard
 
-### Fixed
-- Admin: `feedbackMissingBehavior` Select enthielt ungültige Option `'block'` — korrigiert auf `'disable'`.
-- Admin: `cameras: unknown[]` in `admin/src/types.ts` durch korrekte `CameraConfig`-Typdefinition ersetzt.
-- `ClimateController.requestByTarget()`: Aktoren mit `controlDirection='both'` wurden bei
-  gerichteten Notfall-Anfragen fälschlich übersprungen.
-- Außenluft-Guard nutzt jetzt die konfigurierten Schwellwerte aus `group.outdoorSensor`
-  statt fest codierten Standardwerten.
+- **Vergleichssensor pro Gruppe** (`outdoorSensor`): Optionale State-IDs für Außentemperatur
+  und -feuchte. Abluft-/Zuluftlüfter mit aktiviertem Guard werden gesperrt wenn die Außenluft
+  thermodynamisch ungünstiger als die Innenluft ist.
+- Konfigurierbare Schwellwerte: Mindest-Temperaturdelta (Standard 2 °C) und
+  Maximal-Feuchtedelta (Standard 10 %).
 
----
+### Aktor- und Gruppenmanagement
 
-## [0.1.23] - 2026-07-03
+- **SharedActorManager**: Verhindert gleichzeitige Schaltbefehle bei physisch gemeinsam
+  genutzten Aktoren über Gruppen hinweg.
+- **Gruppenkapazitäts-Service**: Berechnet die maximale Aktorlast pro Gruppe.
+- **Wartungsmodus** und **Not-Aus**: Globale Sicherheitsabschaltung per ioBroker-State.
+- **Manueller Modus pro Gruppe**: Dashboard-Toggle AUTO ↔ MANUELL mit PIN-Schutz.
+  Im Manuell-Modus werden EIN/AUS-Buttons für alle Aktoren angezeigt.
+- **Sensor-Abweichungsalarm**: Konfigurierbare Schwelle wenn mehrere Sensoren einer Gruppe
+  stark voneinander abweichen.
 
-### Added
-- **Per-Aktor Regelziel** (`controlTarget`/`controlDirection`): Jeder Aktor kann jetzt explizit
-  konfigurieren, welche Messgröße er regelt (Temperatur, Feuchte, VPD, CO₂, Bodenfeuchte,
-  Licht, Timer, Benutzerdefiniert) und in welche Richtung er wirkt (up/down/both).
-  Rückwärtskompatibel: fehlende Werte werden automatisch aus dem Aktortyp abgeleitet.
-- **Außenluft-Vergleichssensor pro Gruppe** (`outdoorSensor`): Optionale State-IDs für
-  Außentemperatur und -feuchte. Lüfter mit aktiviertem `outdoorGuardEnabled` werden gesperrt,
-  wenn die Außenluft nicht günstiger als die Innenluft ist.
-  Konfigurierbare Schwellwerte: Min-Temperaturdelta (Standard 2 °C) und Max-Feuchtedelta (Standard 10 %).
-- **Vollständiger Klimaprofil-Editor**: Sollwerte jetzt mit Sektionen (Temperatur, Feuchte, VPD, CO₂, Bodenfeuchte)
-  und optionalen Feldern für CO₂-Ziel/-Toleranz und Bodenfeuchte-Ziel/-Toleranz.
-- Admin-UI: Aktor-Editor zeigt Regelziel- und Wirkrichtungs-Dropdowns; Außenluft-Guard-Checkbox
-  für Abluft-/Zuluftlüfter; Gruppen-Editor mit vollständiger Außensensor-Konfiguration.
+### Stale-Erkennung (verbessert)
 
-### Fixed
-- `requestByTarget()` Richtungsfilter: Aktoren mit `controlDirection='both'` wurden fälschlicherweise
-  übersprungen, wenn eine spezifische Richtung (z.B. 'down') angefordert wurde.
-- Außenluft-Guard nutzt jetzt die konfigurierten Schwellwerte aus `group.outdoorSensor` statt
-  fest codierten Standardwerten.
+- **Alive-State überschreibt Timestamp**: Wenn `healthStateId` konfiguriert ist (z.B.
+  `zigbee.0.device.available`) und Gerät meldet alive=true → kein Stale-Fehler egal wie
+  alt der letzte Datenpunkt ist. Meldet es false → sofort "Gerät offline".
+- **Geräte-Liveness-Sharing**: Temp- und Feuchtigkeitssensor am selben physischen Gerät
+  (gleicher ID-Prefix, z.B. `zigbee.0.abc123`) teilen einen gemeinsamen Liveness-Timestamp.
+  Wenn einer der Kanäle aktualisiert, gilt das gesamte Gerät als frisch.
+- **Startup-Stale-Fix**: `onStateChange` nutzt `Math.max(state.ts, Date.now() - 5000)` —
+  verhindert falschen Stale-Alarm beim Adapterstart wenn `state.ts` ein alter gespeicherter
+  Wert ist.
+- **Standard `staleAfterSeconds`**: 1200 s (20 Minuten).
 
----
+### Alarm-System
 
-## [0.1.22] - 2026-07-03
+- Mehrere konfigurierbare Alarmkanäle (Push, E-Mail, ioBroker-State).
+- Alarm-Quittierung per ioBroker-State (`control.acknowledgeAll`).
+- Alarm-Retention konfigurierbar (`eventRetentionDays`).
 
-### Added
-- **Dashboard AUTO/MANUELL-Umschalter pro Gruppe**: Jede Gruppe hat jetzt einen Modus-Toggle
-  im Gruppen-Header. Im MANUELL-Modus werden EIN/AUS-Buttons für alle Aktoren der Gruppe angezeigt.
-- **PIN-Schutz für Moduswechsel**: Der Wechsel in den MANUELL-Modus erfordert denselben PIN
-  wie manuelle Aktuator-Steuerung.
-- Neuer SSE-Feldname `runtimeMode` im `DashboardGroupState` für die Modusweitergabe an das Dashboard.
-- Neue REST-Route `POST /api/mode` im `WebDashboardService` für Modus-Callbacks.
+### Bewässerung
 
----
+- Regelbasierte Bewässerungssteuerung mit konfigurierbaren Zeit- und Feuchtigkeitsbedingungen.
+- Kopplung an Bodenfeuchte-Sensoren mit Ziel-/Toleranzwerten.
 
-## [0.1.21] - 2026-07-02
+### Web-Dashboard (Port 8097)
 
-### Added
-- Dashboard: modusabhängige Sollwert-Balken für VPD, Temperatur und Feuchte mit farblicher
-  Zielbereichsmarkierung.
+- Live-Anzeige aller Gruppen: Temperatur, Feuchte, VPD, Sensorqualität, Aktorstatus.
+- Sollwert-Balken mit farblicher Zielbereichsmarkierung für VPD, Temperatur und Feuchte.
 - Aktive Geräte-Icon-Leiste mit Puls-Animation für laufende Aktoren.
-- Verbesserte visuelle Hierarchie im Dashboard (Sektions-Trennlinien, Farbkodierung).
-
----
-
-## [0.1.20] - 2026-07-02
-
-### Added
-- Dashboard: manuelle Aktorsteuerung per EIN/AUS-Buttons mit PIN-Schutz.
-- Sollwertanzeige und Kamerabild-Kachel im Gruppen-Card.
 - Monitor-Sensor-Tooltip mit Sensordetails.
+- Modus-Toggle AUTO/MANUELL pro Gruppe mit PIN-Schutz.
+- Manuelle Aktor-Steuerung (EIN/AUS) im Manuell-Modus.
+- SSE-Stream (Server-Sent Events) für Echtzeit-Updates ohne Polling.
 
-### Fixed
-- Doppelter Modus-Tag-Bug im Dashboard behoben.
+### Admin-UI (React)
 
----
+- **Objektpicker**: Durchsuchbares Modal für alle ioBroker-States, 2-Ebenen-Baum
+  (Adapter-Instanz → Unterordner, z.B. `0_userdata.0` → `Macros`).
+  Zeigt freundliche Namen neben kryptischen IDs aus der ioBroker-Objektdatenbank.
+- **Klimaprofil-Editor**: Vollständiger Tag/Nacht-Sollwert-Editor mit Preset-Auswahl.
+- **Live-Dashboard im Admin**: Polling aller Gruppen-States mit Temperatur, Feuchte,
+  VPD, Sensorqualität und Gesundheitsstatus. Neutraler Fallback-Status vor dem ersten Zyklus.
+- **Diagnose-Ansicht**: Sensorqualität, Stale-Status, Gerätestatus pro Gruppe.
+- **Gruppen-Editor**: Vollständige Konfiguration inkl. Außensensor, Sensor-Abweichungsschwelle,
+  Stabilitätszeit, Aggregationsmethode.
+- **Aktor-Editor**: Regelziel (`controlTarget`), Wirkrichtung (`controlDirection`),
+  Außenluft-Guard-Checkbox für Abluft-/Zuluftlüfter.
 
-## [0.1.19] - 2026-07-02
+### Build & Infrastruktur
 
-### Added
-- Sensor-Rollen: `primary`, `backup`, `monitor` mit Prioritätsreihenfolge.
-- Backup-Sensoren aktivieren sich automatisch, wenn alle primären Sensoren ausfallen.
-
----
-
-## [0.1.18] - 2026-07-02
-
-### Fixed
-- Leere Admin-UI: Vite-Build von ES-Modul auf IIFE-Format umgestellt für Kompatibilität
-  mit ioBroker Admin-iframe (kein `type="module"` auf `<script>`-Tag).
-
----
-
-## [0.1.17] - 2026-07-02
-
-### Added
-- Konfigurierbarer Sensor-Abweichungsalarm pro Gruppe (`sensorDisagreementThreshold`, Standard 5).
-
-### Fixed
-- Fehler in einer Gruppe können den Adapter nicht mehr zum Absturz bringen (Fehler werden
-  pro Gruppe isoliert abgefangen).
-
----
-
-## [0.1.16] - 2026-07-02
-
-### Fixed
-- Fehlender Script-Tag in `admin/index.html` nach Build ergänzt.
-
----
-
-## [0.1.15] - 2026-07-02
-
-### Fixed
-- Admin-UI-Render-Fehler: Vite-Build von IIFE auf ES-Modul-Format umgestellt.
-
----
-
-## [0.1.14] - 2026-07-02
-
-### Added
-- Dynamischer Stale-Check je Zyklus; `staleAfterSeconds` Standard 900 s.
-- Erstlesen verwendet `Date.now()` als Timestamp.
-- Gerätestatus-State (`available`/`link_quality`/`alive`) für Sensoren und Aktoren.
-
----
-
-## [0.1.13] - 2026-07-02
-
-### Fixed
-- Sensorqualität 0 %: `staleAfterSeconds`-Standard von 300 auf 3600 erhöht.
-- `lc`/`q`-Parameter-Bug beim Start behoben.
-
-### Added
-- Live-Polling im Admin-Dashboard.
-- Aufklappbare Adapter-Kategorien im Objektpicker.
-
----
-
-## [0.1.12] - 2026-07-02
-
-### Fixed
-- Wiederkehrender Build-Bug: fester Bundle-Dateiname (`assets/index.js`), sodass
-  `admin/index.html` nie mehr manuell aktualisiert werden muss.
-
----
-
-## [0.1.11] - 2026-07-02
-
-### Added
-- Sensor-Startwerte werden beim Adapterstart eingelesen.
-- Objektpicker komplett überarbeitet: Tabelle mit Typ-Tabs und Raum/Funktion-Spalten.
-
----
-
-## [0.1.10] - 2026-07-02
-
-### Fixed
-- Crash when opening the group editor: `climateProfiles` was missing from older saved configs
-  and arrived as `undefined` instead of `[]`, causing `.map()` to throw. Config is now merged
-  with array defaults on load so missing keys never reach the UI as `undefined`.
-- Added `climateProfiles: []` to the `io-package.json` native defaults so new installations
-  always have a well-formed initial config.
-
----
-
-## [0.1.9] - 2026-07-02
-
-### Fixed
-- **Critical build fix**: `admin/index.html` was pointing to the previously compiled bundle
-  instead of the TypeScript source entry (`./src/index.tsx`). Every build since v0.1.5 had
-  been repackaging the same old bundle — no TypeScript changes were ever compiled into the
-  shipped files. Resetting the entry point caused Vite to transform 30 modules (previously 3)
-  and produce a correct bundle for the first time since v0.1.4.
-
----
-
-## [0.1.8] - 2026-07-02
-
-### Fixed
-- Socket bridge now works reliably: `window.io` is checked immediately at startup before
-  loading `socket.io.js` (handles the case where admin already loaded it).
-- Added polling fallback (every 250 ms, up to 10 s) so the bridge connects even if Firefox
-  does not fire `onload` for a cached/duplicate script URL.
-- Extracted `doConnect()` helper shared by all connection paths (direct, onload, poll).
-
-*Note: due to the build bug fixed in 0.1.9, the changes above only took effect from 0.1.9 onwards.*
-
----
-
-## [0.1.5 – 0.1.7] - 2026-07-02
-
-*Note: these versions were shipped with the build bug described in 0.1.9 — the TypeScript
-source was never compiled, so their fixes had no effect at runtime.*
-
-### Intended fixes (now active via 0.1.9)
-- **0.1.7** Socket bridge cleanup: consistent use of `io.connect()` across all paths.
-- **0.1.6** Bridge checks `window.io` before attempting to load `socket.io.js` again.
-- **0.1.5** Use ioBroker WebSockets v3 API correctly: `window.io` is an object
-  `{ connect: fn }`, not a callable function. Previous code called `window.io()` →
-  TypeError → fell through to non-functional fetch fallback → config never loaded or saved.
-
----
-
-## [0.1.4] - 2026-07-02
-
-### Added
-- Socket bridge with multiple fallback paths (`window.socket`, `parent.socket`, `socket.io.js`)
-- Save feedback indicator in header (● Verbunden / ○ Verbinde…)
-- Auto-save when GroupEditor closes
-
----
-
-## [0.1.3] - 2026-07-02
-
-### Added
-- **Object tree picker**: "🔍 Wählen" button on all sensor/actuator state-ID fields opens a
-  searchable modal showing all ioBroker states (ID, name, type, role)
-- **Climate profile editor**: full day/night setpoint editor for temperature, humidity and VPD
-  with phase selection (seedling / growth / bloom / drying)
-- **Save feedback**: header shows "✓ Gespeichert" on success or "✗ Fehler beim Speichern"
-  on failure
-
-### Fixed
-- Socket bridge tries `window.socket` (injected by ioBroker admin v6+) first
-
----
-
-## [0.1.2] - 2026-07-02
-
-### Fixed
-- Added `"adminUI": { "config": "html" }` to `io-package.json` so ioBroker admin loads the
-  React UI instead of looking for `jsonConfig.json`
-
----
-
-## [0.1.1] - 2026-07-01
-
-### Fixed
-- `admin/` directory was missing after `npm install` from GitHub (npm v7+ skips subdirs with
-  their own `package.json`). Removed build config files from git tracking, added `.npmignore`.
+- **Fester Bundle-Dateiname** (`assets/index.js`, kein Hash) — `admin/index.html` muss
+  nach einem Rebuild nie mehr manuell aktualisiert werden.
+- **IIFE-Bundle-Format** für Kompatibilität mit ioBroker Admin-iframe (kein `type="module"`).
+- 116 automatisierte Unit-Tests (Jest), alle grün.
 
 ---
 
