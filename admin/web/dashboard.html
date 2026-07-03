@@ -9,7 +9,7 @@
     --green: #2e7d32; --green-light: #4caf50; --green-dark: #1b5e20;
     --bg: #121212; --surface: #1e1e1e; --surface2: #2a2a2a; --border: #333;
     --text: #e0e0e0; --text-dim: #888;
-    --red: #ef5350; --orange: #ff9800; --yellow: #fbc02d; --blue: #42a5f5;
+    --red: #ef5350; --orange: #ff9800; --yellow: #fbc02d; --blue: #42a5f5; --purple: #ce93d8;
     --full: #4caf50; --limited: #fbc02d; --fallback: #ff9800;
     --monitor: #42a5f5; --safe: #9e9e9e; --fault: #ef5350;
   }
@@ -21,7 +21,7 @@
     display: flex; align-items: center; justify-content: space-between;
     position: sticky; top: 0; z-index: 100; border-bottom: 2px solid var(--green);
   }
-  .header-title { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  .header-title { font-size: 20px; font-weight: 700; }
   .header-status { display: flex; align-items: center; gap: 16px; font-size: 13px; }
   .conn-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); display: inline-block; }
   .conn-dot.connected { background: var(--green-light); box-shadow: 0 0 6px var(--green-light); }
@@ -50,6 +50,7 @@
     gap: 16px;
   }
 
+  /* ---- Group card ---- */
   .group-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 10px; overflow: hidden; transition: border-color 0.3s;
@@ -67,16 +68,79 @@
     text-transform: uppercase; letter-spacing: 0.5px;
   }
 
-  .climate-row { display: flex; gap: 0; padding: 14px 0; border-bottom: 1px solid var(--border); }
-  .climate-val { flex: 1; text-align: center; border-right: 1px solid var(--border); }
-  .climate-val:last-child { border-right: none; }
-  .climate-num { font-size: 24px; font-weight: 700; color: var(--green-light); }
-  .climate-num.null-val { color: var(--text-dim); font-size: 18px; }
-  .climate-label { font-size: 11px; color: var(--text-dim); margin-top: 2px; text-transform: uppercase; }
-  .climate-target { font-size: 10px; color: var(--text-dim); margin-top: 1px; }
-  .climate-target.ok { color: var(--green-light); }
-  .climate-target.warn { color: var(--yellow); }
+  /* ---- Aktive Geräte Icons ---- */
+  .act-icons-row {
+    display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 16px;
+    border-bottom: 1px solid var(--border); align-items: center;
+  }
+  .act-icon-chip {
+    position: relative;
+    display: flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: 20px; font-size: 12px;
+    border: 1px solid transparent; cursor: default; transition: all 0.2s;
+  }
+  .act-icon-chip.on {
+    background: rgba(76,175,80,0.15); border-color: var(--green-light); color: var(--green-light);
+  }
+  .act-icon-chip.on.heating { background: rgba(255,152,0,0.15); border-color: var(--orange); color: var(--orange); }
+  .act-icon-chip.on.cooling { background: rgba(66,165,245,0.15); border-color: var(--blue); color: var(--blue); }
+  .act-icon-chip.on.light { background: rgba(251,192,45,0.15); border-color: var(--yellow); color: var(--yellow); }
+  .act-icon-chip.on.irrigation { background: rgba(66,165,245,0.2); border-color: #29b6f6; color: #29b6f6; }
+  .act-icon-chip.off { opacity: 0.35; border-color: var(--border); color: var(--text-dim); }
+  .act-icon-chip:hover .act-icon-tip { display: block; }
+  .act-icon-tip {
+    display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+    background: #222; border: 1px solid var(--border); border-radius: 5px;
+    padding: 5px 10px; font-size: 11px; white-space: nowrap; z-index: 50; color: var(--text);
+  }
+  .act-icon-tip::after {
+    content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: var(--border);
+  }
+  .act-icon-pulse {
+    width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 
+  /* ---- Klimawerte ---- */
+  .climate-row { display: flex; border-bottom: 1px solid var(--border); }
+  .climate-val {
+    flex: 1; text-align: center; padding: 12px 6px;
+    border-right: 1px solid var(--border); position: relative;
+  }
+  .climate-val:last-child { border-right: none; }
+  .climate-val.controlled { background: rgba(76,175,80,0.05); }
+  .climate-val.controlled::after {
+    content: '●'; position: absolute; top: 5px; right: 6px;
+    font-size: 7px; color: var(--green-light); opacity: 0.7;
+  }
+  .climate-num { font-size: 24px; font-weight: 700; color: var(--green-light); line-height: 1.1; }
+  .climate-num.dim { font-size: 20px; color: var(--text-dim); }
+  .climate-num.null-val { color: var(--text-dim); font-size: 18px; }
+  .climate-label { font-size: 10px; color: var(--text-dim); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Sollwert Bereich */
+  .setpoint-bar {
+    margin: 4px 4px 0; height: 3px; border-radius: 2px;
+    background: var(--border); position: relative; overflow: visible;
+  }
+  .setpoint-range {
+    position: absolute; top: 0; height: 100%; border-radius: 2px;
+    background: rgba(76,175,80,0.5);
+  }
+  .setpoint-marker {
+    position: absolute; top: -3px; width: 3px; height: 9px;
+    background: var(--green-light); border-radius: 1px; transform: translateX(-50%);
+  }
+  .setpoint-text {
+    font-size: 10px; color: var(--text-dim); margin-top: 3px; white-space: nowrap;
+  }
+  .setpoint-text.ok { color: var(--green-light); }
+  .setpoint-text.warn { color: var(--yellow); }
+  .setpoint-text.fault { color: var(--red); }
+
+  /* ---- Meta-Zeile ---- */
   .meta-row {
     display: flex; gap: 8px; flex-wrap: wrap; padding: 8px 16px;
     font-size: 12px; color: var(--text-dim); border-bottom: 1px solid var(--border);
@@ -88,15 +152,12 @@
   .meta-tag.mode { color: var(--blue); }
   .meta-tag.phase { color: var(--green-light); }
 
-  /* Monitor-Sensor Info Icon */
   .monitor-info {
     position: relative; cursor: help;
-    background: rgba(66,165,245,0.15); border: 1px solid var(--blue);
+    background: rgba(66,165,245,0.1); border: 1px solid var(--blue);
     border-radius: 3px; padding: 2px 7px; color: var(--blue); font-size: 11px;
   }
-  .monitor-info:hover .monitor-tooltip {
-    display: block;
-  }
+  .monitor-info:hover .monitor-tooltip { display: block; }
   .monitor-tooltip {
     display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
     background: #1a2a3a; border: 1px solid var(--blue); border-radius: 6px;
@@ -108,11 +169,11 @@
     border: 6px solid transparent; border-top-color: var(--blue);
   }
 
-  /* Actuators */
+  /* ---- Aktoren Detail ---- */
   .actuators { padding: 10px 16px; }
   .act-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
   .actuator-row {
-    display: flex; align-items: center; gap: 8px; padding: 6px 0;
+    display: flex; align-items: center; gap: 8px; padding: 5px 0;
     font-size: 13px; border-bottom: 1px solid var(--border);
   }
   .actuator-row:last-child { border-bottom: none; }
@@ -128,26 +189,22 @@
     font-size: 10px; color: var(--orange); background: rgba(255,152,0,0.1);
     border: 1px solid var(--orange); border-radius: 3px; padding: 1px 5px;
   }
-
-  /* Toggle button */
   .act-toggle {
     background: none; border: 1px solid var(--border); border-radius: 4px;
     color: var(--text-dim); cursor: pointer; font-size: 11px;
-    padding: 2px 8px; transition: all 0.2s; flex-shrink: 0;
+    padding: 2px 7px; transition: all 0.2s; flex-shrink: 0;
   }
-  .act-toggle:hover { border-color: var(--green-light); color: var(--green-light); }
   .act-toggle.on-btn:hover { border-color: var(--green-light); color: var(--green-light); }
   .act-toggle.off-btn:hover { border-color: var(--red); color: var(--red); }
-
   .percent-bar-wrap { flex: 1; background: var(--surface2); border-radius: 2px; height: 4px; max-width: 80px; }
   .percent-bar-fill { height: 100%; border-radius: 2px; background: var(--green-light); transition: width 0.5s; }
 
-  /* Alarms */
+  /* ---- Alarme ---- */
   .card-alarms { padding: 8px 16px; }
   .card-alarm { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
   .sev-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 
-  /* Irrigation */
+  /* ---- Bewässerung ---- */
   .irrig-badge {
     margin: 0 16px 8px; background: rgba(66,165,245,0.15);
     border: 1px solid var(--blue); border-radius: 4px;
@@ -155,25 +212,23 @@
   }
   .irrig-badge.running { display: block; }
 
-  /* Camera */
+  /* ---- Kamera ---- */
   .card-camera {
     margin: 0 16px 12px; border-radius: 6px; overflow: hidden;
     border: 1px solid var(--border); position: relative;
   }
-  .card-camera img {
-    width: 100%; display: block; max-height: 200px; object-fit: cover;
-  }
+  .card-camera img { width: 100%; display: block; max-height: 200px; object-fit: cover; }
   .card-camera-label {
     position: absolute; top: 6px; left: 6px;
     background: rgba(0,0,0,0.6); border-radius: 3px;
     font-size: 11px; color: var(--text-dim); padding: 2px 6px;
   }
 
-  /* Empty */
+  /* ---- Empty ---- */
   .empty-state { grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--text-dim); }
   .empty-state h2 { color: var(--text); margin-bottom: 8px; }
 
-  /* Reconnect overlay */
+  /* ---- Reconnect ---- */
   .reconnect-overlay {
     display: none; position: fixed; inset: 0;
     background: rgba(0,0,0,0.7); align-items: center; justify-content: center;
@@ -182,7 +237,7 @@
   .reconnect-overlay.visible { display: flex; }
   .reconnect-overlay p { font-size: 18px; }
 
-  /* PIN Modal */
+  /* ---- PIN Dialog ---- */
   .pin-modal {
     display: none; position: fixed; inset: 0;
     background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 200;
@@ -202,10 +257,7 @@
   .pin-input:focus { border-color: var(--green-light); }
   .pin-error { color: var(--red); font-size: 13px; margin-top: 8px; min-height: 20px; }
   .pin-buttons { display: flex; gap: 10px; margin-top: 16px; }
-  .pin-btn {
-    flex: 1; padding: 10px; border-radius: 6px; border: none; cursor: pointer;
-    font-size: 14px; font-weight: 600;
-  }
+  .pin-btn { flex: 1; padding: 10px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; }
   .pin-btn.confirm { background: var(--green); color: #fff; }
   .pin-btn.cancel { background: var(--surface2); color: var(--text); }
 
@@ -250,7 +302,6 @@
   <p>Verbindung unterbrochen – verbinde neu…</p>
 </div>
 
-<!-- PIN Dialog -->
 <div class="pin-modal" id="pinModal">
   <div class="pin-box">
     <h3>🔒 PIN eingeben</h3>
@@ -274,24 +325,43 @@ const HEALTH_COLORS = {
   MONITOR_ONLY: 'var(--monitor)', SAFE: 'var(--safe)', FAULT: 'var(--fault)',
 };
 const SEV_COLORS = { critical: 'var(--red)', fault: 'var(--orange)', warning: 'var(--yellow)', info: 'var(--blue)' };
-const TYPE_ICONS = {
-  light: '💡', exhaustFan: '🌀', supplyFan: '🌬️', circulationFan: '🔄',
-  heating: '🔥', cooling: '❄️', humidifier: '💧', dehumidifier: '🌵',
-  irrigation: '🚿', co2Valve: '💨', damper: '🎚️', custom: '⚙️',
+
+// Aktor-Typen: Icon, Label, CSS-Klasse für Farbe
+const ACT_TYPE = {
+  light:          { icon: '💡', label: 'Licht',        cls: 'light' },
+  exhaustFan:     { icon: '🌀', label: 'Abluft',       cls: 'fan' },
+  supplyFan:      { icon: '🌬️', label: 'Zuluft',       cls: 'fan' },
+  circulationFan: { icon: '🔄', label: 'Umluft',       cls: 'fan' },
+  heating:        { icon: '🔥', label: 'Heizung',      cls: 'heating' },
+  cooling:        { icon: '❄️', label: 'Kühlung',      cls: 'cooling' },
+  humidifier:     { icon: '💧', label: 'Befeuchter',   cls: '' },
+  dehumidifier:   { icon: '🌵', label: 'Entfeuchter',  cls: '' },
+  irrigation:     { icon: '🚿', label: 'Pumpe',        cls: 'irrigation' },
+  co2Valve:       { icon: '💨', label: 'CO₂',          cls: '' },
+  damper:         { icon: '🎚️', label: 'Klappe',       cls: '' },
+  custom:         { icon: '⚙️', label: 'Gerät',        cls: '' },
 };
-const PHASE_LABELS = { seedling: 'Keimling', growth: 'Wachstum', bloom: 'Blüte', drying: 'Trocknung', custom: 'Individuell' };
+
+const PHASE_LABELS = { seedling:'Keimling', growth:'Wachstum', bloom:'Blüte', drying:'Trocknung', custom:'Individuell' };
 const MODE_LABELS = {
-  monitorOnly: 'Nur Überwachung', temperature: 'Temperatur-Regelung',
-  humidity: 'Feuchte-Regelung', vpd: 'VPD-Regelung', combined: 'Kombiniert',
-  schedule: 'Zeitplan', manual: 'Manuell', maintenance: 'Wartung', off: 'Aus',
+  monitorOnly:'Nur Überwachung', temperature:'Temperatur', humidity:'Feuchte',
+  vpd:'VPD', combined:'Kombiniert', schedule:'Zeitplan', manual:'Manuell',
+  maintenance:'Wartung', off:'Aus',
 };
 
-let eventSource = null;
-let reconnectTimer = null;
-let connected = false;
-let currentState = null;
+// Welche Klimawerte welcher Modus regelt
+const MODE_CONTROLS = {
+  temperature: ['temp'],
+  humidity:    ['hum'],
+  vpd:         ['vpd'],
+  combined:    ['temp','hum','vpd'],
+  schedule:    ['temp','hum','vpd'],
+  monitorOnly: [],
+  manual:      [],
+  off:         [],
+};
 
-// PIN-Dialog
+let eventSource = null, reconnectTimer = null, connected = false;
 let pinResolve = null;
 const pinModal = document.getElementById('pinModal');
 const pinInput = document.getElementById('pinInput');
@@ -299,15 +369,14 @@ const pinError = document.getElementById('pinError');
 const pinLabel = document.getElementById('pinLabel');
 
 document.getElementById('pinCancel').onclick = () => resolvePinDialog(null);
-document.getElementById('pinConfirm').onclick = () => resolvePinDialog(pinInput.value);
+document.getElementById('pinConfirm').onclick  = () => resolvePinDialog(pinInput.value);
 pinInput.addEventListener('keydown', e => { if (e.key === 'Enter') resolvePinDialog(pinInput.value); });
 
 function showPinDialog(label) {
   return new Promise(resolve => {
     pinResolve = resolve;
     pinLabel.textContent = label;
-    pinInput.value = '';
-    pinError.textContent = '';
+    pinInput.value = ''; pinError.textContent = '';
     pinModal.classList.add('visible');
     setTimeout(() => pinInput.focus(), 50);
   });
@@ -318,135 +387,154 @@ function resolvePinDialog(pin) {
 }
 
 async function sendControl(groupId, actuatorId, command, label) {
-  // Check if PIN is configured — we detect this by trying without PIN first;
-  // server returns 403 if PIN needed but wrong. We always show the dialog
-  // if the server ever returned 403.
   let pin = '';
   if (window._pinRequired) {
     pin = await showPinDialog(label);
-    if (pin === null) return; // cancelled
+    if (pin === null) return;
   }
-
   try {
     const r = await fetch('/api/control', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ groupId, actuatorId, command, durationMinutes: 60, pin }),
     });
     if (r.status === 403) {
       window._pinRequired = true;
-      pinError.textContent = pin ? 'Falsche PIN' : '';
       pin = await showPinDialog(label);
       if (pin === null) return;
-      // Retry with PIN
       const r2 = await fetch('/api/control', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupId, actuatorId, command, durationMinutes: 60, pin }),
       });
-      if (r2.status === 403) {
-        pinError.textContent = 'Falsche PIN';
-        pinModal.classList.add('visible');
-        return;
-      }
+      if (r2.status === 403) { pinError.textContent = 'Falsche PIN'; pinModal.classList.add('visible'); }
     }
-  } catch (e) {
-    console.error('Control-Fehler:', e);
+  } catch(e) { console.error('Control-Fehler:', e); }
+}
+
+// ---- Aktive-Geräte-Zeile ----
+function actIconsHtml(actuators, groupId, manualOverrides) {
+  if (!actuators || actuators.length === 0) return '';
+  const chips = actuators.map(a => {
+    const isOn = a.command === true || (typeof a.command === 'number' && a.command > 0);
+    const t = ACT_TYPE[a.type] ?? ACT_TYPE.custom;
+    const ov = manualOverrides && manualOverrides[a.id];
+    const ovNote = ov ? ` · manuell bis ${new Date(ov.until).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}` : '';
+    const pulse = isOn ? '<span class="act-icon-pulse"></span>' : '';
+    return `<span class="act-icon-chip ${isOn ? 'on ' + t.cls : 'off'}">
+      ${t.icon}${pulse}
+      <span class="act-icon-tip">${a.name}${ovNote} · ${isOn ? 'EIN' : 'AUS'}</span>
+    </span>`;
+  }).join('');
+  return `<div class="act-icons-row">${chips}</div>`;
+}
+
+// ---- Klimawert mit Sollwert ----
+function climateValHtml(value, unit, label, isControlled, setMin, setMax, setTarget, decimals) {
+  const numFmt = value !== null ? value.toFixed(decimals ?? 1) : null;
+  const numHtml = value !== null
+    ? `<div class="climate-num${isControlled ? '' : ' dim'}">${numFmt}${unit}</div>`
+    : `<div class="climate-num null-val">–</div>`;
+
+  let setpointHtml = '';
+  if (isControlled && (setMin !== null || setTarget !== null) && value !== null) {
+    if (setMin !== null && setMax !== null) {
+      // Bereichs-Sollwert (VPD, Feuchte): zeige Bereich als Bar
+      const range = setMax - setMin;
+      const displayMin = Math.min(setMin * 0.85, value * 0.9);
+      const displayMax = Math.max(setMax * 1.15, value * 1.1);
+      const displayRange = displayMax - displayMin;
+      const rangeStart = Math.max(0, Math.min(100, (setMin - displayMin) / displayRange * 100));
+      const rangeWidth = Math.max(0, Math.min(100 - rangeStart, range / displayRange * 100));
+      const markerPos  = Math.max(0, Math.min(100, (value - displayMin) / displayRange * 100));
+      const inRange = value >= setMin && value <= setMax;
+      const cls = inRange ? 'ok' : Math.abs(value - (setMin + range/2)) < range ? 'warn' : 'fault';
+      setpointHtml = `
+        <div class="setpoint-bar">
+          <div class="setpoint-range" style="left:${rangeStart.toFixed(1)}%;width:${rangeWidth.toFixed(1)}%"></div>
+          <div class="setpoint-marker" style="left:${markerPos.toFixed(1)}%"></div>
+        </div>
+        <div class="setpoint-text ${cls}">Soll ${setMin.toFixed(decimals??1)}–${setMax.toFixed(decimals??1)}${unit}</div>`;
+    } else if (setTarget !== null) {
+      // Punktsollwert (Temperatur)
+      const diff = value - setTarget;
+      const cls = Math.abs(diff) <= 1 ? 'ok' : Math.abs(diff) <= 3 ? 'warn' : 'fault';
+      const sign = diff >= 0 ? '+' : '';
+      setpointHtml = `<div class="setpoint-text ${cls}">Soll ${setTarget.toFixed(decimals??1)}${unit} (${sign}${diff.toFixed(decimals??1)})</div>`;
+    }
   }
+
+  return `<div class="climate-val${isControlled ? ' controlled' : ''}">
+    ${numHtml}
+    <div class="climate-label">${label}</div>
+    ${setpointHtml}
+  </div>`;
 }
 
-function healthBadgeHtml(health) {
-  const color = HEALTH_COLORS[health] ?? 'var(--safe)';
-  return `<span class="health-badge" style="background:${color}22;color:${color};border:1px solid ${color}">${health}</span>`;
-}
-
-function tempDelta(val, target) {
-  if (val === null || target === null) return '';
-  const diff = val - target;
-  const cls = Math.abs(diff) <= 1 ? 'ok' : 'warn';
-  const sign = diff >= 0 ? '+' : '';
-  return `<div class="climate-target ${cls}">Soll: ${target.toFixed(1)}° (${sign}${diff.toFixed(1)})</div>`;
-}
-function humDelta(val, target) {
-  if (val === null || target === null) return '';
-  const diff = val - target;
-  const cls = Math.abs(diff) <= 5 ? 'ok' : 'warn';
-  const sign = diff >= 0 ? '+' : '';
-  return `<div class="climate-target ${cls}">Soll: ${target.toFixed(0)}% (${sign}${diff.toFixed(0)})</div>`;
-}
-
+// ---- Aktor Detail-Zeile ----
 function actuatorHtml(a, groupId, manualOverrides) {
   const isOn = a.command === true || (typeof a.command === 'number' && a.command > 0);
   const isPercent = typeof a.command === 'number' && a.command > 0;
-  const pct = isPercent ? a.command : null;
-  const icon = TYPE_ICONS[a.type] ?? '⚙️';
+  const t = ACT_TYPE[a.type] ?? ACT_TYPE.custom;
   const ov = manualOverrides && manualOverrides[a.id];
-  const ovBadge = ov ? `<span class="act-override-badge" title="Manuell bis ${new Date(ov.until).toLocaleTimeString('de-DE')}">MANUELL</span>` : '';
+  const ovBadge = ov ? `<span class="act-override-badge">MANUELL</span>` : '';
 
-  let rightSide = '';
-  if (isPercent && pct !== null) {
-    rightSide = `
-      <span class="act-percent">${Math.round(pct)}%</span>
-      <div class="percent-bar-wrap"><div class="percent-bar-fill" style="width:${pct}%"></div></div>
-    `;
-  } else {
-    rightSide = `<span class="act-state ${isOn ? 'on' : 'off'}">${isOn ? 'EIN' : 'AUS'}</span>`;
-  }
+  let rightSide = isPercent
+    ? `<span class="act-percent">${Math.round(a.command)}%</span>
+       <div class="percent-bar-wrap"><div class="percent-bar-fill" style="width:${a.command}%"></div></div>`
+    : `<span class="act-state ${isOn?'on':'off'}">${isOn?'EIN':'AUS'}</span>`;
 
-  const toggleOn = `<button class="act-toggle on-btn" onclick="sendControl('${groupId}','${a.id}',true,'${icon} ${a.name} einschalten')">EIN</button>`;
-  const toggleOff = `<button class="act-toggle off-btn" onclick="sendControl('${groupId}','${a.id}',false,'${icon} ${a.name} ausschalten')">AUS</button>`;
-
-  return `
-    <div class="actuator-row">
-      <div class="act-dot ${isOn ? 'on' : 'off'}"></div>
-      <span class="act-name">${icon} ${a.name}</span>
-      ${ovBadge}
-      ${rightSide}
-      ${toggleOn}${toggleOff}
-    </div>
-  `;
+  return `<div class="actuator-row">
+    <div class="act-dot ${isOn?'on':'off'}"></div>
+    <span class="act-name">${t.icon} ${a.name}</span>
+    ${ovBadge}${rightSide}
+    <button class="act-toggle on-btn"  onclick="sendControl('${groupId}','${a.id}',true,'${a.name} einschalten')">EIN</button>
+    <button class="act-toggle off-btn" onclick="sendControl('${groupId}','${a.id}',false,'${a.name} ausschalten')">AUS</button>
+  </div>`;
 }
 
+// ---- Gruppenkarte ----
 function groupCardHtml(g) {
   const healthColor = HEALTH_COLORS[g.health] ?? 'var(--safe)';
-  const isDay = g.isDay;
-  const dayNightTag = isDay
+  const controlled = MODE_CONTROLS[g.mode] ?? [];
+  const isCtrlTemp = controlled.includes('temp');
+  const isCtrlHum  = controlled.includes('hum');
+  const isCtrlVpd  = controlled.includes('vpd');
+
+  const dayNightTag = g.isDay
     ? '<span class="meta-tag day">☀ Tag</span>'
     : '<span class="meta-tag night">🌙 Nacht</span>';
 
-  const phaseLabel = PHASE_LABELS[g.phase] ?? g.phase;
-  const modeLabel = MODE_LABELS[g.mode] ?? g.mode;
-
-  // Monitor-Sensor Info (nur wenn vorhanden)
   let monitorTag = '';
   if (g.monitorSensors && g.monitorSensors.length > 0) {
-    const names = g.monitorSensors.join(', ');
-    monitorTag = `
-      <span class="monitor-info">ℹ Monitor (${g.monitorSensors.length})
-        <div class="monitor-tooltip"><strong>Nur-Überwachung-Sensoren:</strong><br>${names.replace(/,/g,'<br>')}</div>
-      </span>`;
+    const names = g.monitorSensors.join('<br>');
+    monitorTag = `<span class="monitor-info">ℹ Monitor (${g.monitorSensors.length})
+      <div class="monitor-tooltip"><strong>Nur-Überwachung:</strong><br>${names}</div>
+    </span>`;
   }
 
+  // Klima-Zeile: Sollwert-Bar nur wenn der Modus diesen Wert regelt
+  const tempHtml = climateValHtml(g.temperature, '°', 'Temperatur', isCtrlTemp,
+    null, null, g.setpointTemp, 1);
+  const humHtml = climateValHtml(g.humidity, '%', 'Luftfeuchte', isCtrlHum,
+    g.setpointHumidity ? g.setpointHumidity - 5 : null,
+    g.setpointHumidity ? g.setpointHumidity + 5 : null,
+    null, 0);
+  const vpdHtml = climateValHtml(g.vpd, ' kPa', 'VPD', isCtrlVpd,
+    g.setpointVpdMin, g.setpointVpdMax, null, 2);
+  const soilHtml = g.soilMoisture !== null
+    ? climateValHtml(g.soilMoisture, '%', 'Boden', false, null, null, null, 0)
+    : '';
+
   const actHtml = g.actuators && g.actuators.length > 0
-    ? `<div class="actuators"><div class="act-title">Aktoren</div>${g.actuators.map(a => actuatorHtml(a, g.id, g.manualOverrides)).join('')}</div>`
+    ? `<div class="actuators"><div class="act-title">Aktoren</div>
+       ${g.actuators.map(a => actuatorHtml(a, g.id, g.manualOverrides)).join('')}</div>`
     : '';
 
   const alarmHtml = g.alarms && g.alarms.length > 0
     ? `<div class="card-alarms">${g.alarms.map(a => {
         const c = SEV_COLORS[a.severity] ?? 'var(--text-dim)';
-        return `<div class="card-alarm"><div class="sev-dot" style="background:${c}"></div><span style="color:${c}">[${a.severity.toUpperCase()}]</span> ${a.code}: ${a.message}</div>`;
+        return `<div class="card-alarm"><div class="sev-dot" style="background:${c}"></div>
+          <span style="color:${c}">[${a.severity.toUpperCase()}]</span> ${a.code}: ${a.message}</div>`;
       }).join('')}</div>`
-    : '';
-
-  const irrigBadge = g.irrigationRunning
-    ? '<div class="irrig-badge running">💧 Bewässerung aktiv</div>'
-    : '<div class="irrig-badge"></div>';
-
-  const soilHtml = g.soilMoisture !== null
-    ? `<div class="climate-val">
-        <div class="climate-num">${g.soilMoisture.toFixed(0)}<small style="font-size:14px;font-weight:400">%</small></div>
-        <div class="climate-label">Boden</div>
-      </div>`
     : '';
 
   const cameraHtml = g.cameraUrl
@@ -456,95 +544,62 @@ function groupCardHtml(g) {
       </div>`
     : '';
 
-  // VPD-Soll anzeigen
-  let vpdTarget = '';
-  if (g.setpointVpdMin !== null && g.setpointVpdMax !== null) {
-    const inRange = g.vpd !== null && g.vpd >= g.setpointVpdMin && g.vpd <= g.setpointVpdMax;
-    vpdTarget = `<div class="climate-target ${inRange ? 'ok' : 'warn'}">Soll: ${g.setpointVpdMin.toFixed(2)}–${g.setpointVpdMax.toFixed(2)}</div>`;
-  }
+  const irrigBadge = g.irrigationRunning
+    ? '<div class="irrig-badge running">💧 Bewässerung aktiv</div>'
+    : '<div class="irrig-badge"></div>';
 
-  return `
-    <div class="group-card" id="card-${g.id}">
-      <div class="card-header">
-        <div class="card-name">
-          <div class="color-dot" style="background:${g.color}"></div>
-          ${g.name}
-        </div>
-        ${healthBadgeHtml(g.health)}
+  return `<div class="group-card" id="card-${g.id}">
+    <div class="card-header">
+      <div class="card-name">
+        <div class="color-dot" style="background:${g.color}"></div>
+        ${g.name}
       </div>
-      <div class="climate-row">
-        <div class="climate-val">
-          <div class="climate-num ${g.temperature === null ? 'null-val' : ''}">${g.temperature !== null ? g.temperature.toFixed(1) + '°' : '–'}</div>
-          <div class="climate-label">Temperatur</div>
-          ${tempDelta(g.temperature, g.setpointTemp)}
-        </div>
-        <div class="climate-val">
-          <div class="climate-num ${g.humidity === null ? 'null-val' : ''}">${g.humidity !== null ? g.humidity.toFixed(0) + '%' : '–'}</div>
-          <div class="climate-label">Luftfeuchte</div>
-          ${humDelta(g.humidity, g.setpointHumidity)}
-        </div>
-        <div class="climate-val">
-          <div class="climate-num ${g.vpd === null ? 'null-val' : ''}">${g.vpd !== null ? g.vpd.toFixed(2) : '–'}</div>
-          <div class="climate-label">VPD kPa</div>
-          ${vpdTarget}
-        </div>
-        ${soilHtml}
-      </div>
-      <div class="meta-row">
-        <span class="meta-tag phase">${phaseLabel}</span>
-        <span class="meta-tag mode">${modeLabel}</span>
-        ${dayNightTag}
-        ${monitorTag}
-        <span class="meta-tag" style="margin-left:auto">Q: ${g.sensorQuality}%</span>
-      </div>
-      ${cameraHtml}
-      ${irrigBadge}
-      ${actHtml}
-      ${alarmHtml}
+      ${`<span class="health-badge" style="background:${healthColor}22;color:${healthColor};border:1px solid ${healthColor}">${g.health}</span>`}
     </div>
-  `;
+    ${actIconsHtml(g.actuators, g.id, g.manualOverrides)}
+    <div class="climate-row">${tempHtml}${humHtml}${vpdHtml}${soilHtml}</div>
+    <div class="meta-row">
+      <span class="meta-tag phase">${PHASE_LABELS[g.phase] ?? g.phase}</span>
+      <span class="meta-tag mode">${MODE_LABELS[g.mode] ?? g.mode}</span>
+      ${dayNightTag}
+      ${monitorTag}
+      <span class="meta-tag" style="margin-left:auto">Q: ${g.sensorQuality}%</span>
+    </div>
+    ${cameraHtml}
+    ${irrigBadge}
+    ${actHtml}
+    ${alarmHtml}
+  </div>`;
 }
 
+// ---- Stats Bar ----
 function renderStats(state) {
-  const bar = document.getElementById('statsBar');
-  bar.innerHTML = `
-    <div class="stat-chip">
-      <span class="label">Adapter</span>
-      <span class="value" style="color:${state.health === 'running' ? 'var(--green-light)' : 'var(--orange)'}">${state.health}</span>
-    </div>
-    <div class="stat-chip">
-      <span class="label">Gruppen</span>
-      <span class="value">${state.groups.length}</span>
-    </div>
-    <div class="stat-chip">
-      <span class="label">Alarme</span>
-      <span class="value" style="color:${state.activeAlarms > 0 ? 'var(--red)' : 'var(--green-light)'}">${state.activeAlarms}</span>
-    </div>
-    <div class="stat-chip">
-      <span class="label">Version</span>
-      <span class="value" style="color:var(--text-dim)">${state.adapterVersion}</span>
-    </div>
-  `;
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-chip"><span class="label">Adapter</span>
+      <span class="value" style="color:${state.health==='running'?'var(--green-light)':'var(--orange)'}">${state.health}</span></div>
+    <div class="stat-chip"><span class="label">Gruppen</span><span class="value">${state.groups.length}</span></div>
+    <div class="stat-chip"><span class="label">Alarme</span>
+      <span class="value" style="color:${state.activeAlarms>0?'var(--red)':'var(--green-light)'}">${state.activeAlarms}</span></div>
+    <div class="stat-chip"><span class="label">Version</span>
+      <span class="value" style="color:var(--text-dim)">${state.adapterVersion}</span></div>`;
 }
 
 function renderAlarmBanner(state) {
-  const banner = document.getElementById('alarmBanner');
+  const b = document.getElementById('alarmBanner');
   if (state.activeAlarms > 0) {
     document.getElementById('alarmBannerText').textContent =
-      `${state.activeAlarms} aktive${state.activeAlarms === 1 ? 'r' : ''} Alarm${state.activeAlarms !== 1 ? 'e' : ''}`;
-    banner.classList.add('visible');
-  } else {
-    banner.classList.remove('visible');
-  }
+      `${state.activeAlarms} aktive${state.activeAlarms===1?'r':''} Alarm${state.activeAlarms!==1?'e':''}`;
+    b.classList.add('visible');
+  } else { b.classList.remove('visible'); }
 }
 
 function render(state) {
-  currentState = state;
   renderStats(state);
   renderAlarmBanner(state);
   const grid = document.getElementById('groupsGrid');
   if (!state.groups || state.groups.length === 0) {
-    grid.innerHTML = `<div class="empty-state"><h2>Keine Gruppen konfiguriert</h2><p>Lege Gruppen in der ioBroker Admin-Oberfläche an.</p></div>`;
+    grid.innerHTML = `<div class="empty-state"><h2>Keine Gruppen konfiguriert</h2>
+      <p>Lege Gruppen in der ioBroker Admin-Oberfläche an.</p></div>`;
     return;
   }
   grid.innerHTML = state.groups.map(groupCardHtml).join('');
@@ -552,13 +607,10 @@ function render(state) {
 
 function setConnected(val) {
   connected = val;
-  const dot = document.getElementById('connDot');
-  const label = document.getElementById('connLabel');
-  dot.className = 'conn-dot' + (val ? ' connected' : '');
-  label.textContent = val ? 'Verbunden' : 'Getrennt';
+  document.getElementById('connDot').className = 'conn-dot' + (val ? ' connected' : '');
+  document.getElementById('connLabel').textContent = val ? 'Verbunden' : 'Getrennt';
   document.getElementById('reconnectOverlay').classList.toggle('visible', !val);
 }
-
 function updateTimestamp() {
   document.getElementById('lastUpdate').textContent = 'Zuletzt: ' + new Date().toLocaleTimeString('de-DE');
 }
@@ -568,9 +620,9 @@ function connect() {
   clearTimeout(reconnectTimer);
   eventSource = new EventSource('/api/events');
   eventSource.onopen = () => setConnected(true);
-  eventSource.onmessage = (evt) => {
-    try { const s = JSON.parse(evt.data); render(s); updateTimestamp(); if (!connected) setConnected(true); }
-    catch (e) { console.error('Parse error', e); }
+  eventSource.onmessage = evt => {
+    try { render(JSON.parse(evt.data)); updateTimestamp(); if (!connected) setConnected(true); }
+    catch(e) { console.error('Parse error', e); }
   };
   eventSource.onerror = () => {
     setConnected(false); eventSource.close(); eventSource = null;
@@ -580,9 +632,7 @@ function connect() {
 
 connect();
 setInterval(() => {
-  if (!connected) {
-    fetch('/api/state').then(r => r.json()).then(s => { render(s); updateTimestamp(); setConnected(true); }).catch(() => {});
-  }
+  if (!connected) fetch('/api/state').then(r=>r.json()).then(s=>{render(s);updateTimestamp();setConnected(true);}).catch(()=>{});
 }, 15000);
 </script>
 </body>

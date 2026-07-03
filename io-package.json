@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.1.20",
+    "version": "0.1.21",
     "news": {
+      "0.1.21": {
+        "en": "Dashboard: mode-aware setpoint bars for VPD/temp/humidity; active actuator icon strip with pulse animation; improved visual hierarchy",
+        "de": "Dashboard: modusabhängige Sollwert-Balken für VPD/Temp/Feuchte; aktive Geräte-Icon-Leiste mit Puls-Animation; verbesserte visuelle Hierarchie"
+      },
       "0.1.20": {
         "en": "Dashboard: fix duplicate mode tag bug; manual actuator control with PIN; setpoint display; camera image; monitor-sensor info tooltip",
         "de": "Dashboard: doppelter Modus-Tag-Bug behoben; manuelle Aktor-Steuerung mit PIN; Sollwertanzeige; Kamerabild; Monitor-Sensor-Tooltip"
