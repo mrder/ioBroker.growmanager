@@ -2,6 +2,17 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.1.25] - 2026-07-03
+
+### Fixed
+- Admin-Dashboard: Werte zeigten `---` und Status `Fault` direkt nach Adapterstart, weil der
+  Gesundheits-Fallback auf `'FAULT'` statt `'FULL'` stand, bevor der erste Zyklus den State schreibt.
+- Sensorqualität 0% nach Neustart: `onStateChange` nutzte `state.ts` als Sensor-Timestamp —
+  dieser kann bei unverändertem Sensorwert alt sein. Jetzt wird `Math.max(state.ts, Date.now() - 5000)`
+  verwendet, damit der empfangene Event als maximal 5 Sekunden alt gilt.
+
+---
+
 ## [0.1.24] - 2026-07-03
 
 ### Added

@@ -2008,7 +2008,7 @@ const App: React.FC = () => {
                     humidity: typeof hum?.val === 'number' ? hum.val : null,
                     vpd: typeof vpd?.val === 'number' ? vpd.val : null,
                     sensorQuality: typeof sq?.val === 'number' ? sq.val : 0,
-                    health: typeof health?.val === 'string' ? health.val : 'FAULT',
+                    health: typeof health?.val === 'string' ? health.val : 'FULL',
                     mode: typeof mode?.val === 'string' ? mode.val : g.mode,
                     phase: typeof phase?.val === 'string' ? phase.val : g.phase,
                     alarmSeverity: 'none',

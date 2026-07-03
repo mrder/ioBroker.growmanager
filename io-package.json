@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.1.24",
+    "version": "0.1.25",
     "news": {
+      "0.1.25": {
+        "en": "Fix admin dashboard showing --- and Fault on startup; fix sensor quality 0% after adapter restart due to stale timestamp handling",
+        "de": "Admin-Dashboard zeigt nicht mehr --- und Fault beim Start; Sensorqualität 0% nach Adapter-Neustart durch korrektes Timestamp-Handling behoben"
+      },
       "0.1.24": {
         "en": "ObjectPicker nested folder navigation; climate profile presets for all plant phases; fix feedbackMissingBehavior invalid option; fix CameraConfig type in admin",
         "de": "ObjectPicker Unterordner-Navigation; Klimaprofil-Presets für alle Pflanzenphasen; feedbackMissingBehavior ungültige Option behoben; CameraConfig Typ in Admin korrigiert"

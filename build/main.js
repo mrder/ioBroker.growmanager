@@ -312,7 +312,11 @@ class GrowManagerAdapter extends utils.Adapter {
         for (const group of this.growConfig.groups) {
             for (const sensor of group.sensors) {
                 if (sensor.stateId === id) {
-                    const sensorState = this.sensorService.processValue(sensor, state.val, state.ts, state.lc ?? state.ts, group.stabilityTimeSeconds);
+                    const sensorState = this.sensorService.processValue(sensor, state.val, 
+                    // Receiving onStateChange NOW means sensor reported NOW.
+                    // state.ts can be old when value hasn't changed (no lc update),
+                    // which would falsely trigger the stale check.
+                    Math.max(state.ts, Date.now() - 5000), state.lc ?? state.ts, group.stabilityTimeSeconds);
                     const gs = this.groupStates.get(group.id);
                     if (gs)
                         gs.sensors.set(sensor.id, sensorState);

@@ -353,7 +353,10 @@ class GrowManagerAdapter extends utils.Adapter {
                     const sensorState = this.sensorService.processValue(
                         sensor,
                         state.val,
-                        state.ts,
+                        // Receiving onStateChange NOW means sensor reported NOW.
+                        // state.ts can be old when value hasn't changed (no lc update),
+                        // which would falsely trigger the stale check.
+                        Math.max(state.ts, Date.now() - 5000),
                         state.lc ?? state.ts,
                         group.stabilityTimeSeconds
                     );
