@@ -41,6 +41,14 @@ export interface DashboardGroupState {
     alarms: DashboardAlarm[];
     lastDecision: string;
     irrigationRunning: boolean;
+    // Neu:
+    setpointTemp: number | null;
+    setpointHumidity: number | null;
+    setpointVpdMin: number | null;
+    setpointVpdMax: number | null;
+    monitorSensors: string[];
+    cameraUrl: string | null;
+    manualOverrides: Record<string, { command: boolean | number; until: number }>;
 }
 
 export interface DashboardState {
@@ -50,6 +58,13 @@ export interface DashboardState {
     activeAlarms: number;
     groups: DashboardGroupState[];
 }
+
+export type ControlCommand = {
+    groupId: string;
+    actuatorId: string;
+    command: boolean | number;
+    durationMinutes: number;
+};
 
 export class WebDashboardService {
     private server: http.Server | null = null;
@@ -62,6 +77,8 @@ export class WebDashboardService {
         groups: [],
     };
     private dashboardHtml = '';
+    private pin = '';
+    private controlCallback: ((cmd: ControlCommand) => Promise<void>) | null = null;
 
     constructor(
         private readonly log: {
@@ -71,6 +88,9 @@ export class WebDashboardService {
         },
         private readonly adapterDir: string,
     ) {}
+
+    setPin(pin: string): void { this.pin = pin; }
+    setControlCallback(cb: (cmd: ControlCommand) => Promise<void>): void { this.controlCallback = cb; }
 
     start(port: number, bindAddress: string): void {
         const htmlPath = path.join(this.adapterDir, 'admin', 'web', 'dashboard.html');
@@ -135,14 +155,57 @@ export class WebDashboardService {
                 'Cache-Control': 'no-cache',
                 'Connection': 'keep-alive',
             });
-            // Sofort aktuellen Stand senden
             res.write(`data: ${JSON.stringify(this.state)}\n\n`);
             this.sseClients.add(res);
             req.on('close', () => this.sseClients.delete(res));
             return;
         }
 
+        if (url === '/api/control' && req.method === 'POST') {
+            this.handleControl(req, res);
+            return;
+        }
+
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('Not found');
+    }
+
+    private handleControl(req: http.IncomingMessage, res: http.ServerResponse): void {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', async () => {
+            try {
+                const payload = JSON.parse(body) as {
+                    groupId: string; actuatorId: string;
+                    command: boolean | number; durationMinutes?: number; pin?: string;
+                };
+
+                if (this.pin && payload.pin !== this.pin) {
+                    res.writeHead(403, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Falsche PIN' }));
+                    return;
+                }
+
+                if (!this.controlCallback) {
+                    res.writeHead(503, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Adapter nicht bereit' }));
+                    return;
+                }
+
+                await this.controlCallback({
+                    groupId: payload.groupId,
+                    actuatorId: payload.actuatorId,
+                    command: payload.command,
+                    durationMinutes: payload.durationMinutes ?? 60,
+                });
+
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: true }));
+            } catch (e) {
+                this.log.error(`WebDashboard Control-Fehler: ${e}`);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: String(e) }));
+            }
+        });
     }
 }

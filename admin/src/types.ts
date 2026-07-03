@@ -95,6 +95,6 @@ export interface GrowManagerConfig {
     language: 'de' | 'en'; sampleInterval: number; controlCycleSeconds: number;
     maxConcurrentSwitches: number; maintenanceMode: boolean; startBehavior: StartBehavior;
     logLevel: 'debug' | 'info' | 'warn' | 'error'; eventRetentionDays: number;
-    webPort: number; webBindAddress: string; webAuth: boolean;
+    webPort: number; webBindAddress: string; webAuth: boolean; dashboardPin: string;
     groups: GroupConfig[]; climateProfiles: ClimateProfile[]; alarmChannels: AlarmChannel[];
 }

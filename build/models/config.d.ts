@@ -238,6 +238,7 @@ export interface GrowManagerConfig {
     webPort: number;
     webBindAddress: string;
     webAuth: boolean;
+    dashboardPin: string;
     groups: GroupConfig[];
     climateProfiles: ClimateProfile[];
     alarmChannels: AlarmChannel[];

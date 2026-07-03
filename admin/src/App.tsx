@@ -1548,6 +1548,11 @@ const SettingsView: React.FC<{
             <label style={styles.fieldLabel}>Web-Port</label>
             <input style={styles.input} type="number" {...field('webPort')} />
 
+            <label style={styles.fieldLabel}>Dashboard-PIN (leer = kein Schutz)</label>
+            <input style={styles.input} type="password" placeholder="z.B. 1234"
+                value={String(config.dashboardPin ?? '')}
+                onChange={e => onChange({ ...config, dashboardPin: e.target.value })} />
+
             <label style={styles.fieldLabel}>Start-Verhalten</label>
             <select style={styles.select} {...field('startBehavior')}>
                 <option value="lastState">Letzten Zustand übernehmen</option>
@@ -1645,6 +1650,7 @@ const App: React.FC = () => {
         webPort: 8097,
         webBindAddress: '127.0.0.1',
         webAuth: false,
+        dashboardPin: '',
         groups: [],
         climateProfiles: [],
         alarmChannels: [],

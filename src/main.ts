@@ -67,6 +67,9 @@ class GrowManagerAdapter extends utils.Adapter {
     // Letzte bekannte Tag/Nacht-Zustände für Wechselerkennung
     private readonly lastDayNight = new Map<string, DayNight>();
 
+    // Manuelle Übersteuerungen vom Dashboard {actuatorId → {command, until}}
+    private readonly dashboardOverrides = new Map<string, { command: boolean | number; until: number }>();
+
     constructor(options: Partial<utils.AdapterOptions> = {}) {
         super({ ...options, name: 'growmanager' });
 
@@ -141,6 +144,16 @@ class GrowManagerAdapter extends utils.Adapter {
         // Web-Dashboard starten
         const webPort = this.growConfig.webPort ?? 8097;
         const webBind = this.growConfig.webBindAddress ?? '0.0.0.0';
+        this.webDashboard.setPin(this.growConfig.dashboardPin ?? '');
+        this.webDashboard.setControlCallback(async ({ groupId, actuatorId, command, durationMinutes }) => {
+            const group = this.growConfig.groups.find(g => g.id === groupId);
+            const actuator = group?.actuators.find(a => a.id === actuatorId);
+            if (!actuator) throw new Error(`Aktor ${actuatorId} nicht gefunden`);
+            this.dashboardOverrides.set(actuatorId, { command, until: Date.now() + durationMinutes * 60_000 });
+            const val = command ? actuator.onValue : actuator.offValue;
+            await this.setForeignStateAsync(actuator.commandStateId, { val: val as ioBroker.StateValue, ack: false });
+            this.log.info(`Dashboard: ${actuator.name} → ${command ? 'EIN' : 'AUS'} (${durationMinutes} min)`);
+        });
         this.webDashboard.start(webPort, webBind);
 
         // Regelzyklus starten
@@ -738,11 +751,42 @@ class GrowManagerAdapter extends utils.Adapter {
                         };
                     });
 
+                // Sollwerte aus aktivem Klimaprofil
+                let setpointTemp: number | null = null;
+                let setpointHumidity: number | null = null;
+                let setpointVpdMin: number | null = null;
+                let setpointVpdMax: number | null = null;
+                if (state?.activeProfile) {
+                    const sp = this.scheduleService.getActiveSetpoint(state.activeProfile, state.dayNight ?? 'day', this.lightChangeTimes.get(g.id) ?? 0);
+                    setpointTemp = sp.temperature;
+                    setpointHumidity = sp.humidity;
+                    setpointVpdMin = sp.vpdMin;
+                    setpointVpdMax = sp.vpdMax;
+                }
+
+                // Sensoren in "monitor"-Rolle
+                const monitorSensors = g.sensors
+                    .filter(s => s.enabled && (s.role === 'monitor' || (!['primary','backup'].includes(s.role ?? 'primary'))))
+                    .map(s => s.name);
+
+                // Kamera-URL (erste snapshotUrl-Kamera der Gruppe)
+                const cam = (g.cameras as Array<{ enabled: boolean; sourceType: string; sourceId: string }> | undefined)?.find(c => c.enabled && c.sourceType === 'snapshotUrl');
+                const cameraUrl = cam?.sourceId ?? null;
+
+                // Manuelle Übersteuerungen für diese Gruppe
+                const now = Date.now();
+                const manualOverrides: Record<string, { command: boolean | number; until: number }> = {};
+                for (const a of g.actuators) {
+                    const ov = this.dashboardOverrides.get(a.id);
+                    if (ov && ov.until > now) manualOverrides[a.id] = ov;
+                    else if (ov) this.dashboardOverrides.delete(a.id);
+                }
+
                 return {
                     id: g.id,
                     name: g.name,
                     color: g.color,
-                    phase: state?.mode ?? g.phase,
+                    phase: g.phase,
                     mode: g.mode,
                     health: state?.degradation ?? 'FAULT',
                     temperature: state?.temperature ?? null,
@@ -755,6 +799,13 @@ class GrowManagerAdapter extends utils.Adapter {
                     alarms: groupAlarms,
                     lastDecision: state?.lastDecision ? JSON.stringify(state.lastDecision) : '',
                     irrigationRunning: this.irrigationService.isAnyZoneRunning(g),
+                    setpointTemp,
+                    setpointHumidity,
+                    setpointVpdMin,
+                    setpointVpdMax,
+                    monitorSensors,
+                    cameraUrl,
+                    manualOverrides,
                 };
             });
 

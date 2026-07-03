@@ -46,7 +46,11 @@ class WebDashboardService {
             groups: [],
         };
         this.dashboardHtml = '';
+        this.pin = '';
+        this.controlCallback = null;
     }
+    setPin(pin) { this.pin = pin; }
+    setControlCallback(cb) { this.controlCallback = cb; }
     start(port, bindAddress) {
         const htmlPath = path.join(this.adapterDir, 'admin', 'web', 'dashboard.html');
         try {
@@ -107,14 +111,49 @@ class WebDashboardService {
                 'Cache-Control': 'no-cache',
                 'Connection': 'keep-alive',
             });
-            // Sofort aktuellen Stand senden
             res.write(`data: ${JSON.stringify(this.state)}\n\n`);
             this.sseClients.add(res);
             req.on('close', () => this.sseClients.delete(res));
             return;
         }
+        if (url === '/api/control' && req.method === 'POST') {
+            this.handleControl(req, res);
+            return;
+        }
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('Not found');
+    }
+    handleControl(req, res) {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', async () => {
+            try {
+                const payload = JSON.parse(body);
+                if (this.pin && payload.pin !== this.pin) {
+                    res.writeHead(403, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Falsche PIN' }));
+                    return;
+                }
+                if (!this.controlCallback) {
+                    res.writeHead(503, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Adapter nicht bereit' }));
+                    return;
+                }
+                await this.controlCallback({
+                    groupId: payload.groupId,
+                    actuatorId: payload.actuatorId,
+                    command: payload.command,
+                    durationMinutes: payload.durationMinutes ?? 60,
+                });
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: true }));
+            }
+            catch (e) {
+                this.log.error(`WebDashboard Control-Fehler: ${e}`);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: String(e) }));
+            }
+        });
     }
 }
 exports.WebDashboardService = WebDashboardService;

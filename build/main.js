@@ -55,6 +55,8 @@ class GrowManagerAdapter extends utils.Adapter {
         this.subscribedStateIds = new Set();
         // Letzte bekannte Tag/Nacht-Zustände für Wechselerkennung
         this.lastDayNight = new Map();
+        // Manuelle Übersteuerungen vom Dashboard {actuatorId → {command, until}}
+        this.dashboardOverrides = new Map();
         const log = {
             debug: (m) => this.log.debug(m),
             info: (m) => this.log.info(m),
@@ -117,6 +119,17 @@ class GrowManagerAdapter extends utils.Adapter {
         // Web-Dashboard starten
         const webPort = this.growConfig.webPort ?? 8097;
         const webBind = this.growConfig.webBindAddress ?? '0.0.0.0';
+        this.webDashboard.setPin(this.growConfig.dashboardPin ?? '');
+        this.webDashboard.setControlCallback(async ({ groupId, actuatorId, command, durationMinutes }) => {
+            const group = this.growConfig.groups.find(g => g.id === groupId);
+            const actuator = group?.actuators.find(a => a.id === actuatorId);
+            if (!actuator)
+                throw new Error(`Aktor ${actuatorId} nicht gefunden`);
+            this.dashboardOverrides.set(actuatorId, { command, until: Date.now() + durationMinutes * 60000 });
+            const val = command ? actuator.onValue : actuator.offValue;
+            await this.setForeignStateAsync(actuator.commandStateId, { val: val, ack: false });
+            this.log.info(`Dashboard: ${actuator.name} → ${command ? 'EIN' : 'AUS'} (${durationMinutes} min)`);
+        });
         this.webDashboard.start(webPort, webBind);
         // Regelzyklus starten
         this.scheduleNextCycle();
@@ -643,11 +656,40 @@ class GrowManagerAdapter extends utils.Adapter {
                     health: as?.health ?? 'unknown',
                 };
             });
+            // Sollwerte aus aktivem Klimaprofil
+            let setpointTemp = null;
+            let setpointHumidity = null;
+            let setpointVpdMin = null;
+            let setpointVpdMax = null;
+            if (state?.activeProfile) {
+                const sp = this.scheduleService.getActiveSetpoint(state.activeProfile, state.dayNight ?? 'day', this.lightChangeTimes.get(g.id) ?? 0);
+                setpointTemp = sp.temperature;
+                setpointHumidity = sp.humidity;
+                setpointVpdMin = sp.vpdMin;
+                setpointVpdMax = sp.vpdMax;
+            }
+            // Sensoren in "monitor"-Rolle
+            const monitorSensors = g.sensors
+                .filter(s => s.enabled && (s.role === 'monitor' || (!['primary', 'backup'].includes(s.role ?? 'primary'))))
+                .map(s => s.name);
+            // Kamera-URL (erste snapshotUrl-Kamera der Gruppe)
+            const cam = g.cameras?.find(c => c.enabled && c.sourceType === 'snapshotUrl');
+            const cameraUrl = cam?.sourceId ?? null;
+            // Manuelle Übersteuerungen für diese Gruppe
+            const now = Date.now();
+            const manualOverrides = {};
+            for (const a of g.actuators) {
+                const ov = this.dashboardOverrides.get(a.id);
+                if (ov && ov.until > now)
+                    manualOverrides[a.id] = ov;
+                else if (ov)
+                    this.dashboardOverrides.delete(a.id);
+            }
             return {
                 id: g.id,
                 name: g.name,
                 color: g.color,
-                phase: state?.mode ?? g.phase,
+                phase: g.phase,
                 mode: g.mode,
                 health: state?.degradation ?? 'FAULT',
                 temperature: state?.temperature ?? null,
@@ -660,6 +702,13 @@ class GrowManagerAdapter extends utils.Adapter {
                 alarms: groupAlarms,
                 lastDecision: state?.lastDecision ? JSON.stringify(state.lastDecision) : '',
                 irrigationRunning: this.irrigationService.isAnyZoneRunning(g),
+                setpointTemp,
+                setpointHumidity,
+                setpointVpdMin,
+                setpointVpdMax,
+                monitorSensors,
+                cameraUrl,
+                manualOverrides,
             };
         });
         return {

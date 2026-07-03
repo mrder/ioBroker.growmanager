@@ -29,6 +29,16 @@ export interface DashboardGroupState {
     alarms: DashboardAlarm[];
     lastDecision: string;
     irrigationRunning: boolean;
+    setpointTemp: number | null;
+    setpointHumidity: number | null;
+    setpointVpdMin: number | null;
+    setpointVpdMax: number | null;
+    monitorSensors: string[];
+    cameraUrl: string | null;
+    manualOverrides: Record<string, {
+        command: boolean | number;
+        until: number;
+    }>;
 }
 export interface DashboardState {
     ts: number;
@@ -37,6 +47,12 @@ export interface DashboardState {
     activeAlarms: number;
     groups: DashboardGroupState[];
 }
+export type ControlCommand = {
+    groupId: string;
+    actuatorId: string;
+    command: boolean | number;
+    durationMinutes: number;
+};
 export declare class WebDashboardService {
     private readonly log;
     private readonly adapterDir;
@@ -44,14 +60,19 @@ export declare class WebDashboardService {
     private readonly sseClients;
     private state;
     private dashboardHtml;
+    private pin;
+    private controlCallback;
     constructor(log: {
         info: (m: string) => void;
         warn: (m: string) => void;
         error: (m: string) => void;
     }, adapterDir: string);
+    setPin(pin: string): void;
+    setControlCallback(cb: (cmd: ControlCommand) => Promise<void>): void;
     start(port: number, bindAddress: string): void;
     stop(): void;
     updateState(state: DashboardState): void;
     private handleRequest;
+    private handleControl;
 }
 //# sourceMappingURL=WebDashboardService.d.ts.map

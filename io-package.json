@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.1.19",
+    "version": "0.1.20",
     "news": {
+      "0.1.20": {
+        "en": "Dashboard: fix duplicate mode tag bug; manual actuator control with PIN; setpoint display; camera image; monitor-sensor info tooltip",
+        "de": "Dashboard: doppelter Modus-Tag-Bug behoben; manuelle Aktor-Steuerung mit PIN; Sollwertanzeige; Kamerabild; Monitor-Sensor-Tooltip"
+      },
       "0.1.19": {
         "en": "Sensor roles: primary/backup/monitor with priority ordering; backup sensors activate automatically when all primaries fail",
         "de": "Sensor-Rollen: primär/backup/überwachung mit Priorität; Backup-Sensoren aktivieren automatisch wenn alle primären ausfallen"
@@ -130,6 +134,7 @@
     "webPort": 8097,
     "webBindAddress": "0.0.0.0",
     "webAuth": false,
+    "dashboardPin": "",
     "groups": [],
     "climateProfiles": [],
     "alarmChannels": []
