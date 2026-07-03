@@ -59,6 +59,8 @@ class GrowManagerAdapter extends utils.Adapter {
         this.dashboardOverrides = new Map();
         // Modus-Übersteuerungen vom Dashboard {groupId → 'auto'|'manual'}
         this.dashboardModeOverrides = new Map();
+        // Außenluft-Sensorwerte {stateId → Wert}
+        this.outdoorValues = new Map();
         const log = {
             debug: (m) => this.log.debug(m),
             info: (m) => this.log.info(m),
@@ -219,6 +221,19 @@ class GrowManagerAdapter extends utils.Adapter {
                     this.applyHealthState(sensor.healthStateId, h.val, sensor.healthCheckType, sensor.healthCheckMin);
             }
         }
+        // Außensensor abonnieren (optional)
+        const outdoor = group.outdoorSensor;
+        if (outdoor?.enabled) {
+            for (const sid of [outdoor.tempStateId, outdoor.humidityStateId]) {
+                if (sid && !this.subscribedStateIds.has(sid)) {
+                    await this.subscribeForeignStatesAsync(sid);
+                    this.subscribedStateIds.add(sid);
+                    const st = await this.getForeignStateAsync(sid);
+                    if (st && typeof st.val === 'number')
+                        this.outdoorValues.set(sid, st.val);
+                }
+            }
+        }
         // Feedback- und Leistungs-States abonnieren
         for (const actuator of group.actuators) {
             if (actuator.feedbackStateId && !this.subscribedStateIds.has(actuator.feedbackStateId)) {
@@ -313,6 +328,13 @@ class GrowManagerAdapter extends utils.Adapter {
                     if (actState) {
                         this.actuatorService.processFeedback(actuator, actState.feedback, state.val);
                     }
+                }
+            }
+            // Außensensor-Werte aktualisieren
+            const outdoor = group.outdoorSensor;
+            if (outdoor?.enabled && typeof state.val === 'number') {
+                if (outdoor.tempStateId === id || outdoor.humidityStateId === id) {
+                    this.outdoorValues.set(id, state.val);
                 }
             }
         }
@@ -480,7 +502,16 @@ class GrowManagerAdapter extends utils.Adapter {
         let decision = null;
         if (setpoint && config.mode !== 'off') {
             const shadowMode = config.mode === 'monitorOnly' || this.safetyService.isGroupPaused(config.id);
-            decision = this.climateController.decide(config, state, setpoint, shadowMode);
+            const outdoorCfg = config.outdoorSensor;
+            const outdoorTemp = outdoorCfg?.enabled && outdoorCfg.tempStateId
+                ? (this.outdoorValues.get(outdoorCfg.tempStateId) ?? null)
+                : null;
+            const outdoorHumidity = outdoorCfg?.enabled && outdoorCfg.humidityStateId
+                ? (this.outdoorValues.get(outdoorCfg.humidityStateId) ?? null)
+                : null;
+            if (outdoorTemp !== null)
+                this.log.debug(`Gruppe ${config.name}: Außen ${outdoorTemp.toFixed(1)}°C / ${outdoorHumidity?.toFixed(0) ?? '?'}%`);
+            decision = this.climateController.decide(config, state, setpoint, shadowMode, outdoorTemp, outdoorHumidity);
             decision = this.safetyService.applySafetyRules(config, decision);
             state.lastDecision = decision;
         }

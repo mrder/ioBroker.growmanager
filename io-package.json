@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.1.22",
+    "version": "0.1.23",
     "news": {
+      "0.1.23": {
+        "en": "Per-actuator control targets (controlTarget/controlDirection); outdoor air guard sensor per group; full climate profile editor with CO2 and soil moisture setpoints",
+        "de": "Per-Aktor Regelziel (controlTarget/controlDirection); Außenluft-Vergleichssensor pro Gruppe; vollständiger Klimaprofil-Editor mit CO₂- und Bodenfeuchte-Sollwerten"
+      },
       "0.1.22": {
         "en": "Dashboard: AUTO/MANUAL mode toggle per group; EIN/AUS actuator buttons only active in MANUAL mode; PIN protected mode switch",
         "de": "Dashboard: AUTO/MANUELL-Umschalter pro Gruppe; EIN/AUS-Aktor-Buttons nur im MANUELL-Modus aktiv; PIN-geschützter Moduswechsel"

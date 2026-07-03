@@ -80,6 +80,20 @@ export type ActuatorDataType = 'boolean' | 'number' | 'string';
 
 export type ActuatorSafeState = 'off' | 'on' | 'keep' | 'minLevel';
 
+// Was ein Aktor primär regelt (pro Aktor konfigurierbar)
+export type ControlTarget =
+    | 'temperature'   // Heizung, Kühlung, Abluft für Temperatur
+    | 'humidity'      // Befeuchter, Entfeuchter
+    | 'vpd'           // VPD-koordinierte Regelung (Temp + Feuchte zusammen)
+    | 'co2'           // CO₂-Ventil
+    | 'soilMoisture'  // Bewässerungspumpe
+    | 'light'         // Lichtsteuerung (Zeitplan)
+    | 'timer'         // Immer EIN (Umluft etc.)
+    | 'custom';       // Benutzerdefiniert
+
+// Wirkrichtung: hebt an (up), senkt ab (down), oder beides
+export type ControlDirection = 'up' | 'down' | 'both';
+
 export interface ActuatorConfig {
     id: string;
     name: string;
@@ -114,6 +128,11 @@ export interface ActuatorConfig {
     healthStateId?: string;
     healthCheckType?: 'boolean' | 'number';
     healthCheckMin?: number;
+    // Per-Aktor Regelziel (überschreibt die Typ-Ableitung)
+    controlTarget?: ControlTarget;
+    controlDirection?: ControlDirection;
+    // Außenluft-Guard: Aktor nur schalten wenn Außenluft günstiger als Innenluft
+    outdoorGuardEnabled?: boolean;
 }
 
 // ---- Zeitplan ----------------------------------------------
@@ -146,6 +165,23 @@ export interface ClimateSetpoint {
     humidityMax: number;
     humidityCritical: number;
     condensationRiskMaxHumidity: number;
+    // Optionale Sollwerte für weitere Regelgrößen
+    co2Target?: number;
+    co2Tolerance?: number;
+    soilMoistureTarget?: number;
+    soilMoistureTolerance?: number;
+}
+
+// ---- Außenluft-Vergleichssensor ----------------------------
+
+export interface OutdoorSensorConfig {
+    enabled: boolean;
+    tempStateId?: string;         // ioBroker State-ID für Außentemperatur
+    humidityStateId?: string;     // ioBroker State-ID für Außenfeuchte
+    // Mindest-Vorteil: Außenluft muss mindestens X °C kühler sein → sonst Lüfter sperren
+    minTempDeltaCelsius: number;  // default 2
+    // Außenfeuchte darf maximal X % höher sein als Innenfeuchte → sonst Feuchte-Lüftung sperren
+    maxHumidityDeltaPercent: number; // default 10
 }
 
 export interface ClimateProfile {
@@ -354,6 +390,7 @@ export interface GroupConfig {
     fallbackChain: GroupMode[];
     stabilityTimeSeconds: number;
     sensorDisagreementThreshold: number;
+    outdoorSensor?: OutdoorSensorConfig;
 }
 
 // ---- Globale Konfiguration ---------------------------------

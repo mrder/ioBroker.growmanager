@@ -31,6 +31,8 @@ export interface SensorConfig {
 export type ActuatorType = 'light' | 'circulationFan' | 'exhaustFan' | 'supplyFan' | 'heating' | 'cooling' | 'humidifier' | 'dehumidifier' | 'irrigation' | 'co2Valve' | 'damper' | 'custom';
 export type ActuatorDataType = 'boolean' | 'number' | 'string';
 export type ActuatorSafeState = 'off' | 'on' | 'keep' | 'minLevel';
+export type ControlTarget = 'temperature' | 'humidity' | 'vpd' | 'co2' | 'soilMoisture' | 'light' | 'timer' | 'custom';
+export type ControlDirection = 'up' | 'down' | 'both';
 export interface ActuatorConfig {
     id: string;
     name: string;
@@ -63,6 +65,9 @@ export interface ActuatorConfig {
     healthStateId?: string;
     healthCheckType?: 'boolean' | 'number';
     healthCheckMin?: number;
+    controlTarget?: ControlTarget;
+    controlDirection?: ControlDirection;
+    outdoorGuardEnabled?: boolean;
 }
 export interface TimeWindow {
     startHH: number;
@@ -88,6 +93,17 @@ export interface ClimateSetpoint {
     humidityMax: number;
     humidityCritical: number;
     condensationRiskMaxHumidity: number;
+    co2Target?: number;
+    co2Tolerance?: number;
+    soilMoistureTarget?: number;
+    soilMoistureTolerance?: number;
+}
+export interface OutdoorSensorConfig {
+    enabled: boolean;
+    tempStateId?: string;
+    humidityStateId?: string;
+    minTempDeltaCelsius: number;
+    maxHumidityDeltaPercent: number;
 }
 export interface ClimateProfile {
     id: string;
@@ -224,6 +240,7 @@ export interface GroupConfig {
     fallbackChain: GroupMode[];
     stabilityTimeSeconds: number;
     sensorDisagreementThreshold: number;
+    outdoorSensor?: OutdoorSensorConfig;
 }
 export type StartBehavior = 'lastState' | 'delayedStart' | 'safeTurnOff' | 'monitorOnly';
 export interface GrowManagerConfig {

@@ -5,7 +5,7 @@
 // was konfiguriert und verfügbar ist.
 // ============================================================
 
-import type { GroupConfig, AirSystemConfig, ActuatorConfig } from '../models/config';
+import type { GroupConfig, AirSystemConfig, ActuatorConfig, OutdoorSensorConfig } from '../models/config';
 import { curveInterpolate } from '../utils/calculations';
 import type { AlarmService } from './AlarmService';
 import { ALARM_CODES } from './AlarmService';
@@ -276,7 +276,6 @@ export class AirSystemService {
 
     /**
      * Prüft ob Zuluft feuchter als Abluft-Bedarf erlaubt.
-     * (Vereinfacht: wenn Außensensor-Feuchte > Innen → Abluftbedarf für Feuchte ignorieren)
      */
     shouldSuppressHumidityVentilation(
         insideHumidity: number | null,
@@ -284,5 +283,54 @@ export class AirSystemService {
     ): boolean {
         if (insideHumidity === null || outsideHumidity === null) return false;
         return outsideHumidity >= insideHumidity;
+    }
+
+    /**
+     * Außenluft-Guard: Prüft ob Außenluft günstiger als Innenluft.
+     * Gibt blockiert=true zurück wenn Lüfter NICHT schalten sollten.
+     *
+     * Temp-Guard: Außentemp muss mindestens minTempDeltaCelsius kühler sein.
+     * Feuchte-Guard: Außenfeuchte darf maximal maxHumidityDeltaPercent höher sein.
+     */
+    checkOutdoorGuard(
+        outdoorCfg: OutdoorSensorConfig | undefined,
+        insideTemp: number | null,
+        insideHumidity: number | null,
+        outdoorTemp: number | null,
+        outdoorHumidity: number | null,
+        demandReason: 'temperature' | 'humidity' | 'both'
+    ): { blocked: boolean; reason: string } {
+        if (!outdoorCfg?.enabled) {
+            return { blocked: false, reason: 'Außensensor nicht konfiguriert' };
+        }
+
+        const minDelta = outdoorCfg.minTempDeltaCelsius ?? 2;
+        const maxHumDelta = outdoorCfg.maxHumidityDeltaPercent ?? 10;
+
+        if (demandReason === 'temperature' || demandReason === 'both') {
+            if (insideTemp !== null && outdoorTemp !== null) {
+                const delta = insideTemp - outdoorTemp;
+                if (delta < minDelta) {
+                    return {
+                        blocked: true,
+                        reason: `Außenluft nicht kühler genug: ${outdoorTemp.toFixed(1)}°C innen ${insideTemp.toFixed(1)}°C (Δ${delta.toFixed(1)}K < ${minDelta}K)`,
+                    };
+                }
+            }
+        }
+
+        if (demandReason === 'humidity' || demandReason === 'both') {
+            if (insideHumidity !== null && outdoorHumidity !== null) {
+                const humDelta = outdoorHumidity - insideHumidity;
+                if (humDelta > maxHumDelta) {
+                    return {
+                        blocked: true,
+                        reason: `Außenluft zu feucht: ${outdoorHumidity.toFixed(0)}% > Innen ${insideHumidity.toFixed(0)}% + ${maxHumDelta}%`,
+                    };
+                }
+            }
+        }
+
+        return { blocked: false, reason: 'Außenluft günstig' };
     }
 }

@@ -1,12 +1,44 @@
 "use strict";
 // ============================================================
 // GrowManager – ClimateController
-// Prioritätsbasierte Klima- und VPD-Regelung mit Hysterese
+// Per-Aktor Regelziel: controlTarget bestimmt Regellogik.
+// Fallback: Ableitung aus Aktor-Typ wenn controlTarget nicht gesetzt.
 // ============================================================
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ClimateController = void 0;
 const calculations_1 = require("../utils/calculations");
 const AlarmService_1 = require("../services/AlarmService");
+// Ableitung des Regelziels aus Aktor-Typ (wenn controlTarget nicht explizit gesetzt)
+function inferControlTarget(act) {
+    if (act.controlTarget)
+        return act.controlTarget;
+    switch (act.type) {
+        case 'light': return 'light';
+        case 'circulationFan': return 'timer';
+        case 'exhaustFan':
+        case 'supplyFan':
+        case 'cooling': return 'temperature';
+        case 'heating': return 'temperature';
+        case 'humidifier': return 'humidity';
+        case 'dehumidifier': return 'humidity';
+        case 'co2Valve': return 'co2';
+        case 'irrigation': return 'soilMoisture';
+        default: return 'custom';
+    }
+}
+function inferControlDirection(act) {
+    if (act.controlDirection)
+        return act.controlDirection;
+    switch (act.type) {
+        case 'heating': return 'up';
+        case 'humidifier': return 'up';
+        case 'cooling':
+        case 'exhaustFan':
+        case 'supplyFan':
+        case 'dehumidifier': return 'down';
+        default: return 'both';
+    }
+}
 class ClimateController {
     constructor(alarmService, log) {
         this.alarmService = alarmService;
@@ -15,14 +47,14 @@ class ClimateController {
     }
     /**
      * Hauptregel-Funktion. Erzeugt eine ControlDecision für eine Gruppe.
+     * outdoorTemp / outdoorHumidity kommen vom konfigurierten Außensensor der Gruppe.
      */
-    decide(config, state, setpoint, shadowMode) {
+    decide(config, state, setpoint, shadowMode, outdoorTemp = null, outdoorHumidity = null) {
         const actions = [];
         const hyst = this.getHystStates(config.id);
         const temp = state.temperature;
         const hum = state.humidity;
         const vpd = state.vpd;
-        const dayNight = state.dayNight;
         let primaryReason = 'Keine Regelung notwendig';
         // --------------------------------------------------------
         // Priorität 1: Übertemperatur-Notfall
@@ -30,8 +62,8 @@ class ClimateController {
         if (temp !== null && temp > setpoint.temperatureCritical) {
             this.alarmService.raise(AlarmService_1.ALARM_CODES.TEMPERATURE_HIGH, config.id, 'climate', 'critical', `Kritische Übertemperatur: ${temp.toFixed(1)} °C > ${setpoint.temperatureCritical} °C`);
             primaryReason = `Übertemperatur ${temp.toFixed(1)} °C – Maximalabluft`;
-            this.requestCoolingActuators(config, actions, 100, primaryReason);
-            this.blockHeating(config, actions, 'Übertemperatur');
+            this.requestByTarget(config, 'temperature', 'down', actions, true, 100, primaryReason, null, null);
+            this.requestByTarget(config, 'temperature', 'up', actions, false, 0, 'Verriegelung: Übertemperatur', null, null);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
         }
         else if (temp !== null) {
@@ -43,7 +75,8 @@ class ClimateController {
         if (temp !== null && hum !== null && (0, calculations_1.condensationRisk)(temp, hum)) {
             this.alarmService.raise(AlarmService_1.ALARM_CODES.CONDENSATION_RISK, config.id, 'climate', 'fault', `Kondensationsrisiko: T=${temp.toFixed(1)}°C RH=${hum.toFixed(0)}%`);
             primaryReason = 'Kondensationsrisiko – Entfeuchter / Abluft';
-            this.requestDehumidification(config, actions, primaryReason);
+            this.requestByTarget(config, 'humidity', 'down', actions, true, 60, primaryReason, outdoorTemp, outdoorHumidity);
+            this.requestByTarget(config, 'humidity', 'up', actions, false, 0, 'Gegenseitige Verriegelung', null, null);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
         }
         else if (temp !== null && hum !== null) {
@@ -55,213 +88,241 @@ class ClimateController {
         if (temp !== null && temp < setpoint.temperatureMin - 3) {
             this.alarmService.raise(AlarmService_1.ALARM_CODES.TEMPERATURE_LOW, config.id, 'climate', 'fault', `Kritische Untertemperatur: ${temp.toFixed(1)} °C`);
             primaryReason = `Untertemperatur ${temp.toFixed(1)} °C – Heizung`;
-            this.requestHeating(config, actions, primaryReason);
+            this.requestByTarget(config, 'temperature', 'up', actions, true, 0, primaryReason, null, null);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
         }
         else if (temp !== null) {
             this.alarmService.clear(AlarmService_1.ALARM_CODES.TEMPERATURE_LOW, config.id, 'climate');
         }
         // --------------------------------------------------------
-        // Betriebsart-Routing
+        // Per-Aktor Routing (Normalfall)
         // --------------------------------------------------------
-        switch (config.mode) {
-            case 'vpd':
-                primaryReason = this.decideVPD(config, state, setpoint, hyst, actions);
-                break;
-            case 'combined':
-                primaryReason = this.decideCombined(config, state, setpoint, hyst, actions);
-                break;
-            case 'temperature':
-                primaryReason = this.decideTemperature(config, state, setpoint, hyst, actions);
-                break;
-            case 'humidity':
-                primaryReason = this.decideHumidity(config, state, setpoint, hyst, actions);
-                break;
-            case 'schedule':
-                primaryReason = this.decideSchedule(config, state, dayNight, actions);
-                break;
-            case 'monitorOnly':
-            case 'off':
-                primaryReason = 'Modus: nur Überwachung / Aus';
-                break;
-            default:
-                break;
+        const reasons = [];
+        for (const act of config.actuators) {
+            if (!act.enabled)
+                continue;
+            const target = inferControlTarget(act);
+            const dir = inferControlDirection(act);
+            switch (target) {
+                case 'light':
+                    this.decideLight(act, state, actions);
+                    break;
+                case 'timer':
+                    if (!actions.find(a => a.actuatorId === act.id)) {
+                        this.pushAction(actions, act, true, 'Dauerbetrieb', false);
+                    }
+                    break;
+                case 'temperature': {
+                    const r = this.decideTemperatureAct(act, dir, temp, setpoint, hyst, actions, outdoorTemp, outdoorHumidity);
+                    if (r)
+                        reasons.push(r);
+                    break;
+                }
+                case 'humidity': {
+                    const r = this.decideHumidityAct(act, dir, hum, setpoint, hyst, actions, outdoorTemp, outdoorHumidity);
+                    if (r)
+                        reasons.push(r);
+                    break;
+                }
+                case 'vpd': {
+                    const r = this.decideVpdAct(act, dir, vpd, temp, hum, setpoint, hyst, actions, outdoorTemp, outdoorHumidity);
+                    if (r)
+                        reasons.push(r);
+                    break;
+                }
+                case 'co2': {
+                    const r = this.decideCo2Act(act, dir, setpoint, hyst, actions);
+                    if (r)
+                        reasons.push(r);
+                    break;
+                }
+                case 'soilMoisture':
+                    // Wird von IrrigationService gesteuert — hier nichts tun
+                    break;
+                case 'custom':
+                default:
+                    // Kein automatisches Regelziel
+                    break;
+            }
         }
+        primaryReason = reasons.length > 0 ? reasons.join('; ') : 'Alle Aktoren im Zielbereich';
         return this.buildDecision(config, state, primaryReason, actions, shadowMode);
     }
     // ============================================================
-    // VPD-Regelung
+    // Lichtsteuerung (Zeitplan)
     // ============================================================
-    decideVPD(config, state, sp, hyst, actions) {
-        const vpd = state.vpd;
-        const temp = state.temperature;
-        const hum = state.humidity;
-        if (vpd === null || temp === null || hum === null) {
-            return 'VPD: Sensor fehlt – Fallback auf Temperatur/Feuchte';
+    decideLight(act, state, actions) {
+        const isDay = state.dayNight !== 'night';
+        this.pushAction(actions, act, isDay, `Zeitplan: ${state.dayNight}`, false);
+    }
+    // ============================================================
+    // Temperatur-Aktor
+    // ============================================================
+    decideTemperatureAct(act, dir, temp, sp, hyst, actions, outdoorTemp, outdoorHumidity) {
+        if (temp === null)
+            return null;
+        const tState = (0, calculations_1.hysteresisCheck)(temp, sp.temperature, sp.temperatureTolerance * 2, hyst.temperature);
+        hyst.temperature = tState;
+        if (dir === 'up') {
+            // Heizung
+            if (tState === -1) {
+                this.pushAction(actions, act, true, `T=${temp.toFixed(1)}°C < ${sp.temperature}°C`, false);
+                return `Heizung EIN (${temp.toFixed(1)} °C zu kalt)`;
+            }
+            else {
+                this.pushAction(actions, act, false, `T im Zielbereich`, false);
+            }
         }
+        else if (dir === 'down' || dir === 'both') {
+            // Kühlung / Abluft
+            if (tState === 1) {
+                // Außenluft-Guard: nur schalten wenn Außenluft günstiger
+                if (act.outdoorGuardEnabled && outdoorTemp !== null) {
+                    const outdoor = this.getOutdoorConfig(act);
+                    const delta = temp - outdoorTemp;
+                    if (delta < outdoor.minTempDelta) {
+                        this.pushAction(actions, act, false, `Außenluft zu warm (${outdoorTemp.toFixed(1)}°C, Δ${delta.toFixed(1)}K < ${outdoor.minTempDelta}K)`, false);
+                        return `Lüfter gesperrt: Außenluft nicht kühler genug (${outdoorTemp.toFixed(1)}°C)`;
+                    }
+                }
+                const val = act.supportsPercent ? 60 : true;
+                this.pushAction(actions, act, val, `T=${temp.toFixed(1)}°C > ${sp.temperature}°C`, false);
+                return `Kühlung EIN (${temp.toFixed(1)} °C zu warm)`;
+            }
+            else {
+                this.pushAction(actions, act, false, `T im Zielbereich`, false);
+            }
+        }
+        return null;
+    }
+    // ============================================================
+    // Feuchte-Aktor
+    // ============================================================
+    decideHumidityAct(act, dir, hum, sp, hyst, actions, outdoorTemp, outdoorHumidity) {
+        if (hum === null)
+            return null;
+        const hState = (0, calculations_1.hysteresisCheck)(hum, sp.humidity, sp.humidityTolerance * 2, hyst.humidity);
+        hyst.humidity = hState;
+        if (dir === 'up') {
+            // Befeuchter
+            if (hState === -1) {
+                this.pushAction(actions, act, true, `RH=${hum.toFixed(0)}% < ${sp.humidity}%`, false);
+                return `Befeuchter EIN (${hum.toFixed(0)}% zu trocken)`;
+            }
+            else {
+                this.pushAction(actions, act, false, `RH im Zielbereich`, false);
+            }
+        }
+        else if (dir === 'down' || dir === 'both') {
+            // Entfeuchter / Abluft
+            if (hState === 1) {
+                // Außenluft-Guard für Feuchte
+                if (act.outdoorGuardEnabled && outdoorHumidity !== null) {
+                    const outdoor = this.getOutdoorConfig(act);
+                    if (outdoorHumidity > hum + outdoor.maxHumDelta) {
+                        this.pushAction(actions, act, false, `Außenluft zu feucht (${outdoorHumidity.toFixed(0)}%)`, false);
+                        return `Lüfter gesperrt: Außenluft zu feucht (${outdoorHumidity.toFixed(0)}%)`;
+                    }
+                }
+                const val = act.supportsPercent ? 60 : true;
+                this.pushAction(actions, act, val, `RH=${hum.toFixed(0)}% > ${sp.humidity}%`, false);
+                return `Entfeuchter EIN (${hum.toFixed(0)}% zu feucht)`;
+            }
+            else {
+                this.pushAction(actions, act, false, `RH im Zielbereich`, false);
+            }
+        }
+        return null;
+    }
+    // ============================================================
+    // VPD-Aktor (koordiniert Temp + Feuchte)
+    // ============================================================
+    decideVpdAct(act, dir, vpd, temp, hum, sp, hyst, actions, outdoorTemp, outdoorHumidity) {
+        if (vpd === null || temp === null || hum === null)
+            return null;
         const vpdState = (0, calculations_1.hysteresisCheck)(vpd, (sp.vpdMin + sp.vpdMax) / 2, sp.vpdMax - sp.vpdMin, hyst.vpd);
         hyst.vpd = vpdState;
-        let reason = `VPD: ${vpd.toFixed(2)} kPa (Ziel: ${sp.vpdMin}–${sp.vpdMax})`;
         if (vpdState === -1) {
             // VPD zu niedrig → Feuchte senken oder Temperatur erhöhen
-            reason += ' → zu niedrig: Entfeuchter / Heizung';
-            if (hum > sp.humidityMax) {
-                this.requestDehumidification(config, actions, 'VPD zu niedrig + RH zu hoch');
+            if (dir === 'down' || dir === 'both') {
+                // Entfeuchter / Abluft
+                if (act.outdoorGuardEnabled && outdoorHumidity !== null) {
+                    const outdoor = this.getOutdoorConfig(act);
+                    if (outdoorHumidity > hum + outdoor.maxHumDelta) {
+                        this.pushAction(actions, act, false, `Außenluft zu feucht`, false);
+                        return null;
+                    }
+                }
+                const val = act.supportsPercent ? 50 : true;
+                this.pushAction(actions, act, val, `VPD ${vpd.toFixed(2)} zu niedrig – Entfeuchten`, false);
+                return `VPD ${vpd.toFixed(2)} kPa (Ziel: ${sp.vpdMin}–${sp.vpdMax}) → zu niedrig: Entfeuchten`;
             }
-            else if (temp < sp.temperature) {
-                this.requestHeating(config, actions, 'VPD zu niedrig + Temp zu niedrig');
+            else if (dir === 'up') {
+                // Heizung für VPD erhöhen
+                this.pushAction(actions, act, true, `VPD ${vpd.toFixed(2)} zu niedrig – Heizung`, false);
+                return `VPD zu niedrig → Heizung`;
             }
         }
         else if (vpdState === 1) {
             // VPD zu hoch → Feuchte erhöhen oder Temperatur senken
-            reason += ' → zu hoch: Befeuchter / Kühlung';
-            if (hum < sp.humidityMin) {
-                this.requestHumidification(config, actions, 'VPD zu hoch + RH zu niedrig');
+            if (dir === 'up') {
+                // Befeuchter
+                this.pushAction(actions, act, true, `VPD ${vpd.toFixed(2)} zu hoch – Befeuchten`, false);
+                return `VPD ${vpd.toFixed(2)} kPa → zu hoch: Befeuchten`;
             }
-            else if (temp > sp.temperature) {
-                this.requestCoolingActuators(config, actions, 60, 'VPD zu hoch + Temp zu hoch');
-            }
-        }
-        // Licht und Umluft nach Zeitplan
-        this.handleLightAndCirculation(config, state, actions);
-        return reason;
-    }
-    // ============================================================
-    // Kombinierte Klima-Regelung
-    // ============================================================
-    decideCombined(config, state, sp, hyst, actions) {
-        const reasons = [];
-        reasons.push(this.decideTemperature(config, state, sp, hyst, actions));
-        reasons.push(this.decideHumidity(config, state, sp, hyst, actions));
-        this.handleLightAndCirculation(config, state, actions);
-        return reasons.join('; ');
-    }
-    // ============================================================
-    // Temperatur-Regelung
-    // ============================================================
-    decideTemperature(config, state, sp, hyst, actions) {
-        const temp = state.temperature;
-        if (temp === null)
-            return 'Temp: Sensor fehlt';
-        const tState = (0, calculations_1.hysteresisCheck)(temp, sp.temperature, sp.temperatureTolerance * 2, hyst.temperature);
-        hyst.temperature = tState;
-        if (tState === 1) {
-            this.requestCoolingActuators(config, actions, 60, `T=${temp.toFixed(1)}°C > ${sp.temperature}°C`);
-            this.blockHeating(config, actions, 'Übertemperatur im Normalbetrieb');
-            return `Temp zu hoch (${temp.toFixed(1)} °C) – Kühlung / Abluft`;
-        }
-        else if (tState === -1) {
-            this.requestHeating(config, actions, `T=${temp.toFixed(1)}°C < ${sp.temperature}°C`);
-            return `Temp zu niedrig (${temp.toFixed(1)} °C) – Heizung`;
-        }
-        return `Temp: ${temp.toFixed(1)} °C im Zielbereich`;
-    }
-    // ============================================================
-    // Feuchte-Regelung
-    // ============================================================
-    decideHumidity(config, state, sp, hyst, actions) {
-        const hum = state.humidity;
-        if (hum === null)
-            return 'RH: Sensor fehlt';
-        const hState = (0, calculations_1.hysteresisCheck)(hum, sp.humidity, sp.humidityTolerance * 2, hyst.humidity);
-        hyst.humidity = hState;
-        if (hState === 1) {
-            this.requestDehumidification(config, actions, `RH=${hum.toFixed(0)}% > ${sp.humidity}%`);
-            return `RH zu hoch (${hum.toFixed(0)} %) – Entfeuchter`;
-        }
-        else if (hState === -1) {
-            this.requestHumidification(config, actions, `RH=${hum.toFixed(0)}% < ${sp.humidity}%`);
-            return `RH zu niedrig (${hum.toFixed(0)} %) – Befeuchter`;
-        }
-        return `RH: ${hum.toFixed(0)} % im Zielbereich`;
-    }
-    // ============================================================
-    // Zeitplan-Modus (nur Licht/Umluft)
-    // ============================================================
-    decideSchedule(config, state, dayNight, actions) {
-        this.handleLightAndCirculation(config, state, actions);
-        return `Zeitplan: ${dayNight}`;
-    }
-    // ============================================================
-    // Hilfsfunktionen Aktoranforderungen
-    // ============================================================
-    requestHeating(config, actions, reason) {
-        for (const act of config.actuators) {
-            if (act.type === 'heating' && act.enabled) {
-                this.pushAction(actions, act, true, reason, false);
-            }
-            // Kühlung ausschalten (Verriegelung)
-            if (act.type === 'cooling' && act.enabled) {
-                this.pushAction(actions, act, false, 'Verriegelung: Heizung aktiv', false);
-            }
-        }
-    }
-    requestCoolingActuators(config, actions, exhaustPercent, reason) {
-        for (const act of config.actuators) {
-            if (act.type === 'exhaustFan' && act.enabled) {
-                const val = act.supportsPercent ? exhaustPercent : true;
-                this.pushAction(actions, act, val, reason, false);
-            }
-            if (act.type === 'cooling' && act.enabled) {
-                this.pushAction(actions, act, true, reason, false);
-            }
-            // Heizung ausschalten (Verriegelung)
-            if (act.type === 'heating' && act.enabled) {
-                this.pushAction(actions, act, false, 'Verriegelung: Kühlung aktiv', false);
-            }
-        }
-    }
-    requestDehumidification(config, actions, reason) {
-        for (const act of config.actuators) {
-            if (act.type === 'dehumidifier' && act.enabled) {
-                this.pushAction(actions, act, true, reason, false);
-            }
-            if (act.type === 'exhaustFan' && act.enabled) {
-                const val = act.supportsPercent ? 60 : true;
-                this.pushAction(actions, act, val, reason, false);
-            }
-            // Befeuchter ausschalten (Verriegelung)
-            if (act.type === 'humidifier' && act.enabled) {
-                this.pushAction(actions, act, false, 'Gegenseitige Verriegelung', false);
-            }
-        }
-    }
-    requestHumidification(config, actions, reason) {
-        for (const act of config.actuators) {
-            if (act.type === 'humidifier' && act.enabled) {
-                this.pushAction(actions, act, true, reason, false);
-            }
-            // Entfeuchter ausschalten (Verriegelung)
-            if (act.type === 'dehumidifier' && act.enabled) {
-                this.pushAction(actions, act, false, 'Gegenseitige Verriegelung', false);
-            }
-        }
-    }
-    blockHeating(config, actions, reason) {
-        for (const act of config.actuators) {
-            if (act.type === 'heating' && act.enabled) {
-                this.pushAction(actions, act, false, reason, false);
-            }
-        }
-    }
-    handleLightAndCirculation(config, state, actions) {
-        const isDay = state.dayNight !== 'night';
-        for (const act of config.actuators) {
-            if (act.type === 'light' && act.enabled) {
-                this.pushAction(actions, act, isDay, `Zeitplan: ${state.dayNight}`, false);
-            }
-            if (act.type === 'circulationFan' && act.enabled) {
-                // Umluft immer EIN (minimaler Betrieb; Detailsteuerung in AirSystem)
-                if (!actions.find(a => a.actuatorId === act.id)) {
-                    this.pushAction(actions, act, true, 'Mindest-Umluft', false);
+            else if (dir === 'down' || dir === 'both') {
+                // Kühlung / Abluft
+                if (act.outdoorGuardEnabled && outdoorTemp !== null) {
+                    const outdoor = this.getOutdoorConfig(act);
+                    const delta = temp - outdoorTemp;
+                    if (delta < outdoor.minTempDelta) {
+                        this.pushAction(actions, act, false, `Außenluft zu warm für VPD`, false);
+                        return null;
+                    }
                 }
+                const val = act.supportsPercent ? 50 : true;
+                this.pushAction(actions, act, val, `VPD ${vpd.toFixed(2)} zu hoch – Kühlen`, false);
+                return `VPD zu hoch → Kühlung`;
             }
+        }
+        else {
+            this.pushAction(actions, act, false, `VPD im Zielbereich`, false);
+        }
+        return null;
+    }
+    // ============================================================
+    // CO₂-Aktor
+    // ============================================================
+    decideCo2Act(act, dir, sp, hyst, actions) {
+        if (!sp.co2Target)
+            return null;
+        // CO₂ wird über separate Sensor-States gelesen — hier Platzhalter
+        // Die eigentliche CO₂-Regelung benötigt einen co2-Sensor in der Gruppe
+        this.pushAction(actions, act, false, 'CO₂-Regelung: kein Sensor', false);
+        return null;
+    }
+    // ============================================================
+    // Hilfsfunktionen
+    // ============================================================
+    getOutdoorConfig(act) {
+        // Defaults: 2°C Mindest-Vorteil, 10% Feuchte-Toleranz
+        return { minTempDelta: 2, maxHumDelta: 10 };
+    }
+    requestByTarget(config, target, dir, actions, on, percent, reason, outdoorTemp, outdoorHumidity) {
+        for (const act of config.actuators) {
+            if (!act.enabled)
+                continue;
+            if (inferControlTarget(act) !== target)
+                continue;
+            if (inferControlDirection(act) !== dir && dir !== 'both')
+                continue;
+            const val = on ? (act.supportsPercent && percent > 0 ? percent : true) : false;
+            this.pushAction(actions, act, val, reason, false);
         }
     }
     pushAction(actions, act, requested, reason, blocked) {
         const existing = actions.find(a => a.actuatorId === act.id);
         if (existing) {
-            // Kritischere Anforderung gewinnt (true > false, höhere Zahl gewinnt)
             if (typeof requested === 'boolean') {
                 if (requested && !existing.requested) {
                     existing.requested = requested;
@@ -296,7 +357,7 @@ class ClimateController {
     getHystStates(groupId) {
         let h = this.hystStates.get(groupId);
         if (!h) {
-            h = { temperature: 0, humidity: 0, vpd: 0 };
+            h = { temperature: 0, humidity: 0, vpd: 0, co2: 0 };
             this.hystStates.set(groupId, h);
         }
         return h;

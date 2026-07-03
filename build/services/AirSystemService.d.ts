@@ -1,4 +1,4 @@
-import type { GroupConfig, AirSystemConfig } from '../models/config';
+import type { GroupConfig, AirSystemConfig, OutdoorSensorConfig } from '../models/config';
 import type { AlarmService } from './AlarmService';
 import type { ILogger } from '../utils/logger';
 export interface AirDemand {
@@ -45,8 +45,18 @@ export declare class AirSystemService {
     private diagnoseLowflow;
     /**
      * Prüft ob Zuluft feuchter als Abluft-Bedarf erlaubt.
-     * (Vereinfacht: wenn Außensensor-Feuchte > Innen → Abluftbedarf für Feuchte ignorieren)
      */
     shouldSuppressHumidityVentilation(insideHumidity: number | null, outsideHumidity: number | null): boolean;
+    /**
+     * Außenluft-Guard: Prüft ob Außenluft günstiger als Innenluft.
+     * Gibt blockiert=true zurück wenn Lüfter NICHT schalten sollten.
+     *
+     * Temp-Guard: Außentemp muss mindestens minTempDeltaCelsius kühler sein.
+     * Feuchte-Guard: Außenfeuchte darf maximal maxHumidityDeltaPercent höher sein.
+     */
+    checkOutdoorGuard(outdoorCfg: OutdoorSensorConfig | undefined, insideTemp: number | null, insideHumidity: number | null, outdoorTemp: number | null, outdoorHumidity: number | null, demandReason: 'temperature' | 'humidity' | 'both'): {
+        blocked: boolean;
+        reason: string;
+    };
 }
 //# sourceMappingURL=AirSystemService.d.ts.map

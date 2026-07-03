@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { GrowManagerConfig, GroupConfig, ClimateProfile } from './types';
+import type { GrowManagerConfig, GroupConfig, ClimateProfile, ControlTarget, ControlDirection, OutdoorSensorConfig } from './types';
 
 // ioBroker Admin-Globals (werden vom Admin-Framework bereitgestellt)
 declare const socket: {
@@ -262,6 +262,15 @@ const defaultActuator = (): GroupConfig['actuators'][0] => ({
     interlockIds: [],
     shared: false,
     enabled: true,
+    outdoorGuardEnabled: false,
+});
+
+const defaultOutdoorSensor = (): OutdoorSensorConfig => ({
+    enabled: false,
+    tempStateId: '',
+    humidityStateId: '',
+    minTempDeltaCelsius: 2,
+    maxHumidityDeltaPercent: 10,
 });
 
 const defaultIrrigationZone = (): GroupConfig['irrigationZones'][0] => ({
@@ -501,6 +510,45 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, onSave, onClo
                     <option value="damper">Klappe</option>
                     <option value="custom">Benutzerdefiniert</option>
                 </select>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div>
+                        <label style={styles.fieldLabel}>Regelziel (controlTarget)</label>
+                        <select style={styles.select}
+                            value={edit.controlTarget ?? ''}
+                            onChange={e => setEdit(prev => ({ ...prev, controlTarget: (e.target.value || undefined) as ControlTarget | undefined }))}>
+                            <option value="">– Auto (vom Typ abgeleitet) –</option>
+                            <option value="temperature">Temperatur</option>
+                            <option value="humidity">Luftfeuchtigkeit</option>
+                            <option value="vpd">VPD (koordiniert)</option>
+                            <option value="co2">CO₂</option>
+                            <option value="soilMoisture">Bodenfeuchte</option>
+                            <option value="light">Licht (Zeitplan)</option>
+                            <option value="timer">Timer (immer EIN)</option>
+                            <option value="custom">Benutzerdefiniert</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style={styles.fieldLabel}>Wirkrichtung</label>
+                        <select style={styles.select}
+                            value={edit.controlDirection ?? ''}
+                            onChange={e => setEdit(prev => ({ ...prev, controlDirection: (e.target.value || undefined) as ControlDirection | undefined }))}>
+                            <option value="">– Auto (vom Typ abgeleitet) –</option>
+                            <option value="up">Erhöhen (up) – z.B. Heizung, Befeuchter</option>
+                            <option value="down">Senken (down) – z.B. Abluft, Entfeuchter</option>
+                            <option value="both">Beides</option>
+                        </select>
+                    </div>
+                </div>
+                {(edit.type === 'exhaustFan' || edit.type === 'supplyFan') && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '6px 0', cursor: 'pointer', fontSize: 13 }}>
+                        <input type="checkbox"
+                            checked={edit.outdoorGuardEnabled ?? false}
+                            onChange={e => setEdit(prev => ({ ...prev, outdoorGuardEnabled: e.target.checked }))} />
+                        <span>Außenluft-Guard aktivieren</span>
+                        <span style={{ fontSize: 11, color: '#888' }}>(Gruppe muss Außensensor haben → Lüfter sperren wenn Außen ungünstiger)</span>
+                    </label>
+                )}
 
                 <StateIdInput
                     label="Befehls-State-ID (schreiben)"
@@ -872,6 +920,62 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, onSave, onCa
                                 onChange={e => setEdit(prev => ({ ...prev, sensorDisagreementThreshold: +e.target.value }))} />
                         </div>
                     </div>
+
+                    {/* Außenluft-Vergleichssensor */}
+                    <hr style={{ margin: '16px 0', borderColor: '#e0e0e0' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <span style={{ fontWeight: 600, fontSize: 14 }}>Außenluft-Vergleichssensor</span>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 }}>
+                            <input type="checkbox"
+                                checked={edit.outdoorSensor?.enabled ?? false}
+                                onChange={e => setEdit(prev => ({
+                                    ...prev,
+                                    outdoorSensor: { ...(prev.outdoorSensor ?? defaultOutdoorSensor()), enabled: e.target.checked },
+                                }))} />
+                            Aktiv
+                        </label>
+                    </div>
+                    {edit.outdoorSensor?.enabled ? (
+                        <div>
+                            <p style={{ fontSize: 12, color: '#666', marginBottom: 10 }}>
+                                Schaltet Abluft/Zuluft-Lüfter (mit aktiviertem Außenluft-Guard) nur dann, wenn die Außenluft günstiger als die Innenluft ist.
+                            </p>
+                            <StateIdInput
+                                label="Außentemperatur State-ID"
+                                value={edit.outdoorSensor.tempStateId ?? ''}
+                                onChange={v => setEdit(prev => ({ ...prev, outdoorSensor: { ...(prev.outdoorSensor ?? defaultOutdoorSensor()), tempStateId: v } }))}
+                                placeholder="z.B. hm-rpc.0.NEQ1234.1.TEMPERATURE"
+                                typeFilter="temperature"
+                            />
+                            <StateIdInput
+                                label="Außenfeuchte State-ID (optional)"
+                                value={edit.outdoorSensor.humidityStateId ?? ''}
+                                onChange={v => setEdit(prev => ({ ...prev, outdoorSensor: { ...(prev.outdoorSensor ?? defaultOutdoorSensor()), humidityStateId: v } }))}
+                                placeholder="z.B. hm-rpc.0.NEQ1234.1.HUMIDITY"
+                                typeFilter="humidity"
+                            />
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                <div>
+                                    <label style={styles.fieldLabel}>Min. Temp-Vorteil Außen (°C)</label>
+                                    <input style={styles.input} type="number" step="0.5" min={0}
+                                        value={edit.outdoorSensor.minTempDeltaCelsius ?? 2}
+                                        title="Außen muss mindestens X°C kühler sein als Innen, sonst kein Lüften"
+                                        onChange={e => setEdit(prev => ({ ...prev, outdoorSensor: { ...(prev.outdoorSensor ?? defaultOutdoorSensor()), minTempDeltaCelsius: +e.target.value } }))} />
+                                </div>
+                                <div>
+                                    <label style={styles.fieldLabel}>Max. Feuchte-Nachteil Außen (%)</label>
+                                    <input style={styles.input} type="number" step="1" min={0}
+                                        value={edit.outdoorSensor.maxHumidityDeltaPercent ?? 10}
+                                        title="Außen darf maximal X% feuchter sein als Innen, sonst kein Feuchte-Lüften"
+                                        onChange={e => setEdit(prev => ({ ...prev, outdoorSensor: { ...(prev.outdoorSensor ?? defaultOutdoorSensor()), maxHumidityDeltaPercent: +e.target.value } }))} />
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <p style={{ fontSize: 12, color: '#aaa', fontStyle: 'italic' }}>
+                            Kein Außensensor – Lüfter schalten ohne Außenluft-Vergleich.
+                        </p>
+                    )}
                 </div>
             )}
 
@@ -1400,6 +1504,7 @@ const defaultSetpoint = (): ClimateSetpoint => ({
     vpdMin: 0.8, vpdMax: 1.2, temperatureMin: 18, temperatureMax: 30,
     temperatureCritical: 35, humidityMin: 40, humidityMax: 80, humidityCritical: 85,
     condensationRiskMaxHumidity: 80,
+    // Optionale Felder bleiben undefined bis explizit gesetzt
 });
 
 const defaultProfile = (): ClimateProfile => ({
@@ -1413,29 +1518,50 @@ const defaultProfile = (): ClimateProfile => ({
 
 function SetpointForm({ label, sp, onChange }: { label: string; sp: ClimateSetpoint; onChange: (s: ClimateSetpoint) => void }) {
     const n = (key: keyof ClimateSetpoint) => ({
-        value: sp[key],
-        onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...sp, [key]: +e.target.value }),
+        value: sp[key] ?? '',
+        onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...sp, [key]: e.target.value === '' ? undefined : +e.target.value }),
     });
-    const row = (lbl: string, k: keyof ClimateSetpoint, step = 0.1) => (
+    const row = (lbl: string, k: keyof ClimateSetpoint, step = 0.1, optional = false) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <span style={{ width: 220, fontSize: 13 }}>{lbl}</span>
-            <input style={{ ...styles.input, width: 80 }} type="number" step={step} {...n(k)} />
+            <span style={{ width: 220, fontSize: 13, color: optional ? '#888' : 'inherit' }}>{lbl}{optional && ' (opt.)'}</span>
+            <input style={{ ...styles.input, width: 80 }} type="number" step={step} placeholder={optional ? '–' : undefined} {...n(k)} />
         </div>
     );
+
+    const section = (title: string, color: string) => (
+        <div style={{ fontWeight: 600, fontSize: 12, color, textTransform: 'uppercase', letterSpacing: '0.5px', margin: '10px 0 4px' }}>{title}</div>
+    );
+
     return (
         <div style={{ marginBottom: 16 }}>
             <div style={{ fontWeight: 600, marginBottom: 8, color: '#2e7d32' }}>{label}</div>
+
+            {section('Temperatur', '#e65100')}
             {row('Ziel-Temperatur (°C)', 'temperature')}
-            {row('Toleranz Temp. (±°C)', 'temperatureTolerance')}
-            {row('Min Temp (°C)', 'temperatureMin')}
-            {row('Max Temp (°C)', 'temperatureMax')}
-            {row('Kritisch Temp (°C)', 'temperatureCritical')}
-            {row('Ziel-Luftfeuchte (%)', 'humidity', 1)}
-            {row('Toleranz Feuchte (±%)', 'humidityTolerance', 1)}
-            {row('Min Feuchte (%)', 'humidityMin', 1)}
-            {row('Max Feuchte (%)', 'humidityMax', 1)}
+            {row('Toleranz (±°C)', 'temperatureTolerance')}
+            {row('Min (°C)', 'temperatureMin')}
+            {row('Max (°C)', 'temperatureMax')}
+            {row('Kritisch (°C)', 'temperatureCritical')}
+
+            {section('Luftfeuchtigkeit', '#1565c0')}
+            {row('Ziel-Feuchte (%)', 'humidity', 1)}
+            {row('Toleranz (±%)', 'humidityTolerance', 1)}
+            {row('Min (%)', 'humidityMin', 1)}
+            {row('Max (%)', 'humidityMax', 1)}
+            {row('Kritisch (%)', 'humidityCritical', 1)}
+            {row('Kondens.-Schutz max. (%)', 'condensationRiskMaxHumidity', 1)}
+
+            {section('VPD', '#6a1b9a')}
             {row('VPD Min (kPa)', 'vpdMin')}
             {row('VPD Max (kPa)', 'vpdMax')}
+
+            {section('CO₂', '#558b2f')}
+            {row('CO₂ Ziel (ppm)', 'co2Target', 50, true)}
+            {row('CO₂ Toleranz (ppm)', 'co2Tolerance', 50, true)}
+
+            {section('Bodenfeuchte', '#4527a0')}
+            {row('Bodenfeuchte Ziel (%)', 'soilMoistureTarget', 1, true)}
+            {row('Bodenfeuchte Toleranz (±%)', 'soilMoistureTolerance', 1, true)}
         </div>
     );
 }

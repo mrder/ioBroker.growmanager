@@ -26,6 +26,8 @@ export type ActuatorType =
 
 export type ActuatorDataType = 'boolean' | 'number' | 'string';
 export type ActuatorSafeState = 'off' | 'on' | 'keep' | 'minLevel';
+export type ControlTarget = 'temperature' | 'humidity' | 'vpd' | 'co2' | 'soilMoisture' | 'light' | 'timer' | 'custom';
+export type ControlDirection = 'up' | 'down' | 'both';
 
 export interface ActuatorConfig {
     id: string; name: string; type: ActuatorType; commandStateId: string;
@@ -40,6 +42,17 @@ export interface ActuatorConfig {
     manualOverride: boolean; overrideDurationMinutes: number;
     invertLogic: boolean; interlockIds: string[]; shared: boolean; enabled: boolean;
     healthStateId?: string; healthCheckType?: 'boolean' | 'number'; healthCheckMin?: number;
+    controlTarget?: ControlTarget;
+    controlDirection?: ControlDirection;
+    outdoorGuardEnabled?: boolean;
+}
+
+export interface OutdoorSensorConfig {
+    enabled: boolean;
+    tempStateId?: string;
+    humidityStateId?: string;
+    minTempDeltaCelsius: number;
+    maxHumidityDeltaPercent: number;
 }
 
 export interface TimeWindow { startHH: number; startMM: number; endHH: number; endMM: number; }
@@ -50,6 +63,8 @@ export interface ClimateSetpoint {
     vpdMin: number; vpdMax: number; temperatureMin: number; temperatureMax: number;
     temperatureCritical: number; humidityMin: number; humidityMax: number; humidityCritical: number;
     condensationRiskMaxHumidity: number;
+    co2Target?: number; co2Tolerance?: number;
+    soilMoistureTarget?: number; soilMoistureTolerance?: number;
 }
 
 export type PlantPhase = 'seedling' | 'growth' | 'bloom' | 'drying' | 'custom';
@@ -87,6 +102,7 @@ export interface GroupConfig {
     aggregationMethod: AggregationMethod; minValidSensors: number;
     fallbackChain: GroupMode[]; stabilityTimeSeconds: number;
     sensorDisagreementThreshold: number;
+    outdoorSensor?: OutdoorSensorConfig;
 }
 
 export type StartBehavior = 'lastState' | 'delayedStart' | 'safeTurnOff' | 'monitorOnly';
