@@ -1571,7 +1571,63 @@ const defaultProfile = (): ClimateProfile => ({
     night: { ...defaultSetpoint(), temperature: 20, humidity: 55 },
 });
 
-function SetpointForm({ label, sp, onChange }: { label: string; sp: ClimateSetpoint; onChange: (s: ClimateSetpoint) => void }) {
+// ---- Klimaprofil-Presets ----------------------------------------
+
+interface ClimatePreset {
+    label: string;
+    description: string;
+    color: string;
+    day: Partial<ClimateSetpoint>;
+    night: Partial<ClimateSetpoint>;
+}
+
+const CLIMATE_PRESETS: ClimatePreset[] = [
+    {
+        label: 'Keimling', description: 'Hohe Feuchte, moderate Wärme, niedrige VPD', color: '#66bb6a',
+        day:   { temperature: 25, temperatureTolerance: 1, temperatureMin: 22, temperatureMax: 28, temperatureCritical: 32, humidity: 75, humidityTolerance: 5, humidityMin: 65, humidityMax: 85, humidityCritical: 90, condensationRiskMaxHumidity: 88, vpdMin: 0.3, vpdMax: 0.6 },
+        night: { temperature: 22, temperatureTolerance: 1, temperatureMin: 20, temperatureMax: 26, temperatureCritical: 30, humidity: 70, humidityTolerance: 5, humidityMin: 60, humidityMax: 80, humidityCritical: 88, condensationRiskMaxHumidity: 85, vpdMin: 0.3, vpdMax: 0.6 },
+    },
+    {
+        label: 'Wachstum (Veg)', description: 'Optimale Bedingungen für Blattmasse', color: '#26a69a',
+        day:   { temperature: 24, temperatureTolerance: 1.5, temperatureMin: 20, temperatureMax: 28, temperatureCritical: 33, humidity: 65, humidityTolerance: 5, humidityMin: 50, humidityMax: 75, humidityCritical: 85, condensationRiskMaxHumidity: 80, vpdMin: 0.8, vpdMax: 1.2 },
+        night: { temperature: 20, temperatureTolerance: 1.5, temperatureMin: 17, temperatureMax: 24, temperatureCritical: 30, humidity: 60, humidityTolerance: 5, humidityMin: 45, humidityMax: 70, humidityCritical: 82, condensationRiskMaxHumidity: 78, vpdMin: 0.7, vpdMax: 1.1 },
+    },
+    {
+        label: 'Blüte (früh)', description: '1.–4. Blütewoche, etwas weniger Feuchte', color: '#ffa726',
+        day:   { temperature: 25, temperatureTolerance: 1, temperatureMin: 20, temperatureMax: 28, temperatureCritical: 32, humidity: 55, humidityTolerance: 5, humidityMin: 40, humidityMax: 65, humidityCritical: 75, condensationRiskMaxHumidity: 72, vpdMin: 1.0, vpdMax: 1.5 },
+        night: { temperature: 20, temperatureTolerance: 1, temperatureMin: 17, temperatureMax: 24, temperatureCritical: 29, humidity: 50, humidityTolerance: 5, humidityMin: 38, humidityMax: 60, humidityCritical: 72, condensationRiskMaxHumidity: 70, vpdMin: 0.9, vpdMax: 1.3 },
+    },
+    {
+        label: 'Blüte (spät)', description: '5.+ Woche, niedrige Feuchte gegen Schimmel', color: '#ef5350',
+        day:   { temperature: 24, temperatureTolerance: 1, temperatureMin: 19, temperatureMax: 27, temperatureCritical: 31, humidity: 42, humidityTolerance: 4, humidityMin: 30, humidityMax: 52, humidityCritical: 60, condensationRiskMaxHumidity: 58, vpdMin: 1.2, vpdMax: 1.7 },
+        night: { temperature: 19, temperatureTolerance: 1, temperatureMin: 16, temperatureMax: 23, temperatureCritical: 28, humidity: 38, humidityTolerance: 4, humidityMin: 28, humidityMax: 48, humidityCritical: 58, condensationRiskMaxHumidity: 55, vpdMin: 1.1, vpdMax: 1.5 },
+    },
+    {
+        label: 'Trocknung', description: 'Langsam trocknen, kühle Temperatur', color: '#8d6e63',
+        day:   { temperature: 18, temperatureTolerance: 1, temperatureMin: 15, temperatureMax: 22, temperatureCritical: 26, humidity: 50, humidityTolerance: 4, humidityMin: 40, humidityMax: 58, humidityCritical: 65, condensationRiskMaxHumidity: 62, vpdMin: 0.8, vpdMax: 1.2 },
+        night: { temperature: 16, temperatureTolerance: 1, temperatureMin: 13, temperatureMax: 20, temperatureCritical: 24, humidity: 48, humidityTolerance: 4, humidityMin: 38, humidityMax: 56, humidityCritical: 62, condensationRiskMaxHumidity: 60, vpdMin: 0.7, vpdMax: 1.1 },
+    },
+    {
+        label: 'Gemüse (Tomate)', description: 'Warm und feucht, hohe CO₂', color: '#d32f2f',
+        day:   { temperature: 26, temperatureTolerance: 1.5, temperatureMin: 20, temperatureMax: 30, temperatureCritical: 35, humidity: 65, humidityTolerance: 5, humidityMin: 50, humidityMax: 75, humidityCritical: 85, condensationRiskMaxHumidity: 80, vpdMin: 0.8, vpdMax: 1.3, co2Target: 1000, co2Tolerance: 150 },
+        night: { temperature: 18, temperatureTolerance: 1.5, temperatureMin: 15, temperatureMax: 24, temperatureCritical: 30, humidity: 60, humidityTolerance: 5, humidityMin: 45, humidityMax: 70, humidityCritical: 82, condensationRiskMaxHumidity: 78, vpdMin: 0.7, vpdMax: 1.1 },
+    },
+    {
+        label: 'Salat / Kräuter', description: 'Kühl, feucht, niedrige Belastung', color: '#43a047',
+        day:   { temperature: 20, temperatureTolerance: 2, temperatureMin: 15, temperatureMax: 25, temperatureCritical: 30, humidity: 70, humidityTolerance: 5, humidityMin: 55, humidityMax: 80, humidityCritical: 88, condensationRiskMaxHumidity: 85, vpdMin: 0.5, vpdMax: 0.9 },
+        night: { temperature: 16, temperatureTolerance: 2, temperatureMin: 12, temperatureMax: 20, temperatureCritical: 25, humidity: 65, humidityTolerance: 5, humidityMin: 50, humidityMax: 75, humidityCritical: 85, condensationRiskMaxHumidity: 82, vpdMin: 0.4, vpdMax: 0.8 },
+    },
+];
+
+function SetpointForm({ label, sp, onChange, isDay }: { label: string; sp: ClimateSetpoint; onChange: (s: ClimateSetpoint) => void; isDay?: boolean }) {
+    const [showPresets, setShowPresets] = React.useState(false);
+
+    const applyPreset = (preset: ClimatePreset) => {
+        const partial = isDay === false ? preset.night : preset.day;
+        onChange({ ...sp, ...partial });
+        setShowPresets(false);
+    };
+
     const n = (key: keyof ClimateSetpoint) => ({
         value: sp[key] ?? '',
         onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...sp, [key]: e.target.value === '' ? undefined : +e.target.value }),
@@ -1589,7 +1645,49 @@ function SetpointForm({ label, sp, onChange }: { label: string; sp: ClimateSetpo
 
     return (
         <div style={{ marginBottom: 16 }}>
-            <div style={{ fontWeight: 600, marginBottom: 8, color: '#2e7d32' }}>{label}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontWeight: 600, color: '#2e7d32' }}>{label}</span>
+                <button
+                    type="button"
+                    onClick={() => setShowPresets(v => !v)}
+                    style={{ ...styles.btnSecondary, fontSize: 11, padding: '3px 10px' }}
+                >
+                    {showPresets ? '▲ Presets schließen' : '▼ Preset laden'}
+                </button>
+            </div>
+
+            {showPresets && (
+                <div style={{ marginBottom: 12, padding: 10, background: '#f8fdf8', border: '1px solid #c8e6c9', borderRadius: 6 }}>
+                    <div style={{ fontSize: 11, color: '#666', marginBottom: 8 }}>
+                        Preset überschreibt alle Felder dieses Sollwert-Blocks:
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 6 }}>
+                        {CLIMATE_PRESETS.map(p => (
+                            <button
+                                key={p.label}
+                                type="button"
+                                onClick={() => applyPreset(p)}
+                                style={{
+                                    textAlign: 'left', padding: '7px 10px', borderRadius: 6, cursor: 'pointer',
+                                    border: `2px solid ${p.color}20`, background: `${p.color}12`,
+                                    transition: 'all 0.15s',
+                                }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${p.color}28`; (e.currentTarget as HTMLButtonElement).style.borderColor = p.color; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = `${p.color}12`; (e.currentTarget as HTMLButtonElement).style.borderColor = `${p.color}20`; }}
+                            >
+                                <div style={{ fontWeight: 700, fontSize: 12, color: p.color }}>{p.label}</div>
+                                <div style={{ fontSize: 10, color: '#666', marginTop: 2 }}>{p.description}</div>
+                                <div style={{ fontSize: 10, color: '#888', marginTop: 3, fontFamily: 'monospace' }}>
+                                    {isDay === false
+                                        ? `${p.night.temperature}°C · ${p.night.humidity}% · VPD ${p.night.vpdMin}–${p.night.vpdMax}`
+                                        : `${p.day.temperature}°C · ${p.day.humidity}% · VPD ${p.day.vpdMin}–${p.day.vpdMax}`
+                                    }
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {section('Temperatur', '#e65100')}
             {row('Ziel-Temperatur (°C)', 'temperature')}
@@ -1651,9 +1749,9 @@ const ProfilesView: React.FC<{
                     onChange={e => setEditing(prev => prev && ({ ...prev, transitionMinutes: +e.target.value }))} />
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 16 }}>
-                    <SetpointForm label="☀️ Tag" sp={editing.day}
+                    <SetpointForm label="☀️ Tag" sp={editing.day} isDay={true}
                         onChange={day => setEditing(prev => prev && ({ ...prev, day }))} />
-                    <SetpointForm label="🌙 Nacht" sp={editing.night}
+                    <SetpointForm label="🌙 Nacht" sp={editing.night} isDay={false}
                         onChange={night => setEditing(prev => prev && ({ ...prev, night }))} />
                 </div>
 
