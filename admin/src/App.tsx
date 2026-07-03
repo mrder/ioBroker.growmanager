@@ -1962,8 +1962,16 @@ const App: React.FC = () => {
     // ioBroker-Anbindung
     useEffect(() => {
         const load = () => {
-            const w = window as Window & { loadConfig?: (cb: (c: GrowManagerConfig) => void) => void };
+            const w = window as Window & {
+                loadConfig?: (cb: (c: GrowManagerConfig) => void) => void;
+                socket?: { emit: (...a: unknown[]) => void };
+                _growSocket?: { emit: (...a: unknown[]) => void };
+                _growInstanceId?: string;
+            };
             if (typeof w.loadConfig === 'function') {
+                // ioBroker admin v6+ injects window.socket with a pre-connected socket instance.
+                // Wire it up as _growSocket so emitSocket() can use it for getState calls.
+                if (!w._growSocket && w.socket?.emit) w._growSocket = w.socket;
                 setSocketReady(true);
                 w.loadConfig((c: GrowManagerConfig) => setConfig(prev => ({
                     ...prev,
@@ -1985,7 +1993,11 @@ const App: React.FC = () => {
     // Live-Polling der Adapter-States alle 5 Sekunden
     useEffect(() => {
         if (!socketReady || !groupIds) return;
-        const instanceId = (window as Window & { _growInstanceId?: string })._growInstanceId ?? '0';
+        // ioBroker admin passes the instance number as URL param "instance" (e.g. ?instance=0)
+        // or the full namespace "growmanager.0". Fall back to '0' for a single instance.
+        const urlInstance = new URLSearchParams(window.location.search).get('instance') ?? '0';
+        const instanceId = (window as Window & { _growInstanceId?: string })._growInstanceId
+            ?? urlInstance.replace(/^growmanager\./, '');
         const groups = config.groups;
 
         async function poll() {

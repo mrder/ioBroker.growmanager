@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.1.26",
+    "version": "0.1.27",
     "news": {
+      "0.1.27": {
+        "en": "Fix admin live dashboard: wire window.socket as _growSocket so getState calls work; extract instance ID from URL param",
+        "de": "Admin-Live-Dashboard behoben: window.socket als _growSocket verdrahtet sodass getState-Calls funktionieren; Instanz-ID aus URL-Parameter extrahiert"
+      },
       "0.1.26": {
         "en": "Smarter stale detection: alive state overrides timestamp check; multi-value sensors on same device share liveness; default staleAfterSeconds raised to 1200s",
         "de": "Intelligentere Stale-Erkennung: alive-State überschreibt Timestamp-Check; Sensoren desselben Geräts teilen Aktualität; Standard staleAfterSeconds auf 1200s erhöht"
