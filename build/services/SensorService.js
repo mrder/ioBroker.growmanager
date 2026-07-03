@@ -74,15 +74,20 @@ class SensorService {
             this.deviceLastSeen.set(dk, ts);
         // Effective timestamp for stale check: use the most recent activity of this physical device.
         const effectiveTs = Math.max(ts, this.deviceLastSeen.get(dk) ?? ts);
-        // If a health/alive state is configured and the device is known healthy, never consider stale.
-        const deviceIsAlive = config.healthStateId
+        // Stale determination:
+        // - alive state configured + alive=true  → device itself signals presence → never stale
+        // - alive state configured + alive=false → device offline → always stale
+        // - no alive state configured            → fall back to timestamp check
+        const aliveKnown = config.healthStateId !== undefined
             ? (deviceHealthMap.get(config.healthStateId) ?? true)
-            : true;
-        const stale = deviceIsAlive ? (0, time_1.isStale)(effectiveTs, config.staleAfterSeconds) : true;
+            : null; // null = no alive state, use timestamp
+        const stale = aliveKnown === false ? true
+            : aliveKnown === true ? false
+                : (0, time_1.isStale)(effectiveTs, config.staleAfterSeconds);
         const unchanged = lc > 0 && (0, time_1.isStale)(lc, config.unchangedAlarmSeconds) && config.unchangedAlarmSeconds > 0;
         if (stale) {
             valid = false;
-            error = config.healthStateId && !deviceIsAlive
+            error = aliveKnown === false
                 ? 'Gerät offline (alive/link_quality)'
                 : `Datenpunkt veraltet (ts: ${new Date(effectiveTs).toLocaleTimeString()})`;
         }
@@ -183,10 +188,12 @@ class SensorService {
                 return false;
             const dk = deviceKey(cfg.stateId);
             const effectiveTs = Math.max(s.lastTs, this.deviceLastSeen.get(dk) ?? s.lastTs);
-            const alive = cfg.healthStateId ? (deviceHealthMap.get(cfg.healthStateId) ?? true) : true;
-            if (!alive)
+            const aliveKnown = cfg.healthStateId !== undefined
+                ? (deviceHealthMap.get(cfg.healthStateId) ?? true)
+                : null;
+            if (aliveKnown === false)
                 return false;
-            if ((0, time_1.isStale)(effectiveTs, cfg.staleAfterSeconds))
+            if (aliveKnown === null && (0, time_1.isStale)(effectiveTs, cfg.staleAfterSeconds))
                 return false;
             if (stabilitySeconds !== undefined && stabilitySeconds > 0) {
                 const until = this.recoveringUntil.get(s.id);

@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.1.27",
+    "version": "0.1.28",
     "news": {
+      "0.1.28": {
+        "en": "Fix alive-state stale logic: when healthStateId is set and alive=true, timestamp check is skipped entirely (not just used as fallback)",
+        "de": "Alive-State Stale-Logik korrigiert: wenn healthStateId gesetzt und alive=true, wird der Timestamp-Check komplett übersprungen statt nur als Fallback genutzt"
+      },
       "0.1.27": {
         "en": "Fix admin live dashboard: wire window.socket as _growSocket so getState calls work; extract instance ID from URL param",
         "de": "Admin-Live-Dashboard behoben: window.socket als _growSocket verdrahtet sodass getState-Calls funktionieren; Instanz-ID aus URL-Parameter extrahiert"
