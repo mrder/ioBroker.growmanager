@@ -1216,17 +1216,30 @@ function getName(raw: unknown): string {
     return '';
 }
 
-async function loadAllObjects(): Promise<{ entries: ObjEntry[]; rooms: EnumMap; funcs: EnumMap }> {
+async function loadAllObjects(): Promise<{ entries: ObjEntry[]; rooms: EnumMap; funcs: EnumMap; names: Record<string, string> }> {
     type Row = { id: string; value: { common?: Record<string, unknown>; members?: string[] } };
     type ViewRes = { rows?: Row[] } | null;
 
-    const [stateRes, enumRes] = await Promise.all([
-        emitSocket('getObjectView', 'system', 'state', { startkey: '', endkey: '香' }) as Promise<ViewRes>,
-        emitSocket('getObjectView', 'system', 'enum', { startkey: 'enum.', endkey: 'enum.香' }) as Promise<ViewRes>,
+    const [stateRes, enumRes, channelRes, deviceRes, folderRes] = await Promise.all([
+        emitSocket('getObjectView', 'system', 'state',   { startkey: '', endkey: '香' }) as Promise<ViewRes>,
+        emitSocket('getObjectView', 'system', 'enum',    { startkey: 'enum.', endkey: 'enum.香' }) as Promise<ViewRes>,
+        emitSocket('getObjectView', 'system', 'channel', { startkey: '', endkey: '香' }) as Promise<ViewRes>,
+        emitSocket('getObjectView', 'system', 'device',  { startkey: '', endkey: '香' }) as Promise<ViewRes>,
+        emitSocket('getObjectView', 'system', 'folder',  { startkey: '', endkey: '香' }) as Promise<ViewRes>,
     ]);
 
-    const stateRows = stateRes?.rows ?? [];
-    const enumRows = enumRes?.rows ?? [];
+    const stateRows   = stateRes?.rows   ?? [];
+    const enumRows    = enumRes?.rows    ?? [];
+    const channelRows = channelRes?.rows ?? [];
+    const deviceRows  = deviceRes?.rows  ?? [];
+    const folderRows  = folderRes?.rows  ?? [];
+
+    // Name-Map: id → friendly name (für channel/device/folder-Header)
+    const names: Record<string, string> = {};
+    for (const r of [...channelRows, ...deviceRows, ...folderRows]) {
+        const n = getName(r.value?.common?.name);
+        if (n) names[r.id] = n;
+    }
 
     const rooms: EnumMap = {};
     const funcs: EnumMap = {};
@@ -1251,7 +1264,7 @@ async function loadAllObjects(): Promise<{ entries: ObjEntry[]; rooms: EnumMap; 
         funcs: funcs[r.id] ?? [],
     }));
 
-    return { entries, rooms, funcs };
+    return { entries, rooms, funcs, names };
 }
 
 const TYPE_TABS = [
@@ -1287,6 +1300,7 @@ interface ObjectPickerProps {
 
 const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilter }) => {
     const [allEntries, setAllEntries] = React.useState<ObjEntry[]>([]);
+    const [names, setNames] = React.useState<Record<string, string>>({});
     const [search, setSearch] = React.useState('');
     const [tab, setTab] = React.useState(typeFilter ?? '');
     const [loading, setLoading] = React.useState(true);
@@ -1294,8 +1308,9 @@ const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilt
     const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
 
     React.useEffect(() => {
-        loadAllObjects().then(({ entries }) => {
+        loadAllObjects().then(({ entries, names: n }) => {
             setAllEntries(entries);
+            setNames(n);
             setLoading(false);
         });
     }, []);
@@ -1457,7 +1472,8 @@ const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilt
                                 >
                                     <span style={{ fontSize: 11, color: '#555', width: 14 }}>{l1Open ? '▼' : '▶'}</span>
                                     <span style={{ fontWeight: 700, fontSize: 13, fontFamily: 'monospace', color: '#1565c0' }}>{inst}</span>
-                                    <span style={{ fontSize: 11, color: '#888', marginLeft: 4 }}>{totalInst} Datenpunkte</span>
+                                    {names[inst] && <span style={{ fontSize: 12, color: '#455a64', marginLeft: 2 }}>– {names[inst]}</span>}
+                                    <span style={{ fontSize: 11, color: '#aaa', marginLeft: 'auto' }}>{totalInst} Einträge</span>
                                 </div>
 
                                 {l1Open && flatOnly && renderTable(subEntries[0][1], 16)}
@@ -1486,7 +1502,8 @@ const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilt
                                             >
                                                 <span style={{ fontSize: 10, color: '#999', width: 12 }}>{l2Open ? '▼' : '▶'}</span>
                                                 <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#37474f' }}>{inst}.<strong style={{ color: '#2e7d32' }}>{sub}</strong></span>
-                                                <span style={{ fontSize: 11, color: '#aaa', marginLeft: 4 }}>{entries.length}</span>
+                                                {names[`${inst}.${sub}`] && <span style={{ fontSize: 11, color: '#546e7a' }}>– {names[`${inst}.${sub}`]}</span>}
+                                                <span style={{ fontSize: 10, color: '#bbb', marginLeft: 'auto' }}>{entries.length}</span>
                                             </div>
                                             {l2Open && renderTable(entries, 32)}
                                         </div>
