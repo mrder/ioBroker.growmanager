@@ -113,19 +113,19 @@ class ClimateController {
                     }
                     break;
                 case 'temperature': {
-                    const r = this.decideTemperatureAct(act, dir, temp, setpoint, hyst, actions, outdoorTemp, outdoorHumidity);
+                    const r = this.decideTemperatureAct(act, dir, temp, setpoint, hyst, actions, outdoorTemp, outdoorHumidity, config.outdoorSensor);
                     if (r)
                         reasons.push(r);
                     break;
                 }
                 case 'humidity': {
-                    const r = this.decideHumidityAct(act, dir, hum, setpoint, hyst, actions, outdoorTemp, outdoorHumidity);
+                    const r = this.decideHumidityAct(act, dir, hum, setpoint, hyst, actions, outdoorTemp, outdoorHumidity, config.outdoorSensor);
                     if (r)
                         reasons.push(r);
                     break;
                 }
                 case 'vpd': {
-                    const r = this.decideVpdAct(act, dir, vpd, temp, hum, setpoint, hyst, actions, outdoorTemp, outdoorHumidity);
+                    const r = this.decideVpdAct(act, dir, vpd, temp, hum, setpoint, hyst, actions, outdoorTemp, outdoorHumidity, config.outdoorSensor);
                     if (r)
                         reasons.push(r);
                     break;
@@ -158,7 +158,7 @@ class ClimateController {
     // ============================================================
     // Temperatur-Aktor
     // ============================================================
-    decideTemperatureAct(act, dir, temp, sp, hyst, actions, outdoorTemp, outdoorHumidity) {
+    decideTemperatureAct(act, dir, temp, sp, hyst, actions, outdoorTemp, outdoorHumidity, outdoorCfg) {
         if (temp === null)
             return null;
         const tState = (0, calculations_1.hysteresisCheck)(temp, sp.temperature, sp.temperatureTolerance * 2, hyst.temperature);
@@ -178,10 +178,10 @@ class ClimateController {
             if (tState === 1) {
                 // Außenluft-Guard: nur schalten wenn Außenluft günstiger
                 if (act.outdoorGuardEnabled && outdoorTemp !== null) {
-                    const outdoor = this.getOutdoorConfig(act);
+                    const minDelta = outdoorCfg?.minTempDeltaCelsius ?? 2;
                     const delta = temp - outdoorTemp;
-                    if (delta < outdoor.minTempDelta) {
-                        this.pushAction(actions, act, false, `Außenluft zu warm (${outdoorTemp.toFixed(1)}°C, Δ${delta.toFixed(1)}K < ${outdoor.minTempDelta}K)`, false);
+                    if (delta < minDelta) {
+                        this.pushAction(actions, act, false, `Außenluft zu warm (${outdoorTemp.toFixed(1)}°C, Δ${delta.toFixed(1)}K < ${minDelta}K)`, false);
                         return `Lüfter gesperrt: Außenluft nicht kühler genug (${outdoorTemp.toFixed(1)}°C)`;
                     }
                 }
@@ -198,7 +198,7 @@ class ClimateController {
     // ============================================================
     // Feuchte-Aktor
     // ============================================================
-    decideHumidityAct(act, dir, hum, sp, hyst, actions, outdoorTemp, outdoorHumidity) {
+    decideHumidityAct(act, dir, hum, sp, hyst, actions, outdoorTemp, outdoorHumidity, outdoorCfg) {
         if (hum === null)
             return null;
         const hState = (0, calculations_1.hysteresisCheck)(hum, sp.humidity, sp.humidityTolerance * 2, hyst.humidity);
@@ -218,8 +218,8 @@ class ClimateController {
             if (hState === 1) {
                 // Außenluft-Guard für Feuchte
                 if (act.outdoorGuardEnabled && outdoorHumidity !== null) {
-                    const outdoor = this.getOutdoorConfig(act);
-                    if (outdoorHumidity > hum + outdoor.maxHumDelta) {
+                    const maxHumDelta = outdoorCfg?.maxHumidityDeltaPercent ?? 10;
+                    if (outdoorHumidity > hum + maxHumDelta) {
                         this.pushAction(actions, act, false, `Außenluft zu feucht (${outdoorHumidity.toFixed(0)}%)`, false);
                         return `Lüfter gesperrt: Außenluft zu feucht (${outdoorHumidity.toFixed(0)}%)`;
                     }
@@ -237,7 +237,7 @@ class ClimateController {
     // ============================================================
     // VPD-Aktor (koordiniert Temp + Feuchte)
     // ============================================================
-    decideVpdAct(act, dir, vpd, temp, hum, sp, hyst, actions, outdoorTemp, outdoorHumidity) {
+    decideVpdAct(act, dir, vpd, temp, hum, sp, hyst, actions, outdoorTemp, outdoorHumidity, outdoorCfg) {
         if (vpd === null || temp === null || hum === null)
             return null;
         const vpdState = (0, calculations_1.hysteresisCheck)(vpd, (sp.vpdMin + sp.vpdMax) / 2, sp.vpdMax - sp.vpdMin, hyst.vpd);
@@ -247,8 +247,8 @@ class ClimateController {
             if (dir === 'down' || dir === 'both') {
                 // Entfeuchter / Abluft
                 if (act.outdoorGuardEnabled && outdoorHumidity !== null) {
-                    const outdoor = this.getOutdoorConfig(act);
-                    if (outdoorHumidity > hum + outdoor.maxHumDelta) {
+                    const maxHumDelta = outdoorCfg?.maxHumidityDeltaPercent ?? 10;
+                    if (outdoorHumidity > hum + maxHumDelta) {
                         this.pushAction(actions, act, false, `Außenluft zu feucht`, false);
                         return null;
                     }
@@ -273,9 +273,9 @@ class ClimateController {
             else if (dir === 'down' || dir === 'both') {
                 // Kühlung / Abluft
                 if (act.outdoorGuardEnabled && outdoorTemp !== null) {
-                    const outdoor = this.getOutdoorConfig(act);
+                    const minDelta = outdoorCfg?.minTempDeltaCelsius ?? 2;
                     const delta = temp - outdoorTemp;
-                    if (delta < outdoor.minTempDelta) {
+                    if (delta < minDelta) {
                         this.pushAction(actions, act, false, `Außenluft zu warm für VPD`, false);
                         return null;
                     }
@@ -304,17 +304,13 @@ class ClimateController {
     // ============================================================
     // Hilfsfunktionen
     // ============================================================
-    getOutdoorConfig(act) {
-        // Defaults: 2°C Mindest-Vorteil, 10% Feuchte-Toleranz
-        return { minTempDelta: 2, maxHumDelta: 10 };
-    }
     requestByTarget(config, target, dir, actions, on, percent, reason, outdoorTemp, outdoorHumidity) {
         for (const act of config.actuators) {
             if (!act.enabled)
                 continue;
             if (inferControlTarget(act) !== target)
                 continue;
-            if (inferControlDirection(act) !== dir && dir !== 'both')
+            if (dir !== 'both' && inferControlDirection(act) !== dir && inferControlDirection(act) !== 'both')
                 continue;
             const val = on ? (act.supportsPercent && percent > 0 ? percent : true) : false;
             this.pushAction(actions, act, val, reason, false);

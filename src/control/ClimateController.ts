@@ -13,6 +13,7 @@ import type {
     ActuatorConfig,
     ControlTarget,
     ControlDirection,
+    OutdoorSensorConfig,
     DayNight,
 } from '../models/config';
 import { calculateVPD, condensationRisk, hysteresisCheck } from '../utils/calculations';
@@ -158,19 +159,19 @@ export class ClimateController {
                     break;
 
                 case 'temperature': {
-                    const r = this.decideTemperatureAct(act, dir, temp, setpoint, hyst, actions, outdoorTemp, outdoorHumidity);
+                    const r = this.decideTemperatureAct(act, dir, temp, setpoint, hyst, actions, outdoorTemp, outdoorHumidity, config.outdoorSensor);
                     if (r) reasons.push(r);
                     break;
                 }
 
                 case 'humidity': {
-                    const r = this.decideHumidityAct(act, dir, hum, setpoint, hyst, actions, outdoorTemp, outdoorHumidity);
+                    const r = this.decideHumidityAct(act, dir, hum, setpoint, hyst, actions, outdoorTemp, outdoorHumidity, config.outdoorSensor);
                     if (r) reasons.push(r);
                     break;
                 }
 
                 case 'vpd': {
-                    const r = this.decideVpdAct(act, dir, vpd, temp, hum, setpoint, hyst, actions, outdoorTemp, outdoorHumidity);
+                    const r = this.decideVpdAct(act, dir, vpd, temp, hum, setpoint, hyst, actions, outdoorTemp, outdoorHumidity, config.outdoorSensor);
                     if (r) reasons.push(r);
                     break;
                 }
@@ -217,6 +218,7 @@ export class ClimateController {
         actions: ControlAction[],
         outdoorTemp: number | null,
         outdoorHumidity: number | null,
+        outdoorCfg: OutdoorSensorConfig | undefined,
     ): string | null {
         if (temp === null) return null;
 
@@ -236,10 +238,10 @@ export class ClimateController {
             if (tState === 1) {
                 // Außenluft-Guard: nur schalten wenn Außenluft günstiger
                 if (act.outdoorGuardEnabled && outdoorTemp !== null) {
-                    const outdoor = this.getOutdoorConfig(act);
+                    const minDelta = outdoorCfg?.minTempDeltaCelsius ?? 2;
                     const delta = temp - outdoorTemp;
-                    if (delta < outdoor.minTempDelta) {
-                        this.pushAction(actions, act, false, `Außenluft zu warm (${outdoorTemp.toFixed(1)}°C, Δ${delta.toFixed(1)}K < ${outdoor.minTempDelta}K)`, false);
+                    if (delta < minDelta) {
+                        this.pushAction(actions, act, false, `Außenluft zu warm (${outdoorTemp.toFixed(1)}°C, Δ${delta.toFixed(1)}K < ${minDelta}K)`, false);
                         return `Lüfter gesperrt: Außenluft nicht kühler genug (${outdoorTemp.toFixed(1)}°C)`;
                     }
                 }
@@ -265,6 +267,7 @@ export class ClimateController {
         actions: ControlAction[],
         outdoorTemp: number | null,
         outdoorHumidity: number | null,
+        outdoorCfg: OutdoorSensorConfig | undefined,
     ): string | null {
         if (hum === null) return null;
 
@@ -284,8 +287,8 @@ export class ClimateController {
             if (hState === 1) {
                 // Außenluft-Guard für Feuchte
                 if (act.outdoorGuardEnabled && outdoorHumidity !== null) {
-                    const outdoor = this.getOutdoorConfig(act);
-                    if (outdoorHumidity > hum + outdoor.maxHumDelta) {
+                    const maxHumDelta = outdoorCfg?.maxHumidityDeltaPercent ?? 10;
+                    if (outdoorHumidity > hum + maxHumDelta) {
                         this.pushAction(actions, act, false, `Außenluft zu feucht (${outdoorHumidity.toFixed(0)}%)`, false);
                         return `Lüfter gesperrt: Außenluft zu feucht (${outdoorHumidity.toFixed(0)}%)`;
                     }
@@ -314,6 +317,7 @@ export class ClimateController {
         actions: ControlAction[],
         outdoorTemp: number | null,
         outdoorHumidity: number | null,
+        outdoorCfg: OutdoorSensorConfig | undefined,
     ): string | null {
         if (vpd === null || temp === null || hum === null) return null;
 
@@ -325,8 +329,8 @@ export class ClimateController {
             if (dir === 'down' || dir === 'both') {
                 // Entfeuchter / Abluft
                 if (act.outdoorGuardEnabled && outdoorHumidity !== null) {
-                    const outdoor = this.getOutdoorConfig(act);
-                    if (outdoorHumidity > hum + outdoor.maxHumDelta) {
+                    const maxHumDelta = outdoorCfg?.maxHumidityDeltaPercent ?? 10;
+                    if (outdoorHumidity > hum + maxHumDelta) {
                         this.pushAction(actions, act, false, `Außenluft zu feucht`, false);
                         return null;
                     }
@@ -348,9 +352,9 @@ export class ClimateController {
             } else if (dir === 'down' || dir === 'both') {
                 // Kühlung / Abluft
                 if (act.outdoorGuardEnabled && outdoorTemp !== null) {
-                    const outdoor = this.getOutdoorConfig(act);
+                    const minDelta = outdoorCfg?.minTempDeltaCelsius ?? 2;
                     const delta = temp - outdoorTemp;
-                    if (delta < outdoor.minTempDelta) {
+                    if (delta < minDelta) {
                         this.pushAction(actions, act, false, `Außenluft zu warm für VPD`, false);
                         return null;
                     }
@@ -386,11 +390,6 @@ export class ClimateController {
     // Hilfsfunktionen
     // ============================================================
 
-    private getOutdoorConfig(act: ActuatorConfig): { minTempDelta: number; maxHumDelta: number } {
-        // Defaults: 2°C Mindest-Vorteil, 10% Feuchte-Toleranz
-        return { minTempDelta: 2, maxHumDelta: 10 };
-    }
-
     private requestByTarget(
         config: GroupConfig,
         target: ControlTarget,
@@ -405,7 +404,7 @@ export class ClimateController {
         for (const act of config.actuators) {
             if (!act.enabled) continue;
             if (inferControlTarget(act) !== target) continue;
-            if (inferControlDirection(act) !== dir && dir !== 'both') continue;
+            if (dir !== 'both' && inferControlDirection(act) !== dir && inferControlDirection(act) !== 'both') continue;
             const val = on ? (act.supportsPercent && percent > 0 ? percent : true) : false;
             this.pushAction(actions, act, val, reason, false);
         }

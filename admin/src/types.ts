@@ -93,11 +93,24 @@ export interface AlarmChannel {
     quietHours?: TimeWindow; retentionDays: number;
 }
 
+export type CameraSourceType = 'iobState' | 'snapshotUrl' | 'localPath' | 'manualUpload';
+export type CameraAnalysisMode = 'off' | 'timelapse' | 'localBasic' | 'localAI' | 'externalAI';
+
+export interface CameraConfig {
+    id: string; name: string; enabled: boolean;
+    sourceType: CameraSourceType; sourceId: string;
+    captureIntervalMinutes: number; captureOnlyWhenLightOn: boolean;
+    delayAfterLightOnMinutes: number; retentionDays: number;
+    maxStorageMB: number; analysisMode: CameraAnalysisMode;
+    aiAnalysisIntervalHours: number; minimumConfidence: number;
+    cpuLimitPercent: number;
+}
+
 export interface GroupConfig {
     id: string; name: string; description: string; color: string; enabled: boolean;
     phase: PlantPhase; mode: GroupMode; schedule: DaySchedule;
     sensors: SensorConfig[]; actuators: ActuatorConfig[];
-    irrigationZones: IrrigationZoneConfig[]; cameras: unknown[];
+    irrigationZones: IrrigationZoneConfig[]; cameras: CameraConfig[];
     profileId: string; alarmProfileId: string; priority: number;
     aggregationMethod: AggregationMethod; minValidSensors: number;
     fallbackChain: GroupMode[]; stabilityTimeSeconds: number;

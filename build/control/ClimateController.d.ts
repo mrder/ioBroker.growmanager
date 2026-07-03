@@ -16,7 +16,6 @@ export declare class ClimateController {
     private decideHumidityAct;
     private decideVpdAct;
     private decideCo2Act;
-    private getOutdoorConfig;
     private requestByTarget;
     private pushAction;
     private buildDecision;

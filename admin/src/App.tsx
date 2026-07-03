@@ -588,7 +588,7 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, onSave, onClo
                             onChange={e => setEdit(prev => ({ ...prev, feedbackMissingBehavior: e.target.value as typeof prev.feedbackMissingBehavior }))}>
                             <option value="warn">Warnung</option>
                             <option value="alarm">Alarm</option>
-                            <option value="block">Sperren</option>
+                            <option value="disable">Deaktivieren</option>
                         </select>
                     </div>
                 </div>

@@ -2,6 +2,142 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.1.23] - 2026-07-03
+
+### Added
+- **Per-Aktor Regelziel** (`controlTarget`/`controlDirection`): Jeder Aktor kann jetzt explizit
+  konfigurieren, welche Messgröße er regelt (Temperatur, Feuchte, VPD, CO₂, Bodenfeuchte,
+  Licht, Timer, Benutzerdefiniert) und in welche Richtung er wirkt (up/down/both).
+  Rückwärtskompatibel: fehlende Werte werden automatisch aus dem Aktortyp abgeleitet.
+- **Außenluft-Vergleichssensor pro Gruppe** (`outdoorSensor`): Optionale State-IDs für
+  Außentemperatur und -feuchte. Lüfter mit aktiviertem `outdoorGuardEnabled` werden gesperrt,
+  wenn die Außenluft nicht günstiger als die Innenluft ist.
+  Konfigurierbare Schwellwerte: Min-Temperaturdelta (Standard 2 °C) und Max-Feuchtedelta (Standard 10 %).
+- **Vollständiger Klimaprofil-Editor**: Sollwerte jetzt mit Sektionen (Temperatur, Feuchte, VPD, CO₂, Bodenfeuchte)
+  und optionalen Feldern für CO₂-Ziel/-Toleranz und Bodenfeuchte-Ziel/-Toleranz.
+- Admin-UI: Aktor-Editor zeigt Regelziel- und Wirkrichtungs-Dropdowns; Außenluft-Guard-Checkbox
+  für Abluft-/Zuluftlüfter; Gruppen-Editor mit vollständiger Außensensor-Konfiguration.
+
+### Fixed
+- `requestByTarget()` Richtungsfilter: Aktoren mit `controlDirection='both'` wurden fälschlicherweise
+  übersprungen, wenn eine spezifische Richtung (z.B. 'down') angefordert wurde.
+- Außenluft-Guard nutzt jetzt die konfigurierten Schwellwerte aus `group.outdoorSensor` statt
+  fest codierten Standardwerten.
+
+---
+
+## [0.1.22] - 2026-07-03
+
+### Added
+- **Dashboard AUTO/MANUELL-Umschalter pro Gruppe**: Jede Gruppe hat jetzt einen Modus-Toggle
+  im Gruppen-Header. Im MANUELL-Modus werden EIN/AUS-Buttons für alle Aktoren der Gruppe angezeigt.
+- **PIN-Schutz für Moduswechsel**: Der Wechsel in den MANUELL-Modus erfordert denselben PIN
+  wie manuelle Aktuator-Steuerung.
+- Neuer SSE-Feldname `runtimeMode` im `DashboardGroupState` für die Modusweitergabe an das Dashboard.
+- Neue REST-Route `POST /api/mode` im `WebDashboardService` für Modus-Callbacks.
+
+---
+
+## [0.1.21] - 2026-07-02
+
+### Added
+- Dashboard: modusabhängige Sollwert-Balken für VPD, Temperatur und Feuchte mit farblicher
+  Zielbereichsmarkierung.
+- Aktive Geräte-Icon-Leiste mit Puls-Animation für laufende Aktoren.
+- Verbesserte visuelle Hierarchie im Dashboard (Sektions-Trennlinien, Farbkodierung).
+
+---
+
+## [0.1.20] - 2026-07-02
+
+### Added
+- Dashboard: manuelle Aktorsteuerung per EIN/AUS-Buttons mit PIN-Schutz.
+- Sollwertanzeige und Kamerabild-Kachel im Gruppen-Card.
+- Monitor-Sensor-Tooltip mit Sensordetails.
+
+### Fixed
+- Doppelter Modus-Tag-Bug im Dashboard behoben.
+
+---
+
+## [0.1.19] - 2026-07-02
+
+### Added
+- Sensor-Rollen: `primary`, `backup`, `monitor` mit Prioritätsreihenfolge.
+- Backup-Sensoren aktivieren sich automatisch, wenn alle primären Sensoren ausfallen.
+
+---
+
+## [0.1.18] - 2026-07-02
+
+### Fixed
+- Leere Admin-UI: Vite-Build von ES-Modul auf IIFE-Format umgestellt für Kompatibilität
+  mit ioBroker Admin-iframe (kein `type="module"` auf `<script>`-Tag).
+
+---
+
+## [0.1.17] - 2026-07-02
+
+### Added
+- Konfigurierbarer Sensor-Abweichungsalarm pro Gruppe (`sensorDisagreementThreshold`, Standard 5).
+
+### Fixed
+- Fehler in einer Gruppe können den Adapter nicht mehr zum Absturz bringen (Fehler werden
+  pro Gruppe isoliert abgefangen).
+
+---
+
+## [0.1.16] - 2026-07-02
+
+### Fixed
+- Fehlender Script-Tag in `admin/index.html` nach Build ergänzt.
+
+---
+
+## [0.1.15] - 2026-07-02
+
+### Fixed
+- Admin-UI-Render-Fehler: Vite-Build von IIFE auf ES-Modul-Format umgestellt.
+
+---
+
+## [0.1.14] - 2026-07-02
+
+### Added
+- Dynamischer Stale-Check je Zyklus; `staleAfterSeconds` Standard 900 s.
+- Erstlesen verwendet `Date.now()` als Timestamp.
+- Gerätestatus-State (`available`/`link_quality`/`alive`) für Sensoren und Aktoren.
+
+---
+
+## [0.1.13] - 2026-07-02
+
+### Fixed
+- Sensorqualität 0 %: `staleAfterSeconds`-Standard von 300 auf 3600 erhöht.
+- `lc`/`q`-Parameter-Bug beim Start behoben.
+
+### Added
+- Live-Polling im Admin-Dashboard.
+- Aufklappbare Adapter-Kategorien im Objektpicker.
+
+---
+
+## [0.1.12] - 2026-07-02
+
+### Fixed
+- Wiederkehrender Build-Bug: fester Bundle-Dateiname (`assets/index.js`), sodass
+  `admin/index.html` nie mehr manuell aktualisiert werden muss.
+
+---
+
+## [0.1.11] - 2026-07-02
+
+### Added
+- Sensor-Startwerte werden beim Adapterstart eingelesen.
+- Objektpicker komplett überarbeitet: Tabelle mit Typ-Tabs und Raum/Funktion-Spalten.
+
+---
+
 ## [0.1.10] - 2026-07-02
 
 ### Fixed
