@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.1.25",
+    "version": "0.1.26",
     "news": {
+      "0.1.26": {
+        "en": "Smarter stale detection: alive state overrides timestamp check; multi-value sensors on same device share liveness; default staleAfterSeconds raised to 1200s",
+        "de": "Intelligentere Stale-Erkennung: alive-State überschreibt Timestamp-Check; Sensoren desselben Geräts teilen Aktualität; Standard staleAfterSeconds auf 1200s erhöht"
+      },
       "0.1.25": {
         "en": "Fix admin dashboard showing --- and Fault on startup; fix sensor quality 0% after adapter restart due to stale timestamp handling",
         "de": "Admin-Dashboard zeigt nicht mehr --- und Fault beim Start; Sensorqualität 0% nach Adapter-Neustart durch korrektes Timestamp-Handling behoben"

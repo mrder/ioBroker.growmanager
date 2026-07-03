@@ -7,6 +7,12 @@ export declare class SensorService {
     private readonly emaValues;
     /** Sensor-IDs die sich gerade in der Recovery-Phase befinden → Zeitstempel bis wann */
     private readonly recoveringUntil;
+    /**
+     * Maps device prefix → latest seen timestamp across ALL states of that device.
+     * Allows multi-value sensors (temp + humidity on the same device) to share liveness:
+     * if one channel updates, the other is also considered fresh.
+     */
+    private readonly deviceLastSeen;
     constructor(log: ILogger);
     /**
      * Verarbeitet einen neuen Rohwert für einen Sensor.

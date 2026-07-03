@@ -2,6 +2,20 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.1.26] - 2026-07-03
+
+### Fixed / Improved
+- **Toleranterer Stale-Check**: Standard `staleAfterSeconds` von 900 s auf 1200 s (20 min) angehoben.
+- **Alive-State überschreibt Timestamp**: Wenn `healthStateId` konfiguriert ist und das Gerät
+  als offline markiert ist → Fehler "Gerät offline"; wenn Gerät alive=true → kein Stale-Fehler,
+  egal wie alt der letzte Timestamp ist.
+- **Multi-Wert-Sensoren teilen Gerätezeitstempel**: Temp- und Feuchtigkeitssensor am selben
+  physischen Gerät (gleicher ID-Prefix, z.B. `zigbee.0.abc123`) teilen jetzt einen gemeinsamen
+  Liveness-Timestamp. Wenn Temperatur aktualisiert, gilt auch Feuchtigkeit als frisch —
+  verhindert Stale-Fehler bei Sensoren die beide Werte separat melden aber nicht immer gleichzeitig.
+
+---
+
 ## [0.1.25] - 2026-07-03
 
 ### Fixed

@@ -21,11 +21,23 @@ export function setDeviceHealth(stateId: string, healthy: boolean): void {
     deviceHealthMap.set(stateId, healthy);
 }
 
+/** Strip last dot-segment to get the physical device key (e.g. "zigbee.0.abc123.temp" → "zigbee.0.abc123"). */
+function deviceKey(stateId: string): string {
+    const idx = stateId.lastIndexOf('.');
+    return idx > 0 ? stateId.substring(0, idx) : stateId;
+}
+
 export class SensorService {
     private readonly states = new Map<string, SensorState>();
     private readonly emaValues = new Map<string, number>();
     /** Sensor-IDs die sich gerade in der Recovery-Phase befinden → Zeitstempel bis wann */
     private readonly recoveringUntil = new Map<string, number>();
+    /**
+     * Maps device prefix → latest seen timestamp across ALL states of that device.
+     * Allows multi-value sensors (temp + humidity on the same device) to share liveness:
+     * if one channel updates, the other is also considered fresh.
+     */
+    private readonly deviceLastSeen = new Map<string, number>();
 
     constructor(private readonly log: ILogger) {}
 
@@ -68,12 +80,27 @@ export class SensorService {
             processed = rawValue as string | boolean | null;
         }
 
-        const stale = isStale(ts, config.staleAfterSeconds);
+        // Update device-level last-seen: share liveness across all channels of the same physical device.
+        const dk = deviceKey(config.stateId);
+        const prevDeviceTs = this.deviceLastSeen.get(dk) ?? 0;
+        if (ts > prevDeviceTs) this.deviceLastSeen.set(dk, ts);
+
+        // Effective timestamp for stale check: use the most recent activity of this physical device.
+        const effectiveTs = Math.max(ts, this.deviceLastSeen.get(dk) ?? ts);
+
+        // If a health/alive state is configured and the device is known healthy, never consider stale.
+        const deviceIsAlive = config.healthStateId
+            ? (deviceHealthMap.get(config.healthStateId) ?? true)
+            : true;
+
+        const stale = deviceIsAlive ? isStale(effectiveTs, config.staleAfterSeconds) : true;
         const unchanged = lc > 0 && isStale(lc, config.unchangedAlarmSeconds) && config.unchangedAlarmSeconds > 0;
 
         if (stale) {
             valid = false;
-            error = `Datenpunkt veraltet (ts: ${new Date(ts).toLocaleTimeString()})`;
+            error = config.healthStateId && !deviceIsAlive
+                ? 'Gerät offline (alive/link_quality)'
+                : `Datenpunkt veraltet (ts: ${new Date(effectiveTs).toLocaleTimeString()})`;
         }
 
         const quality = this.computeQuality(valid, stale, unchanged);
@@ -190,13 +217,14 @@ export class SensorService {
             .map(c => ({ cfg: c, state: this.states.get(c.id) }))
             .filter(({ cfg, state: s }): boolean => {
                 if (!s || !s.valid || typeof s.processedValue !== 'number') return false;
-                if (isStale(s.lastTs, cfg.staleAfterSeconds)) return false;
+                const dk = deviceKey(cfg.stateId);
+                const effectiveTs = Math.max(s.lastTs, this.deviceLastSeen.get(dk) ?? s.lastTs);
+                const alive = cfg.healthStateId ? (deviceHealthMap.get(cfg.healthStateId) ?? true) : true;
+                if (!alive) return false;
+                if (isStale(effectiveTs, cfg.staleAfterSeconds)) return false;
                 if (stabilitySeconds !== undefined && stabilitySeconds > 0) {
                     const until = this.recoveringUntil.get(s.id);
                     if (until !== undefined && Date.now() < until) return false;
-                }
-                if (cfg.healthStateId && deviceHealthMap.has(cfg.healthStateId)) {
-                    if (!deviceHealthMap.get(cfg.healthStateId)) return false;
                 }
                 return true;
             })
