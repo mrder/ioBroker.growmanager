@@ -1290,6 +1290,7 @@ const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilt
     const [search, setSearch] = React.useState('');
     const [tab, setTab] = React.useState(typeFilter ?? '');
     const [loading, setLoading] = React.useState(true);
+    // collapsed keys: "inst" for L1, "inst\x00sub" for L2
     const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
 
     React.useEffect(() => {
@@ -1299,37 +1300,96 @@ const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilt
         });
     }, []);
 
-    // Filtered entries grouped by adapter prefix
-    const grouped = React.useMemo(() => {
+    // Build 2-level tree: instance (adapter.N) → subfolder (3rd segment) → entries
+    // e.g. "0_userdata.0" → { "Macros": [...], "variables": [...] }
+    //      "hm-rpc.0"     → { "NEQ123456": [...], "MEQ789": [...] }
+    const tree = React.useMemo(() => {
         const filtered = allEntries.filter(e => matchesTab(e, tab) && matchesSearch(e, search));
-        const map: Record<string, ObjEntry[]> = {};
+        // Map: instanceKey → subfolderKey → entries[]
+        const map: Record<string, Record<string, ObjEntry[]>> = {};
         for (const e of filtered) {
-            const key = e.id.split('.')[0];
-            if (!map[key]) map[key] = [];
-            map[key].push(e);
+            const parts = e.id.split('.');
+            // L1: adapter.instance (first 2 segments, or just first if only 1 exists)
+            const inst = parts.length >= 2 ? `${parts[0]}.${parts[1]}` : parts[0];
+            // L2: 3rd segment as subfolder (or '' if none)
+            const sub = parts.length >= 3 ? parts[2] : '';
+            if (!map[inst]) map[inst] = {};
+            if (!map[inst][sub]) map[inst][sub] = [];
+            map[inst][sub].push(e);
         }
         return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
     }, [allEntries, tab, search]);
 
-    const totalVisible = grouped.reduce((s, [, es]) => s + es.length, 0);
+    const totalVisible = React.useMemo(
+        () => tree.reduce((s, [, subs]) => s + Object.values(subs).reduce((ss, es) => ss + es.length, 0), 0),
+        [tree]
+    );
 
-    // Auto-expand when search is active
+    // Auto-expand all when search is active
     React.useEffect(() => {
         if (search) {
             const expanded: Record<string, boolean> = {};
-            for (const [key] of grouped) expanded[key] = false; // false = not collapsed
+            for (const [inst, subs] of tree) {
+                expanded[inst] = false;
+                for (const sub of Object.keys(subs)) {
+                    if (sub) expanded[`${inst}\x00${sub}`] = false;
+                }
+            }
             setCollapsed(expanded);
         }
-    }, [search, grouped]);
+    }, [search, tree]);
 
-    const toggleGroup = (key: string) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
+    const toggle = (key: string) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
+    const isOpen = (key: string) => collapsed[key] === false || !!search;
 
     const thStyle: React.CSSProperties = {
-        padding: '5px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600,
+        padding: '4px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600,
         color: '#555', borderBottom: '1px solid #e0e0e0', background: '#fafafa',
         whiteSpace: 'nowrap',
     };
-    const tdStyle: React.CSSProperties = { padding: '5px 8px', fontSize: 12, verticalAlign: 'top' };
+    const tdStyle: React.CSSProperties = { padding: '4px 8px', fontSize: 12, verticalAlign: 'top' };
+
+    const renderTable = (entries: ObjEntry[], indent = 0) => (
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+                <tr>
+                    <th style={{ ...thStyle, paddingLeft: 8 + indent }}>ID</th>
+                    <th style={thStyle}>Name</th>
+                    <th style={thStyle}>Rolle</th>
+                    <th style={thStyle}>Typ</th>
+                    <th style={thStyle}>Raum</th>
+                    <th style={thStyle}>Funktion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {entries.slice(0, 300).map(r => (
+                    <tr
+                        key={r.id}
+                        style={{ cursor: 'pointer', borderBottom: '1px solid #f5f5f5' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#e8f5e9')}
+                        onMouseLeave={e => (e.currentTarget.style.background = '')}
+                        onClick={() => { onSelect(r.id); onClose(); }}
+                    >
+                        <td style={{ ...tdStyle, paddingLeft: 8 + indent, fontFamily: 'monospace', fontSize: 11, color: '#1565c0', maxWidth: 300, wordBreak: 'break-all' }}>{r.id}</td>
+                        <td style={{ ...tdStyle, maxWidth: 140 }}>{r.name}</td>
+                        <td style={{ ...tdStyle, color: '#555', whiteSpace: 'nowrap' }}>{r.role}</td>
+                        <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                            <span style={{
+                                padding: '1px 6px', borderRadius: 10, fontSize: 10, fontWeight: 600,
+                                background: r.type === 'boolean' ? '#fff3e0' : r.type === 'number' ? '#e3f2fd' : '#f3e5f5',
+                                color: r.type === 'boolean' ? '#e65100' : r.type === 'number' ? '#0d47a1' : '#6a1b9a',
+                            }}>{r.type}{r.unit ? ` (${r.unit})` : ''}</span>
+                        </td>
+                        <td style={{ ...tdStyle, color: '#2e7d32', fontSize: 11 }}>{r.rooms.join(', ')}</td>
+                        <td style={{ ...tdStyle, color: '#1565c0', fontSize: 11 }}>{r.funcs.join(', ')}</td>
+                    </tr>
+                ))}
+                {entries.length > 300 && (
+                    <tr><td colSpan={6} style={{ padding: '5px 8px', fontSize: 11, color: '#888' }}>… und {entries.length - 300} weitere – Suche verfeinern</td></tr>
+                )}
+            </tbody>
+        </table>
+    );
 
     return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1367,76 +1427,71 @@ const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilt
                     </span>
                 </div>
 
-                {/* Grouped content */}
+                {/* Tree content */}
                 <div style={{ flex: 1, overflowY: 'auto' }}>
                     {loading ? (
                         <div style={{ padding: 32, textAlign: 'center', color: '#888' }}>Datenpunkte werden geladen…</div>
-                    ) : grouped.length === 0 ? (
+                    ) : tree.length === 0 ? (
                         <div style={{ padding: 32, textAlign: 'center', color: '#888' }}>Keine Datenpunkte gefunden.</div>
-                    ) : grouped.map(([adapterKey, entries]) => {
-                        const isCollapsed = collapsed[adapterKey] !== false && !search;
+                    ) : tree.map(([inst, subs]) => {
+                        const l1Open = isOpen(inst);
+                        const subEntries = Object.entries(subs).sort(([a], [b]) => a.localeCompare(b));
+                        const totalInst = subEntries.reduce((s, [, es]) => s + es.length, 0);
+                        // If only one subgroup with key '' → no subfolders, show table directly
+                        const flatOnly = subEntries.length === 1 && subEntries[0][0] === '';
+
                         return (
-                            <div key={adapterKey}>
-                                {/* Category header */}
+                            <div key={inst}>
+                                {/* L1: adapter.instance header */}
                                 <div
-                                    onClick={() => toggleGroup(adapterKey)}
+                                    onClick={() => toggle(inst)}
                                     style={{
                                         display: 'flex', alignItems: 'center', gap: 8,
                                         padding: '7px 16px', cursor: 'pointer',
-                                        background: '#f5f5f5', borderBottom: '1px solid #e0e0e0',
-                                        position: 'sticky', top: 0, zIndex: 1,
+                                        background: '#f0f4f8', borderBottom: '1px solid #dde3ea',
+                                        position: 'sticky', top: 0, zIndex: 2,
                                         userSelect: 'none',
                                     }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = '#eeeeee')}
-                                    onMouseLeave={e => (e.currentTarget.style.background = '#f5f5f5')}
+                                    onMouseEnter={e => (e.currentTarget.style.background = '#e4ecf4')}
+                                    onMouseLeave={e => (e.currentTarget.style.background = '#f0f4f8')}
                                 >
-                                    <span style={{ fontSize: 12, color: '#555', width: 14 }}>{isCollapsed ? '▶' : '▼'}</span>
-                                    <span style={{ fontWeight: 700, fontSize: 13, fontFamily: 'monospace', color: '#1565c0' }}>{adapterKey}</span>
-                                    <span style={{ fontSize: 11, color: '#888', marginLeft: 4 }}>{entries.length} Datenpunkte</span>
+                                    <span style={{ fontSize: 11, color: '#555', width: 14 }}>{l1Open ? '▼' : '▶'}</span>
+                                    <span style={{ fontWeight: 700, fontSize: 13, fontFamily: 'monospace', color: '#1565c0' }}>{inst}</span>
+                                    <span style={{ fontSize: 11, color: '#888', marginLeft: 4 }}>{totalInst} Datenpunkte</span>
                                 </div>
 
-                                {/* Entries table */}
-                                {!isCollapsed && (
-                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                        <thead>
-                                            <tr>
-                                                <th style={thStyle}>ID</th>
-                                                <th style={thStyle}>Name</th>
-                                                <th style={thStyle}>Rolle</th>
-                                                <th style={thStyle}>Typ</th>
-                                                <th style={thStyle}>Raum</th>
-                                                <th style={thStyle}>Funktion</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {entries.slice(0, 500).map(r => (
-                                                <tr
-                                                    key={r.id}
-                                                    style={{ cursor: 'pointer', borderBottom: '1px solid #f5f5f5' }}
-                                                    onMouseEnter={e => (e.currentTarget.style.background = '#e8f5e9')}
-                                                    onMouseLeave={e => (e.currentTarget.style.background = '')}
-                                                    onClick={() => { onSelect(r.id); onClose(); }}
-                                                >
-                                                    <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 11, color: '#1565c0', maxWidth: 300, wordBreak: 'break-all' }}>{r.id}</td>
-                                                    <td style={{ ...tdStyle, maxWidth: 140 }}>{r.name}</td>
-                                                    <td style={{ ...tdStyle, color: '#555', whiteSpace: 'nowrap' }}>{r.role}</td>
-                                                    <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
-                                                        <span style={{
-                                                            padding: '1px 6px', borderRadius: 10, fontSize: 10, fontWeight: 600,
-                                                            background: r.type === 'boolean' ? '#fff3e0' : r.type === 'number' ? '#e3f2fd' : '#f3e5f5',
-                                                            color: r.type === 'boolean' ? '#e65100' : r.type === 'number' ? '#0d47a1' : '#6a1b9a',
-                                                        }}>{r.type}{r.unit ? ` (${r.unit})` : ''}</span>
-                                                    </td>
-                                                    <td style={{ ...tdStyle, color: '#2e7d32', fontSize: 11 }}>{r.rooms.join(', ')}</td>
-                                                    <td style={{ ...tdStyle, color: '#1565c0', fontSize: 11 }}>{r.funcs.join(', ')}</td>
-                                                </tr>
-                                            ))}
-                                            {entries.length > 500 && (
-                                                <tr><td colSpan={6} style={{ padding: '6px 16px', fontSize: 11, color: '#888' }}>… und {entries.length - 500} weitere – Suche verfeinern</td></tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                )}
+                                {l1Open && flatOnly && renderTable(subEntries[0][1], 16)}
+
+                                {l1Open && !flatOnly && subEntries.map(([sub, entries]) => {
+                                    if (sub === '') {
+                                        // Entries directly on instance level (no subfolder)
+                                        return renderTable(entries, 16);
+                                    }
+                                    const l2Key = `${inst}\x00${sub}`;
+                                    const l2Open = isOpen(l2Key);
+                                    return (
+                                        <div key={sub}>
+                                            {/* L2: subfolder header */}
+                                            <div
+                                                onClick={() => toggle(l2Key)}
+                                                style={{
+                                                    display: 'flex', alignItems: 'center', gap: 8,
+                                                    padding: '5px 16px 5px 32px', cursor: 'pointer',
+                                                    background: '#fafafa', borderBottom: '1px solid #eee',
+                                                    position: 'sticky', top: 35, zIndex: 1,
+                                                    userSelect: 'none',
+                                                }}
+                                                onMouseEnter={e => (e.currentTarget.style.background = '#f0f0f0')}
+                                                onMouseLeave={e => (e.currentTarget.style.background = '#fafafa')}
+                                            >
+                                                <span style={{ fontSize: 10, color: '#999', width: 12 }}>{l2Open ? '▼' : '▶'}</span>
+                                                <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#37474f' }}>{inst}.<strong style={{ color: '#2e7d32' }}>{sub}</strong></span>
+                                                <span style={{ fontSize: 11, color: '#aaa', marginLeft: 4 }}>{entries.length}</span>
+                                            </div>
+                                            {l2Open && renderTable(entries, 32)}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         );
                     })}
