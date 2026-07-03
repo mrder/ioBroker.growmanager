@@ -19,12 +19,9 @@ export type SensorType =
     | 'custom';
 
 export type SensorRole =
-    | 'primary'
-    | 'backup'
-    | 'plausibility'
-    | 'safetyLimit'
-    | 'displayOnly'
-    | 'effectCheck';
+    | 'primary'   // Hauptregelwert — wird zuerst verwendet
+    | 'backup'    // Fallback wenn alle primary-Sensoren ausfallen
+    | 'monitor';  // Nur Überwachung/Alarm, nie Regelgröße
 
 export type AggregationMethod = 'median' | 'mean' | 'weightedMean' | 'min' | 'max';
 
@@ -55,6 +52,7 @@ export interface SensorConfig {
     outlierFilter: boolean;
     errorBehavior: SensorErrorBehavior;
     useForControl: boolean;
+    controlPriority: number;
     enabled: boolean;
     // Optional device-health companion state
     healthStateId?: string;

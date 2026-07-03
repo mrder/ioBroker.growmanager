@@ -23,14 +23,19 @@ export declare class SensorService {
     startRecovery(sensorId: string, stabilitySeconds: number): void;
     /**
      * Aggregiert mehrere Sensorwerte einer Messgröße für eine Gruppe.
-     * stabilitySeconds: wenn gesetzt, werden Sensoren in Recovery ignoriert.
+     * Logik: zuerst primary-Sensoren (nach controlPriority sortiert),
+     * falls keine gültigen vorhanden → Fallback auf backup-Sensoren.
+     * monitor-Sensoren werden nie für Regelung verwendet.
      */
     aggregate(configs: SensorConfig[], type: SensorType, method: 'median' | 'mean' | 'weightedMean' | 'min' | 'max', stabilitySeconds?: number): {
         value: number | null;
         quality: number;
         validCount: number;
         totalCount: number;
+        usingBackup: boolean;
     };
+    /** Filtert SensorConfigs auf gültige, nicht-stale, nicht-recovering, gesunde States. */
+    private filterValidStates;
     /**
      * Gibt den aktuellen State eines Sensors zurück.
      */

@@ -27,6 +27,7 @@ function makeSensor(id: string): SensorConfig {
         outlierFilter: false,
         errorBehavior: 'ignore',
         useForControl: true,
+        controlPriority: 1,
         enabled: true,
     };
 }

@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.1.18",
+    "version": "0.1.19",
     "news": {
+      "0.1.19": {
+        "en": "Sensor roles: primary/backup/monitor with priority ordering; backup sensors activate automatically when all primaries fail",
+        "de": "Sensor-Rollen: primär/backup/überwachung mit Priorität; Backup-Sensoren aktivieren automatisch wenn alle primären ausfallen"
+      },
       "0.1.18": {
         "en": "Fix blank admin UI: switch from ES module to IIFE bundle for compatibility with ioBroker admin iframe",
         "de": "Leere Admin-UI behoben: von ES-Modul auf IIFE-Bundle umgestellt für Kompatibilität mit ioBroker Admin-iframe"

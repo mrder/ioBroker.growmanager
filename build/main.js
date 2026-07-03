@@ -408,6 +408,10 @@ class GrowManagerAdapter extends utils.Adapter {
         const tempAgg = this.sensorService.aggregate(config.sensors, 'temperature', config.aggregationMethod, stab);
         const humAgg = this.sensorService.aggregate(config.sensors, 'humidity', config.aggregationMethod, stab);
         const leafTempAgg = this.sensorService.aggregate(config.sensors, 'leafTemperature', config.aggregationMethod, stab);
+        if (tempAgg.usingBackup)
+            this.log.warn(`Gruppe ${config.name}: Temperatur-Backup-Sensor aktiv (primary ausgefallen)`);
+        if (humAgg.usingBackup)
+            this.log.warn(`Gruppe ${config.name}: Feuchte-Backup-Sensor aktiv (primary ausgefallen)`);
         state.temperature = tempAgg.value;
         state.humidity = humAgg.value;
         // Abgeleitete Größen

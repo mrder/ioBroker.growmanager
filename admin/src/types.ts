@@ -5,7 +5,7 @@ export type SensorType =
     | 'temperature' | 'humidity' | 'leafTemperature' | 'soilMoisture'
     | 'co2' | 'light' | 'tankLevel' | 'ph' | 'ec' | 'power' | 'door' | 'custom';
 
-export type SensorRole = 'primary' | 'backup' | 'plausibility' | 'safetyLimit' | 'displayOnly' | 'effectCheck';
+export type SensorRole = 'primary' | 'backup' | 'monitor';
 export type AggregationMethod = 'median' | 'mean' | 'weightedMean' | 'min' | 'max';
 export type SmoothingMethod = 'none' | 'movingAverage' | 'median' | 'exponential';
 export type SensorErrorBehavior = 'ignore' | 'switchToBackup' | 'lockControl' | 'activateSafeMode';
@@ -16,7 +16,7 @@ export interface SensorConfig {
     validMin: number; validMax: number; staleAfterSeconds: number;
     unchangedAlarmSeconds: number; minUpdateRateSeconds: number;
     smoothing: SmoothingMethod; outlierFilter: boolean;
-    errorBehavior: SensorErrorBehavior; useForControl: boolean; enabled: boolean;
+    errorBehavior: SensorErrorBehavior; useForControl: boolean; controlPriority: number; enabled: boolean;
     healthStateId?: string; healthCheckType?: 'boolean' | 'number'; healthCheckMin?: number;
 }
 

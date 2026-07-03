@@ -22,6 +22,7 @@ function makeGroup(overrides: Partial<GroupConfig> = {}): GroupConfig {
         minValidSensors: 1,
         fallbackChain: ['combined', 'temperature', 'monitorOnly'],
         stabilityTimeSeconds: 60,
+        sensorDisagreementThreshold: 5,
         ...overrides,
     };
 }

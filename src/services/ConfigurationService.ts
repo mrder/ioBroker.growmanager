@@ -232,6 +232,7 @@ export class ConfigurationService {
                     outlierFilter: true,
                     errorBehavior: 'lockControl',
                     useForControl: true,
+                    controlPriority: 1,
                     enabled: true,
                 },
                 {
@@ -253,6 +254,7 @@ export class ConfigurationService {
                     outlierFilter: false,
                     errorBehavior: 'lockControl',
                     useForControl: true,
+                    controlPriority: 1,
                     enabled: true,
                 },
             ],

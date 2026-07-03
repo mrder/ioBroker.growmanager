@@ -106,36 +106,35 @@ class SensorService {
     }
     /**
      * Aggregiert mehrere Sensorwerte einer Messgröße für eine Gruppe.
-     * stabilitySeconds: wenn gesetzt, werden Sensoren in Recovery ignoriert.
+     * Logik: zuerst primary-Sensoren (nach controlPriority sortiert),
+     * falls keine gültigen vorhanden → Fallback auf backup-Sensoren.
+     * monitor-Sensoren werden nie für Regelung verwendet.
      */
     aggregate(configs, type, method, stabilitySeconds) {
-        const relevant = configs.filter(c => c.type === type && c.useForControl && c.enabled);
+        // Alle aktivierten Sensoren des gewünschten Typs, die keine reinen Monitor-Sensoren sind
+        const relevant = configs.filter(c => c.type === type && c.enabled && c.useForControl && (c.role ?? 'primary') !== 'monitor');
         const total = relevant.length;
         if (total === 0) {
-            return { value: null, quality: 0, validCount: 0, totalCount: 0 };
+            return { value: null, quality: 0, validCount: 0, totalCount: 0, usingBackup: false };
         }
-        const validStates = relevant
-            .map(c => ({ cfg: c, state: this.states.get(c.id) }))
-            .filter(({ cfg, state: s }) => {
-            if (!s || !s.valid || typeof s.processedValue !== 'number')
-                return false;
-            // Dynamischer Stale-Check: aktuell re-evaluieren statt eingefrorenem valid-Flag
-            if ((0, time_1.isStale)(s.lastTs, cfg.staleAfterSeconds))
-                return false;
-            // Stabilitätsprüfung: Sensor in Recovery → als ungültig behandeln
-            if (stabilitySeconds !== undefined && stabilitySeconds > 0) {
-                const until = this.recoveringUntil.get(s.id);
-                if (until !== undefined && Date.now() < until)
-                    return false;
-            }
-            // Health-State-Check: falls konfiguriert und Gerät als unhealthy bekannt
-            if (cfg.healthStateId && deviceHealthMap.has(cfg.healthStateId)) {
-                if (!deviceHealthMap.get(cfg.healthStateId))
-                    return false;
-            }
-            return true;
-        })
-            .map(({ state }) => state);
+        // Primary-Sensoren nach Priorität (niedrigste Zahl = höchste Priorität)
+        const primaries = relevant
+            .filter(c => (c.role ?? 'primary') === 'primary')
+            .sort((a, b) => (a.controlPriority ?? 1) - (b.controlPriority ?? 1));
+        let validStates = this.filterValidStates(primaries, stabilitySeconds);
+        let usingBackup = false;
+        // Kein gültiger primary → Fallback auf backup-Sensoren
+        if (validStates.length === 0) {
+            const backups = relevant
+                .filter(c => c.role === 'backup')
+                .sort((a, b) => (a.controlPriority ?? 1) - (b.controlPriority ?? 1));
+            validStates = this.filterValidStates(backups, stabilitySeconds);
+            if (validStates.length > 0)
+                usingBackup = true;
+        }
+        if (validStates.length === 0) {
+            return { value: null, quality: 0, validCount: 0, totalCount: total, usingBackup: false };
+        }
         let values = validStates.map(s => s.processedValue);
         const weights = validStates.map(s => {
             const cfg = relevant.find(c => c.id === s.id);
@@ -149,7 +148,29 @@ class SensorService {
         }
         const value = (0, calculations_1.aggregateValues)(values, weights, method);
         const quality = (0, calculations_1.sensorQuality)(validStates.length, total);
-        return { value, quality, validCount: validStates.length, totalCount: total };
+        return { value, quality, validCount: validStates.length, totalCount: total, usingBackup };
+    }
+    /** Filtert SensorConfigs auf gültige, nicht-stale, nicht-recovering, gesunde States. */
+    filterValidStates(configs, stabilitySeconds) {
+        return configs
+            .map(c => ({ cfg: c, state: this.states.get(c.id) }))
+            .filter(({ cfg, state: s }) => {
+            if (!s || !s.valid || typeof s.processedValue !== 'number')
+                return false;
+            if ((0, time_1.isStale)(s.lastTs, cfg.staleAfterSeconds))
+                return false;
+            if (stabilitySeconds !== undefined && stabilitySeconds > 0) {
+                const until = this.recoveringUntil.get(s.id);
+                if (until !== undefined && Date.now() < until)
+                    return false;
+            }
+            if (cfg.healthStateId && deviceHealthMap.has(cfg.healthStateId)) {
+                if (!deviceHealthMap.get(cfg.healthStateId))
+                    return false;
+            }
+            return true;
+        })
+            .map(({ state }) => state);
     }
     /**
      * Gibt den aktuellen State eines Sensors zurück.

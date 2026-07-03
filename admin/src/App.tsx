@@ -232,6 +232,7 @@ const defaultSensor = (): GroupConfig['sensors'][0] => ({
     outlierFilter: false,
     errorBehavior: 'ignore',
     useForControl: true,
+    controlPriority: 1,
     enabled: true,
 });
 
@@ -326,15 +327,33 @@ const SensorEditor: React.FC<SensorEditorProps> = ({ sensor, onSave, onClose }) 
                     <option value="custom">Benutzerdefiniert</option>
                 </select>
 
-                <label style={styles.fieldLabel}>Rolle</label>
-                <select style={styles.select} {...f('role')}>
-                    <option value="primary">Primär (Regelgröße)</option>
-                    <option value="backup">Backup (bei Ausfall Primär)</option>
-                    <option value="plausibility">Plausibilitätsprüfung</option>
-                    <option value="safetyLimit">Sicherheitslimit</option>
-                    <option value="displayOnly">Nur Anzeige</option>
-                    <option value="effectCheck">Wirkungsprüfung</option>
-                </select>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
+                    <div>
+                        <label style={styles.fieldLabel}>Rolle</label>
+                        <select style={styles.select} {...f('role')}>
+                            <option value="primary">Primär (Hauptregelwert)</option>
+                            <option value="backup">Backup (Fallback bei Ausfall)</option>
+                            <option value="monitor">Nur Überwachung (nie Regelgröße)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style={styles.fieldLabel}>Priorität</label>
+                        <input style={styles.input} type="number" min={1} max={99}
+                            value={edit.controlPriority ?? 1}
+                            onChange={e => setEdit(prev => ({ ...prev, controlPriority: +e.target.value }))}
+                            title="1 = höchste Priorität. Bei mehreren Primär/Backup-Sensoren gleicher Art bestimmt die Priorität die Reihenfolge." />
+                    </div>
+                </div>
+                {edit.role === 'backup' && (
+                    <div style={{ fontSize: 12, color: '#f57c00', padding: '4px 8px', background: '#fff8e1', borderRadius: 4, marginTop: 2 }}>
+                        ⚠ Backup-Sensor wird nur genutzt wenn alle Primär-Sensoren dieses Typs ausfallen oder veraltet sind.
+                    </div>
+                )}
+                {edit.role === 'monitor' && (
+                    <div style={{ fontSize: 12, color: '#1565c0', padding: '4px 8px', background: '#e3f2fd', borderRadius: 4, marginTop: 2 }}>
+                        ℹ Überwachungs-Sensor erzeugt Alarme, beeinflusst aber keine Regelung.
+                    </div>
+                )}
 
                 <StateIdInput
                     label="ioBroker State-ID"

@@ -215,6 +215,7 @@ class ConfigurationService {
                     outlierFilter: true,
                     errorBehavior: 'lockControl',
                     useForControl: true,
+                    controlPriority: 1,
                     enabled: true,
                 },
                 {
@@ -236,6 +237,7 @@ class ConfigurationService {
                     outlierFilter: false,
                     errorBehavior: 'lockControl',
                     useForControl: true,
+                    controlPriority: 1,
                     enabled: true,
                 },
             ],
