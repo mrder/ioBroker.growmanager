@@ -39,6 +39,7 @@ export interface DashboardGroupState {
         command: boolean | number;
         until: number;
     }>;
+    runtimeMode: string;
 }
 export interface DashboardState {
     ts: number;
@@ -53,6 +54,10 @@ export type ControlCommand = {
     command: boolean | number;
     durationMinutes: number;
 };
+export type ModeCommand = {
+    groupId: string;
+    mode: string;
+};
 export declare class WebDashboardService {
     private readonly log;
     private readonly adapterDir;
@@ -62,6 +67,7 @@ export declare class WebDashboardService {
     private dashboardHtml;
     private pin;
     private controlCallback;
+    private modeCallback;
     constructor(log: {
         info: (m: string) => void;
         warn: (m: string) => void;
@@ -69,10 +75,12 @@ export declare class WebDashboardService {
     }, adapterDir: string);
     setPin(pin: string): void;
     setControlCallback(cb: (cmd: ControlCommand) => Promise<void>): void;
+    setModeCallback(cb: (cmd: ModeCommand) => Promise<void>): void;
     start(port: number, bindAddress: string): void;
     stop(): void;
     updateState(state: DashboardState): void;
     private handleRequest;
+    private handleMode;
     private handleControl;
 }
 //# sourceMappingURL=WebDashboardService.d.ts.map

@@ -261,6 +261,19 @@
   .pin-btn.confirm { background: var(--green); color: #fff; }
   .pin-btn.cancel { background: var(--surface2); color: var(--text); }
 
+  /* ---- Modus-Toggle ---- */
+  .mode-toggle {
+    display: flex; border-radius: 5px; overflow: hidden;
+    border: 1px solid var(--border); flex-shrink: 0;
+  }
+  .mode-btn {
+    border: none; cursor: pointer; font-size: 11px; font-weight: 700;
+    padding: 3px 9px; background: var(--surface2); color: var(--text-dim);
+    transition: all 0.2s; letter-spacing: 0.3px;
+  }
+  .mode-btn.active-auto { background: var(--green-dark); color: var(--green-light); }
+  .mode-btn.active-manual { background: rgba(255,152,0,0.2); color: var(--orange); }
+
   .spinner {
     width: 40px; height: 40px; border-radius: 50%;
     border: 3px solid var(--border); border-top-color: var(--green-light);
@@ -386,6 +399,30 @@ function resolvePinDialog(pin) {
   if (pinResolve) { pinResolve(pin); pinResolve = null; }
 }
 
+async function sendMode(groupId, mode, groupName) {
+  let pin = '';
+  if (window._pinRequired) {
+    pin = await showPinDialog(`${groupName} → ${mode === 'manual' ? 'MANUELL' : 'AUTO'}`);
+    if (pin === null) return;
+  }
+  try {
+    const r = await fetch('/api/mode', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId, mode, pin }),
+    });
+    if (r.status === 403) {
+      window._pinRequired = true;
+      pin = await showPinDialog(`${groupName} → ${mode === 'manual' ? 'MANUELL' : 'AUTO'}`);
+      if (pin === null) return;
+      const r2 = await fetch('/api/mode', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, mode, pin }),
+      });
+      if (r2.status === 403) { pinError.textContent = 'Falsche PIN'; pinModal.classList.add('visible'); }
+    }
+  } catch(e) { console.error('Mode-Fehler:', e); }
+}
+
 async function sendControl(groupId, actuatorId, command, label) {
   let pin = '';
   if (window._pinRequired) {
@@ -470,7 +507,7 @@ function climateValHtml(value, unit, label, isControlled, setMin, setMax, setTar
 }
 
 // ---- Aktor Detail-Zeile ----
-function actuatorHtml(a, groupId, manualOverrides) {
+function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   const isOn = a.command === true || (typeof a.command === 'number' && a.command > 0);
   const isPercent = typeof a.command === 'number' && a.command > 0;
   const t = ACT_TYPE[a.type] ?? ACT_TYPE.custom;
@@ -482,12 +519,16 @@ function actuatorHtml(a, groupId, manualOverrides) {
        <div class="percent-bar-wrap"><div class="percent-bar-fill" style="width:${a.command}%"></div></div>`
     : `<span class="act-state ${isOn?'on':'off'}">${isOn?'EIN':'AUS'}</span>`;
 
+  const ctrlBtns = isManualMode
+    ? `<button class="act-toggle on-btn"  onclick="sendControl('${groupId}','${a.id}',true,'${a.name} einschalten')">EIN</button>
+       <button class="act-toggle off-btn" onclick="sendControl('${groupId}','${a.id}',false,'${a.name} ausschalten')">AUS</button>`
+    : '';
+
   return `<div class="actuator-row">
     <div class="act-dot ${isOn?'on':'off'}"></div>
     <span class="act-name">${t.icon} ${a.name}</span>
     ${ovBadge}${rightSide}
-    <button class="act-toggle on-btn"  onclick="sendControl('${groupId}','${a.id}',true,'${a.name} einschalten')">EIN</button>
-    <button class="act-toggle off-btn" onclick="sendControl('${groupId}','${a.id}',false,'${a.name} ausschalten')">AUS</button>
+    ${ctrlBtns}
   </div>`;
 }
 
@@ -498,6 +539,7 @@ function groupCardHtml(g) {
   const isCtrlTemp = controlled.includes('temp');
   const isCtrlHum  = controlled.includes('hum');
   const isCtrlVpd  = controlled.includes('vpd');
+  const isManual = g.runtimeMode === 'manual';
 
   const dayNightTag = g.isDay
     ? '<span class="meta-tag day">☀ Tag</span>'
@@ -526,7 +568,7 @@ function groupCardHtml(g) {
 
   const actHtml = g.actuators && g.actuators.length > 0
     ? `<div class="actuators"><div class="act-title">Aktoren</div>
-       ${g.actuators.map(a => actuatorHtml(a, g.id, g.manualOverrides)).join('')}</div>`
+       ${g.actuators.map(a => actuatorHtml(a, g.id, g.manualOverrides, isManual)).join('')}</div>`
     : '';
 
   const alarmHtml = g.alarms && g.alarms.length > 0
@@ -548,13 +590,23 @@ function groupCardHtml(g) {
     ? '<div class="irrig-badge running">💧 Bewässerung aktiv</div>'
     : '<div class="irrig-badge"></div>';
 
+  const modeToggle = `<div class="mode-toggle">
+      <button class="mode-btn ${!isManual ? 'active-auto' : ''}"
+        onclick="sendMode('${g.id}','auto','${g.name.replace(/'/g,"\\'")}')">AUTO</button>
+      <button class="mode-btn ${isManual ? 'active-manual' : ''}"
+        onclick="sendMode('${g.id}','manual','${g.name.replace(/'/g,"\\'")}')">MANUELL</button>
+    </div>`;
+
   return `<div class="group-card" id="card-${g.id}">
     <div class="card-header">
       <div class="card-name">
         <div class="color-dot" style="background:${g.color}"></div>
         ${g.name}
       </div>
-      ${`<span class="health-badge" style="background:${healthColor}22;color:${healthColor};border:1px solid ${healthColor}">${g.health}</span>`}
+      <div style="display:flex;align-items:center;gap:8px">
+        ${modeToggle}
+        <span class="health-badge" style="background:${healthColor}22;color:${healthColor};border:1px solid ${healthColor}">${g.health}</span>
+      </div>
     </div>
     ${actIconsHtml(g.actuators, g.id, g.manualOverrides)}
     <div class="climate-row">${tempHtml}${humHtml}${vpdHtml}${soilHtml}</div>

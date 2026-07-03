@@ -49,6 +49,7 @@ export interface DashboardGroupState {
     monitorSensors: string[];
     cameraUrl: string | null;
     manualOverrides: Record<string, { command: boolean | number; until: number }>;
+    runtimeMode: string;
 }
 
 export interface DashboardState {
@@ -66,6 +67,11 @@ export type ControlCommand = {
     durationMinutes: number;
 };
 
+export type ModeCommand = {
+    groupId: string;
+    mode: string;
+};
+
 export class WebDashboardService {
     private server: http.Server | null = null;
     private readonly sseClients = new Set<http.ServerResponse>();
@@ -79,6 +85,7 @@ export class WebDashboardService {
     private dashboardHtml = '';
     private pin = '';
     private controlCallback: ((cmd: ControlCommand) => Promise<void>) | null = null;
+    private modeCallback: ((cmd: ModeCommand) => Promise<void>) | null = null;
 
     constructor(
         private readonly log: {
@@ -91,6 +98,7 @@ export class WebDashboardService {
 
     setPin(pin: string): void { this.pin = pin; }
     setControlCallback(cb: (cmd: ControlCommand) => Promise<void>): void { this.controlCallback = cb; }
+    setModeCallback(cb: (cmd: ModeCommand) => Promise<void>): void { this.modeCallback = cb; }
 
     start(port: number, bindAddress: string): void {
         const htmlPath = path.join(this.adapterDir, 'admin', 'web', 'dashboard.html');
@@ -166,8 +174,44 @@ export class WebDashboardService {
             return;
         }
 
+        if (url === '/api/mode' && req.method === 'POST') {
+            this.handleMode(req, res);
+            return;
+        }
+
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('Not found');
+    }
+
+    private handleMode(req: http.IncomingMessage, res: http.ServerResponse): void {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', async () => {
+            try {
+                const payload = JSON.parse(body) as { groupId: string; mode: string; pin?: string };
+
+                if (this.pin && payload.pin !== this.pin) {
+                    res.writeHead(403, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Falsche PIN' }));
+                    return;
+                }
+
+                if (!this.modeCallback) {
+                    res.writeHead(503, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Adapter nicht bereit' }));
+                    return;
+                }
+
+                await this.modeCallback({ groupId: payload.groupId, mode: payload.mode });
+
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: true }));
+            } catch (e) {
+                this.log.error(`WebDashboard Mode-Fehler: ${e}`);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: String(e) }));
+            }
+        });
     }
 
     private handleControl(req: http.IncomingMessage, res: http.ServerResponse): void {

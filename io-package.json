@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.1.21",
+    "version": "0.1.22",
     "news": {
+      "0.1.22": {
+        "en": "Dashboard: AUTO/MANUAL mode toggle per group; EIN/AUS actuator buttons only active in MANUAL mode; PIN protected mode switch",
+        "de": "Dashboard: AUTO/MANUELL-Umschalter pro Gruppe; EIN/AUS-Aktor-Buttons nur im MANUELL-Modus aktiv; PIN-geschützter Moduswechsel"
+      },
       "0.1.21": {
         "en": "Dashboard: mode-aware setpoint bars for VPD/temp/humidity; active actuator icon strip with pulse animation; improved visual hierarchy",
         "de": "Dashboard: modusabhängige Sollwert-Balken für VPD/Temp/Feuchte; aktive Geräte-Icon-Leiste mit Puls-Animation; verbesserte visuelle Hierarchie"

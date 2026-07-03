@@ -70,6 +70,9 @@ class GrowManagerAdapter extends utils.Adapter {
     // Manuelle Übersteuerungen vom Dashboard {actuatorId → {command, until}}
     private readonly dashboardOverrides = new Map<string, { command: boolean | number; until: number }>();
 
+    // Modus-Übersteuerungen vom Dashboard {groupId → 'auto'|'manual'}
+    private readonly dashboardModeOverrides = new Map<string, string>();
+
     constructor(options: Partial<utils.AdapterOptions> = {}) {
         super({ ...options, name: 'growmanager' });
 
@@ -145,6 +148,17 @@ class GrowManagerAdapter extends utils.Adapter {
         const webPort = this.growConfig.webPort ?? 8097;
         const webBind = this.growConfig.webBindAddress ?? '0.0.0.0';
         this.webDashboard.setPin(this.growConfig.dashboardPin ?? '');
+        this.webDashboard.setModeCallback(async ({ groupId, mode }) => {
+            const group = this.growConfig.groups.find(g => g.id === groupId);
+            if (!group) throw new Error(`Gruppe ${groupId} nicht gefunden`);
+            if (mode === 'auto') {
+                this.dashboardModeOverrides.delete(groupId);
+                this.log.info(`Dashboard: Gruppe ${group.name} → AUTO`);
+            } else {
+                this.dashboardModeOverrides.set(groupId, mode);
+                this.log.info(`Dashboard: Gruppe ${group.name} → MANUELL`);
+            }
+        });
         this.webDashboard.setControlCallback(async ({ groupId, actuatorId, command, durationMinutes }) => {
             const group = this.growConfig.groups.find(g => g.id === groupId);
             const actuator = group?.actuators.find(a => a.id === actuatorId);
@@ -788,6 +802,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     color: g.color,
                     phase: g.phase,
                     mode: g.mode,
+                    runtimeMode: this.dashboardModeOverrides.get(g.id) ?? 'auto',
                     health: state?.degradation ?? 'FAULT',
                     temperature: state?.temperature ?? null,
                     humidity: state?.humidity ?? null,

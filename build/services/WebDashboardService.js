@@ -48,9 +48,11 @@ class WebDashboardService {
         this.dashboardHtml = '';
         this.pin = '';
         this.controlCallback = null;
+        this.modeCallback = null;
     }
     setPin(pin) { this.pin = pin; }
     setControlCallback(cb) { this.controlCallback = cb; }
+    setModeCallback(cb) { this.modeCallback = cb; }
     start(port, bindAddress) {
         const htmlPath = path.join(this.adapterDir, 'admin', 'web', 'dashboard.html');
         try {
@@ -120,8 +122,39 @@ class WebDashboardService {
             this.handleControl(req, res);
             return;
         }
+        if (url === '/api/mode' && req.method === 'POST') {
+            this.handleMode(req, res);
+            return;
+        }
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('Not found');
+    }
+    handleMode(req, res) {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', async () => {
+            try {
+                const payload = JSON.parse(body);
+                if (this.pin && payload.pin !== this.pin) {
+                    res.writeHead(403, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Falsche PIN' }));
+                    return;
+                }
+                if (!this.modeCallback) {
+                    res.writeHead(503, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Adapter nicht bereit' }));
+                    return;
+                }
+                await this.modeCallback({ groupId: payload.groupId, mode: payload.mode });
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: true }));
+            }
+            catch (e) {
+                this.log.error(`WebDashboard Mode-Fehler: ${e}`);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: String(e) }));
+            }
+        });
     }
     handleControl(req, res) {
         let body = '';
