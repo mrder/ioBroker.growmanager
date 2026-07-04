@@ -768,6 +768,10 @@ class GrowManagerAdapter extends utils.Adapter {
                     reason: action.reason,
                     isCritical: false,
                 });
+                // State aktualisieren damit Voting-Loop den aktuellen Gruppen-Wunsch lesen kann
+                if (actuatorConfig.sharedParticipants?.length) {
+                    this.actuatorService.recordCommand(actuatorConfig, action.requested);
+                }
                 continue;
             }
             const canSwitch = this.actuatorService.canSwitch(actuatorConfig, action.requested);
@@ -831,7 +835,8 @@ class GrowManagerAdapter extends utils.Adapter {
                 };
             }
             case 'cooling':
-            case 'exhaustFan': {
+            case 'exhaustFan':
+            case 'supplyFan': {
                 const target = tempSetpoint ?? 25;
                 const temp = gs.temperature;
                 if (temp === null)
@@ -928,6 +933,20 @@ class GrowManagerAdapter extends utils.Adapter {
             const leafSensors = g.sensors
                 .filter(s => s.enabled && s.type === 'leafTemperature')
                 .map(s => ({ id: s.id, name: s.name, value: this.sensorService.getState(s.id)?.processedValue ?? null }));
+            const sensorDetails = g.sensors
+                .filter(s => s.enabled)
+                .map(s => {
+                const ss = this.sensorService.getState(s.id);
+                return {
+                    id: s.id,
+                    name: s.name,
+                    type: s.type,
+                    quality: ss?.quality ?? 0,
+                    valid: ss?.valid ?? false,
+                    stale: ss?.stale ?? true,
+                    error: ss?.error,
+                };
+            });
             // Sensoren in "monitor"-Rolle
             const monitorSensors = g.sensors
                 .filter(s => s.enabled && (s.role === 'monitor' || (!['primary', 'backup'].includes(s.role ?? 'primary'))))
@@ -961,6 +980,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 co2: co2Agg.value,
                 leafTemperature: leafTempAggDb.value,
                 leafSensors,
+                sensorDetails,
                 isDay: state?.dayNight !== 'night',
                 sensorQuality: state?.sensorQuality ?? 0,
                 actuators,

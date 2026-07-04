@@ -169,6 +169,28 @@
     border: 6px solid transparent; border-top-color: var(--blue);
   }
 
+  /* ---- Sensorqualität Tooltip ---- */
+  .quality-badge {
+    position: relative; cursor: help; margin-left: auto;
+    border-radius: 3px; padding: 2px 7px; font-size: 11px;
+  }
+  .quality-badge:hover .quality-tooltip { display: block; }
+  .quality-tooltip {
+    display: none; position: absolute; bottom: 100%; right: 0;
+    background: #1a2a3a; border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 12px; font-size: 12px; color: var(--text); white-space: nowrap;
+    z-index: 50; margin-bottom: 6px; min-width: 220px; text-align: left;
+  }
+  .quality-tooltip::after {
+    content: ''; position: absolute; top: 100%; right: 14px;
+    border: 6px solid transparent; border-top-color: var(--border);
+  }
+  .q-sensor-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+  .q-sensor-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .q-sensor-name { flex: 1; color: var(--text-dim); }
+  .q-sensor-val { font-weight: 600; }
+  .q-sensor-err { font-size: 10px; color: var(--orange); grid-column: 2 / -1; }
+
   /* ---- Aktoren Detail ---- */
   .actuators { padding: 10px 16px; }
   .act-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
@@ -808,6 +830,37 @@ function diagHintHtml(g) {
   return `<div class="diag-hints">${rows}</div>`;
 }
 
+// ---- Sensorqualitäts-Badge mit Tooltip ----
+function qualityBadgeHtml(g) {
+  const q = g.sensorQuality ?? 0;
+  const color = q >= 90 ? 'var(--green-light)' : q >= 60 ? 'var(--yellow)' : 'var(--orange)';
+  const sensors = g.sensorDetails ?? [];
+  if (sensors.length === 0) {
+    return `<span class="quality-badge meta-tag" style="color:${color}">Q: ${q}%</span>`;
+  }
+  const SENSOR_TYPE_LABELS = {
+    temperature:'Temperatur', humidity:'Luftfeuchte', leafTemperature:'Blatt-T',
+    soilMoisture:'Bodenfeuchte', co2:'CO₂', light:'Licht', tankLevel:'Tank',
+    ph:'pH', ec:'EC', power:'Leistung', door:'Tür', custom:'Sensor',
+  };
+  const rows = sensors.map(s => {
+    const dotColor = !s.valid ? 'var(--red)' : s.quality < 60 ? 'var(--orange)' : s.quality < 90 ? 'var(--yellow)' : 'var(--green-light)';
+    const label = SENSOR_TYPE_LABELS[s.type] ?? s.type;
+    const errRow = (s.error && !s.valid) ? `<div style="font-size:10px;color:var(--orange);padding-left:16px;margin-top:-2px">${s.error}</div>` : '';
+    return `<div class="q-sensor-row">
+      <div class="q-sensor-dot" style="background:${dotColor}"></div>
+      <span class="q-sensor-name">${s.name} <span style="font-size:10px;opacity:0.6">(${label})</span></span>
+      <span class="q-sensor-val" style="color:${dotColor}">${s.quality}%</span>
+    </div>${errRow}`;
+  }).join('');
+  return `<span class="quality-badge meta-tag" style="color:${color}">Q: ${q}%
+    <div class="quality-tooltip">
+      <div style="font-weight:700;margin-bottom:6px;color:var(--text)">Sensorqualität</div>
+      ${rows}
+    </div>
+  </span>`;
+}
+
 // ---- Gruppenkarte ----
 function groupCardHtml(g) {
   const healthColor = HEALTH_COLORS[g.health] ?? 'var(--safe)';
@@ -930,7 +983,7 @@ function groupCardHtml(g) {
       <span class="meta-tag mode">${MODE_LABELS[g.mode] ?? g.mode}</span>
       ${dayNightTag}
       ${monitorTag}
-      <span class="meta-tag" style="margin-left:auto">Q: ${g.sensorQuality}%</span>
+      ${qualityBadgeHtml(g)}
     </div>
     ${cameraHtml}
     ${irrigBadge}

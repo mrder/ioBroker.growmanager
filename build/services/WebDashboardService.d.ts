@@ -42,6 +42,15 @@ export interface DashboardGroupState {
         name: string;
         value: number | null;
     }>;
+    sensorDetails: Array<{
+        id: string;
+        name: string;
+        type: string;
+        quality: number;
+        valid: boolean;
+        stale: boolean;
+        error?: string;
+    }>;
     isDay: boolean;
     sensorQuality: number;
     actuators: DashboardActuatorState[];
