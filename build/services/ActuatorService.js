@@ -108,25 +108,27 @@ class ActuatorService {
         const state = this.states.get(config.id);
         if (!state)
             return false;
-        const isOnBefore = this.isEffectivelyOn(config, state);
+        // Vergleich basiert auf requested (nicht effectiveState), damit der Befehl
+        // auch bei konfiguriertem Feedback-State korrekt gefeuert wird.
+        const wasOn = this.isRequestingOn(config, state.requested);
         state.requested = requested;
+        const isNowOn = this.isRequestingOn(config, state.requested);
+        const changing = wasOn !== isNowOn;
         // Effektiven Zustand sofort aus requested ableiten (wenn kein Feedback vorhanden)
         if (state.feedback === null && state.power === null) {
             state.effectiveState = requested;
         }
-        const isOnAfter = this.isEffectivelyOn(config, state);
-        const changing = isOnBefore !== isOnAfter;
         if (changing) {
             state.lastSwitchTs = Date.now();
             state.switchCount++;
             const rt = this.runTime.get(config.id);
             rt.switchCount++;
             rt.lastHourSwitches.push(Date.now());
-            if (!isOnAfter && rt.startTs > 0) {
+            if (!isNowOn && rt.startTs > 0) {
                 rt.totalSeconds += (Date.now() - rt.startTs) / 1000;
                 rt.startTs = 0;
             }
-            else if (isOnAfter) {
+            else if (isNowOn) {
                 rt.startTs = Date.now();
             }
         }
