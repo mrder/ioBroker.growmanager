@@ -482,6 +482,18 @@ class GrowManagerAdapter extends utils.Adapter {
                     if (!actuatorConfig.shared || !actuatorConfig.sharedParticipants?.length)
                         continue;
                     const hysteresisSeconds = actuatorConfig.sharedVoteHysteresisSeconds ?? 60;
+                    // Eigentümer-Stimme einreichen (Ergebnis aus processGroup)
+                    const ownerActState = this.actuatorService.getState(actuatorConfig.id);
+                    const ownerWantsOn = ownerActState
+                        ? this.actuatorService.isRequestingOn(actuatorConfig, ownerActState.requested)
+                        : false;
+                    this.sharedActorManager.submitVote(actuatorConfig.id, {
+                        groupId: group.id,
+                        wantsOn: ownerWantsOn,
+                        weight: 1.0,
+                        urgency: 1.0,
+                        reason: `Eigentümer ${group.name}`,
+                    });
                     for (const participant of actuatorConfig.sharedParticipants) {
                         const pState = this.groupStates.get(participant.groupId);
                         if (!pState)

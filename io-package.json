@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.40",
+    "version": "0.1.41",
     "news": {
+      "0.1.41": {
+        "en": "Fix shared actuator voting: owner vote now correctly counted; suppress false ACTUATOR_STUCK_ON alarm when another group holds actuator on",
+        "de": "Bugfix geteilte Abstimmung: Eigentümer-Stimme wird jetzt korrekt gezählt; falscher ACTUATOR_STUCK_ON-Alarm unterdrückt wenn andere Gruppe den Aktor hält"
+      },
       "0.1.40": {
         "en": "Dashboard shows additional sensor values: soil moisture, CO2 and leaf temperature appear in the climate row when sensors are configured in the group",
         "de": "Dashboard zeigt zusätzliche Sensorwerte: Bodenfeuchte, CO₂ und Blatttemperatur erscheinen in der Klimazeile wenn Sensoren in der Gruppe konfiguriert sind"

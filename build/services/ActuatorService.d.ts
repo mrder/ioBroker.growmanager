@@ -61,7 +61,7 @@ export declare class ActuatorService {
     getRunTimeSeconds(actuatorId: string): number;
     getSwitchCount(actuatorId: string): number;
     private isEffectivelyOn;
-    private isRequestingOn;
+    isRequestingOn(config: ActuatorConfig, requested: boolean | number): boolean;
     private computeEffectiveState;
     private computeHealth;
 }

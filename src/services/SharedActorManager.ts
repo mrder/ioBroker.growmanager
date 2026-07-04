@@ -167,17 +167,12 @@ export class SharedActorManager {
         ownerId: string,
         currentCommand: boolean | number,
     ): boolean | number {
+        // Alle Stimmen: Eigentümer (weight=1.0) + Teilnehmer
         const voteList = this.votes.get(actuatorId) ?? [];
 
-        // Legacy-Anforderungen auch als Stimmen berücksichtigen (Eigentümer)
-        const legacyReqs = this.requests.get(actuatorId) ?? [];
-        const ownerReq = legacyReqs.find(r => r.groupId === ownerId);
-
-        // Eigentümer-Stimme aus Legacy-Request ableiten
-        let ownerWantsOn = false;
-        if (ownerReq) {
-            ownerWantsOn = ownerReq.requested === true || (typeof ownerReq.requested === 'number' && ownerReq.requested > 0);
-        }
+        // Eigentümer-Stimme identifizieren (immer weight=1.0, eingereicht von main.ts)
+        const ownerVote = voteList.find(v => v.groupId === ownerId);
+        const ownerWantsOn = ownerVote?.wantsOn ?? false;
 
         // Rohen Beschluss berechnen
         let rawCommand: boolean | number;
@@ -185,31 +180,26 @@ export class SharedActorManager {
         switch (mode) {
             case 'any': {
                 // EIN wenn Eigentümer ODER irgendein Teilnehmer EIN will
-                const anyParticipantOn = voteList.some(v => v.wantsOn);
-                rawCommand = ownerWantsOn || anyParticipantOn;
+                rawCommand = voteList.some(v => v.wantsOn);
                 break;
             }
             case 'majority': {
                 // Gewichtete Mehrheit: Summe der EIN-Gewichte vs AUS-Gewichte
-                let onWeight = ownerWantsOn ? 1.0 : 0.0;  // Eigentümer hat Gewicht 1.0
-                let offWeight = ownerWantsOn ? 0.0 : 1.0;
+                let onWeight = 0;
+                let offWeight = 0;
                 for (const v of voteList) {
-                    if (v.wantsOn) {
-                        onWeight += v.weight;
-                    } else {
-                        offWeight += v.weight;
-                    }
+                    if (v.wantsOn) onWeight += v.weight;
+                    else offWeight += v.weight;
                 }
                 rawCommand = onWeight > offWeight;
                 break;
             }
             case 'primary': {
-                // Eigentümer entscheidet; aber wenn Eigentümer AUS und ein Teilnehmer
-                // mit hohem Einfluss (weight >= 0.8) EIN will, dann trotzdem EIN
+                // Eigentümer entscheidet; aber Teilnehmer mit hohem Einfluss (>=0.8) kann überstimmen
                 if (ownerWantsOn) {
                     rawCommand = true;
                 } else {
-                    const highInfluenceOn = voteList.some(v => v.wantsOn && v.weight >= 0.8);
+                    const highInfluenceOn = voteList.some(v => v.groupId !== ownerId && v.wantsOn && v.weight >= 0.8);
                     rawCommand = highInfluenceOn;
                 }
                 break;

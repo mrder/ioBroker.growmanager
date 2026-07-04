@@ -78,15 +78,9 @@ describe('SharedActorManager – Abstimmung (resolveWithVoting)', () => {
         manager = new SharedActorManager();
     });
 
-    function ownerRequest(actuatorId: string, groupId: string, wantsOn: boolean): void {
-        manager.submitRequest({
-            groupId,
-            groupPriority: 1,
-            actuatorId,
-            requested: wantsOn,
-            reason: 'Eigentümer',
-            isCritical: false,
-        });
+    // Eigentümer-Stimme: weight=1.0, eingereicht via submitVote (wie main.ts es jetzt macht)
+    function ownerVote(actuatorId: string, groupId: string, wantsOn: boolean): void {
+        manager.submitVote(actuatorId, { groupId, wantsOn, weight: 1.0, urgency: 1.0, reason: 'Eigentümer' });
     }
 
     function vote(actuatorId: string, groupId: string, wantsOn: boolean, weight: number): void {
@@ -94,58 +88,56 @@ describe('SharedActorManager – Abstimmung (resolveWithVoting)', () => {
     }
 
     it('Modus "any": EIN wenn Eigentümer EIN will', () => {
-        ownerRequest('act-1', 'owner', true);
+        ownerVote('act-1', 'owner', true);
         const cmd = manager.resolveWithVoting('act-1', 'any', 0, 'owner', false);
         expect(cmd).toBe(true);
     });
 
     it('Modus "any": EIN wenn Teilnehmer EIN will, Eigentümer AUS', () => {
-        ownerRequest('act-1', 'owner', false);
+        ownerVote('act-1', 'owner', false);
         vote('act-1', 'p1', true, 0.5);
         const cmd = manager.resolveWithVoting('act-1', 'any', 0, 'owner', false);
         expect(cmd).toBe(true);
     });
 
     it('Modus "any": AUS wenn alle AUS wollen', () => {
-        ownerRequest('act-1', 'owner', false);
+        ownerVote('act-1', 'owner', false);
         vote('act-1', 'p1', false, 0.8);
         const cmd = manager.resolveWithVoting('act-1', 'any', 0, 'owner', false);
         expect(cmd).toBe(false);
     });
 
     it('Modus "majority": EIN wenn Gewichte für EIN überwiegen', () => {
-        ownerRequest('act-1', 'owner', false);  // Eigentümer AUS (Gewicht 1.0)
-        vote('act-1', 'p1', true, 0.8);          // Teilnehmer EIN (0.8)
-        vote('act-1', 'p2', true, 0.8);          // Teilnehmer EIN (0.8)
-        // EIN-Summe: 1.6, AUS-Summe: 1.0 → EIN gewinnt
+        ownerVote('act-1', 'owner', false);  // Eigentümer AUS (weight=1.0 → AUS: 1.0)
+        vote('act-1', 'p1', true, 0.8);     // Teilnehmer EIN (weight=0.8)
+        vote('act-1', 'p2', true, 0.8);     // Teilnehmer EIN (weight=0.8) → EIN: 1.6 > AUS: 1.0
         const cmd = manager.resolveWithVoting('act-1', 'majority', 0, 'owner', false);
         expect(cmd).toBe(true);
     });
 
     it('Modus "majority": AUS wenn Gewichte für AUS überwiegen', () => {
-        ownerRequest('act-1', 'owner', false);  // AUS (1.0)
-        vote('act-1', 'p1', true, 0.4);          // EIN (0.4)
-        // EIN: 0.4, AUS: 1.0 → AUS gewinnt
+        ownerVote('act-1', 'owner', false);  // Eigentümer AUS (weight=1.0 → AUS: 1.0)
+        vote('act-1', 'p1', true, 0.4);     // Teilnehmer EIN (weight=0.4) → EIN: 0.4 < AUS: 1.0
         const cmd = manager.resolveWithVoting('act-1', 'majority', 0, 'owner', false);
         expect(cmd).toBe(false);
     });
 
     it('Modus "primary": Eigentümer EIN → EIN', () => {
-        ownerRequest('act-1', 'owner', true);
+        ownerVote('act-1', 'owner', true);
         vote('act-1', 'p1', false, 1.0);
         const cmd = manager.resolveWithVoting('act-1', 'primary', 0, 'owner', false);
         expect(cmd).toBe(true);
     });
 
     it('Modus "primary": Eigentümer AUS, Teilnehmer Hochgewicht EIN → EIN', () => {
-        ownerRequest('act-1', 'owner', false);
+        ownerVote('act-1', 'owner', false);
         vote('act-1', 'p1', true, 0.8);  // weight >= 0.8 → Hochgewicht
         const cmd = manager.resolveWithVoting('act-1', 'primary', 0, 'owner', false);
         expect(cmd).toBe(true);
     });
 
     it('Modus "primary": Eigentümer AUS, Teilnehmer Niedriggewicht EIN → AUS', () => {
-        ownerRequest('act-1', 'owner', false);
+        ownerVote('act-1', 'owner', false);
         vote('act-1', 'p1', true, 0.5);  // weight < 0.8 → kein Override
         const cmd = manager.resolveWithVoting('act-1', 'primary', 0, 'owner', false);
         expect(cmd).toBe(false);
@@ -153,7 +145,7 @@ describe('SharedActorManager – Abstimmung (resolveWithVoting)', () => {
 
     it('Hysterese: Zustandswechsel wird erst nach Ablauf übernommen', () => {
         // Aktuell: false, neuer Beschluss: true
-        ownerRequest('act-1', 'owner', true);
+        ownerVote('act-1', 'owner', true);
         // hysteresis = 60s → Änderung noch nicht übernehmen
         const cmd1 = manager.resolveWithVoting('act-1', 'any', 60, 'owner', false);
         expect(cmd1).toBe(false);  // Noch alter Zustand
@@ -161,21 +153,21 @@ describe('SharedActorManager – Abstimmung (resolveWithVoting)', () => {
         // Zweiter Zyklus: gleiche Richtung, aber clearCycle hat pendingChange nicht gelöscht
         // (resolvedState und pendingChange bleiben über clearCycle hinaus erhalten)
         manager.clearCycle();
-        ownerRequest('act-1', 'owner', true);
+        ownerVote('act-1', 'owner', true);
         // Immer noch innerhalb der 60s Hysterese
         const cmd2 = manager.resolveWithVoting('act-1', 'any', 60, 'owner', false);
         expect(cmd2).toBe(false);
     });
 
     it('Hysterese = 0: Zustandswechsel sofort', () => {
-        ownerRequest('act-1', 'owner', true);
+        ownerVote('act-1', 'owner', true);
         const cmd = manager.resolveWithVoting('act-1', 'any', 0, 'owner', false);
         expect(cmd).toBe(true);
     });
 
     it('clearCycle löscht votes und requests für nächsten Zyklus', () => {
         // Erster Zyklus: Eigentümer will EIN → resolvedState = true
-        ownerRequest('act-1', 'owner', true);
+        ownerVote('act-1', 'owner', true);
         const cmd1 = manager.resolveWithVoting('act-1', 'any', 0, 'owner', false);
         expect(cmd1).toBe(true);
 
@@ -183,7 +175,7 @@ describe('SharedActorManager – Abstimmung (resolveWithVoting)', () => {
         manager.clearCycle();
 
         // Zweiter Zyklus: Eigentümer will wieder EIN
-        ownerRequest('act-1', 'owner', true);
+        ownerVote('act-1', 'owner', true);
         const cmd2 = manager.resolveWithVoting('act-1', 'any', 0, 'owner', false);
         // resolvedState ist true, rawCommand ist true → kein Wechsel → true
         expect(cmd2).toBe(true);

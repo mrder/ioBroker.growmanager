@@ -307,7 +307,7 @@ export class ActuatorService {
         return false;
     }
 
-    private isRequestingOn(config: ActuatorConfig, requested: boolean | number): boolean {
+    isRequestingOn(config: ActuatorConfig, requested: boolean | number): boolean {
         if (typeof requested === 'boolean') return requested;
         if (typeof requested === 'number') return requested > 0;
         return false;
@@ -335,7 +335,8 @@ export class ActuatorService {
         const timeSince = (Date.now() - state.lastSwitchTs) / 1000;
 
         // Kleben prüfen (EIN obwohl AUS befohlen)
-        if (!requestedOn && effectiveOn && timeSince > config.offDelaySeconds + 30) {
+        // Bei geteilten Aktoren überspringen: eine andere Gruppe kann den Aktor halten
+        if (!config.shared && !requestedOn && effectiveOn && timeSince > config.offDelaySeconds + 30) {
             return 'stuckOn';
         }
 

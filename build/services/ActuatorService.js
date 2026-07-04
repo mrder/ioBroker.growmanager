@@ -298,7 +298,8 @@ class ActuatorService {
         const effectiveOn = this.isEffectivelyOn(config, state);
         const timeSince = (Date.now() - state.lastSwitchTs) / 1000;
         // Kleben prüfen (EIN obwohl AUS befohlen)
-        if (!requestedOn && effectiveOn && timeSince > config.offDelaySeconds + 30) {
+        // Bei geteilten Aktoren überspringen: eine andere Gruppe kann den Aktor halten
+        if (!config.shared && !requestedOn && effectiveOn && timeSince > config.offDelaySeconds + 30) {
             return 'stuckOn';
         }
         // Kein Feedback innerhalb der Frist
