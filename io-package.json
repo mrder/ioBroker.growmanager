@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.34",
+    "version": "0.1.35",
     "news": {
+      "0.1.35": {
+        "en": "Dashboard: actuator LED now reflects actual state (feedback); Soll/Ist labels instead of arrow; LED goes off when device is physically switched off",
+        "de": "Dashboard: Aktor-LED zeigt jetzt den Ist-Zustand (Feedback); Soll/Ist-Beschriftung statt Pfeil; LED geht aus wenn Gerät physisch ausgeschaltet wird"
+      },
       "0.1.34": {
         "en": "Fix actuator LED stays on: recordCommand now compares requested state (not effectiveState), ensuring setActuatorState fires correctly even when feedback state is configured",
         "de": "Aktor-LED bleibt grün behoben: recordCommand vergleicht jetzt requested-State (nicht effectiveState), sodass setActuatorState auch bei konfiguriertem Feedback-State korrekt feuert"
