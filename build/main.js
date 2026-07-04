@@ -906,10 +906,16 @@ class GrowManagerAdapter extends utils.Adapter {
                 setpointCo2Target = sp.co2Target ?? null;
                 setpointCo2Tolerance = sp.co2Tolerance ?? null;
             }
-            // Zusätzliche Sensorwerte aggregieren
+            // Zusätzliche Sensorwerte: Einzelwerte für Typen wo mehrere sinnvoll sind
             const soilAggDb = this.sensorService.aggregate(g.sensors, 'soilMoisture', g.aggregationMethod);
             const co2Agg = this.sensorService.aggregate(g.sensors, 'co2', g.aggregationMethod);
             const leafTempAggDb = this.sensorService.aggregate(g.sensors, 'leafTemperature', g.aggregationMethod);
+            const soilSensors = g.sensors
+                .filter(s => s.enabled && s.type === 'soilMoisture')
+                .map(s => ({ id: s.id, name: s.name, value: this.sensorService.getState(s.id)?.processedValue ?? null }));
+            const leafSensors = g.sensors
+                .filter(s => s.enabled && s.type === 'leafTemperature')
+                .map(s => ({ id: s.id, name: s.name, value: this.sensorService.getState(s.id)?.processedValue ?? null }));
             // Sensoren in "monitor"-Rolle
             const monitorSensors = g.sensors
                 .filter(s => s.enabled && (s.role === 'monitor' || (!['primary', 'backup'].includes(s.role ?? 'primary'))))
@@ -939,8 +945,10 @@ class GrowManagerAdapter extends utils.Adapter {
                 humidity: state?.humidity ?? null,
                 vpd: state?.vpd ?? null,
                 soilMoisture: soilAggDb.value,
+                soilSensors,
                 co2: co2Agg.value,
                 leafTemperature: leafTempAggDb.value,
+                leafSensors,
                 isDay: state?.dayNight !== 'night',
                 sensorQuality: state?.sensorQuality ?? 0,
                 actuators,

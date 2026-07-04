@@ -39,8 +39,10 @@ export interface DashboardGroupState {
     humidity: number | null;
     vpd: number | null;
     soilMoisture: number | null;
+    soilSensors: Array<{ id: string; name: string; value: number | null }>;
     co2: number | null;
     leafTemperature: number | null;
+    leafSensors: Array<{ id: string; name: string; value: number | null }>;
     isDay: boolean;
     sensorQuality: number;
     actuators: DashboardActuatorState[];

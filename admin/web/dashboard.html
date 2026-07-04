@@ -838,13 +838,20 @@ function groupCardHtml(g) {
   const isCtrlSoil = controlled.includes('soil');
   const isCtrlCo2  = controlled.includes('co2');
 
-  const soilHtml = g.soilMoisture !== null
-    ? `<div onclick="showTrend('${gid}','soilMoisture','Bodenfeuchte','%')" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(
-        g.soilMoisture, '%', 'Bodenfeuchte', isCtrlSoil,
-        g.setpointSoilMoistureTarget != null && g.setpointSoilMoistureTolerance != null ? g.setpointSoilMoistureTarget - g.setpointSoilMoistureTolerance : null,
-        g.setpointSoilMoistureTarget != null && g.setpointSoilMoistureTolerance != null ? g.setpointSoilMoistureTarget + g.setpointSoilMoistureTolerance : null,
-        null, 0)}</div>`
-    : '';
+  const soilMin = g.setpointSoilMoistureTarget != null && g.setpointSoilMoistureTolerance != null ? g.setpointSoilMoistureTarget - g.setpointSoilMoistureTolerance : null;
+  const soilMax = g.setpointSoilMoistureTarget != null && g.setpointSoilMoistureTolerance != null ? g.setpointSoilMoistureTarget + g.setpointSoilMoistureTolerance : null;
+  let soilHtml = '';
+  if (g.soilSensors && g.soilSensors.length > 1) {
+    // Mehrere Bodenfeuchtesensoren → jeden einzeln anzeigen
+    soilHtml = g.soilSensors.map(s =>
+      `<div onclick="showTrend('${gid}','soilMoisture','${s.name}','%')" style="cursor:pointer" title="Trend anzeigen">${
+        climateValHtml(s.value, '%', s.name, isCtrlSoil, soilMin, soilMax, null, 0)}</div>`
+    ).join('');
+  } else if (g.soilMoisture !== null && g.soilMoisture !== undefined) {
+    const label = g.soilSensors && g.soilSensors.length === 1 ? g.soilSensors[0].name : 'Bodenfeuchte';
+    soilHtml = `<div onclick="showTrend('${gid}','soilMoisture','Bodenfeuchte','%')" style="cursor:pointer" title="Trend anzeigen">${
+      climateValHtml(g.soilMoisture, '%', label, isCtrlSoil, soilMin, soilMax, null, 0)}</div>`;
+  }
 
   const co2Html = g.co2 !== null && g.co2 !== undefined
     ? `<div onclick="showTrend('${gid}','co2','CO₂','ppm')" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(
@@ -854,9 +861,14 @@ function groupCardHtml(g) {
         null, 0)}</div>`
     : '';
 
-  const leafTempHtml = g.leafTemperature !== null && g.leafTemperature !== undefined
-    ? `<div>${climateValHtml(g.leafTemperature, '°', 'Blatt-T', false, null, null, null, 1)}</div>`
-    : '';
+  let leafTempHtml = '';
+  if (g.leafSensors && g.leafSensors.length > 1) {
+    leafTempHtml = g.leafSensors.map(s =>
+      `<div>${climateValHtml(s.value, '°', s.name, false, null, null, null, 1)}</div>`
+    ).join('');
+  } else if (g.leafTemperature !== null && g.leafTemperature !== undefined) {
+    leafTempHtml = `<div>${climateValHtml(g.leafTemperature, '°', 'Blatt-T', false, null, null, null, 1)}</div>`;
+  }
 
   // Außensensor-Zeile
   const outdoorHtml = (g.outdoorTemp !== null && g.outdoorTemp !== undefined) || (g.outdoorHumidity !== null && g.outdoorHumidity !== undefined)
