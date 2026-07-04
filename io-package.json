@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.1.29",
+    "version": "0.1.30",
     "news": {
+      "0.1.30": {
+        "en": "Dashboard: per-actuator AUTO/MANUAL badge (click to reset group to AUTO); actuator feedback/effectiveState display; outdoor temp+humidity in group card; 48h trend popup with SVG chart for temperature, humidity and VPD",
+        "de": "Dashboard: AUTO/MANUELL-Badge pro Aktor (klicken für Gruppen-Reset auf AUTO); Aktor-Feedback/Ist-Zustand-Anzeige; Außentemperatur+Feuchte in Gruppenkarte; 48h-Trend-Popup mit SVG-Chart für Temperatur, Feuchte und VPD"
+      },
       "0.1.29": {
         "en": "Fix admin live data: re-add socket bridge (window.io.connect) removed during index.html cleanup; emitSocket now tries direct method calls before raw emit",
         "de": "Admin-Livedaten behoben: Socket-Bridge (window.io.connect) wieder hinzugefügt die beim index.html-Umbau entfernt wurde; emitSocket versucht jetzt direkte Methodenaufrufe vor raw emit"

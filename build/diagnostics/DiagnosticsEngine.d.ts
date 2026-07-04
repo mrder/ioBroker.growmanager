@@ -7,6 +7,10 @@ export declare class DiagnosticsEngine {
     private readonly trendBuffers;
     private readonly effectChecks;
     private readonly maxTrendPoints;
+    /** 1h-Durchschnitte für die letzten 48 Stunden pro Gruppe+Variable */
+    private readonly hourlyHistory;
+    private readonly hourlyAccum;
+    private readonly maxHourlyPoints;
     constructor(alarmService: AlarmService, log: ILogger);
     checkActuatorFeedback(groupId: string, actuatorConfig: GroupConfig['actuators'][0], state: ActuatorState): void;
     /**
@@ -21,6 +25,11 @@ export declare class DiagnosticsEngine {
      * Fügt einen Messwert zum Trend-Puffer hinzu.
      */
     recordValue(groupId: string, variable: 'temperature' | 'humidity' | 'vpd', value: number): void;
+    /** Gibt die letzten 48 Stundenmittelwerte zurück (inklusive laufender Stunde). */
+    getHourlyHistory(groupId: string, variable: 'temperature' | 'humidity' | 'vpd'): Array<{
+        ts: number;
+        value: number;
+    }>;
     /**
      * Sensordifferenz-Prüfung: Warnung wenn mehrere Sensoren stark abweichen.
      */

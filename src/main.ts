@@ -156,12 +156,17 @@ class GrowManagerAdapter extends utils.Adapter {
             if (!group) throw new Error(`Gruppe ${groupId} nicht gefunden`);
             if (mode === 'auto') {
                 this.dashboardModeOverrides.delete(groupId);
-                this.log.info(`Dashboard: Gruppe ${group.name} → AUTO`);
+                // Alle manuellen Aktor-Overrides der Gruppe aufheben
+                for (const a of group.actuators) this.dashboardOverrides.delete(a.id);
+                this.log.info(`Dashboard: Gruppe ${group.name} → AUTO (Overrides gelöscht)`);
             } else {
                 this.dashboardModeOverrides.set(groupId, mode);
                 this.log.info(`Dashboard: Gruppe ${group.name} → MANUELL`);
             }
         });
+        this.webDashboard.setTrendsCallback((groupId, variable) =>
+            this.diagnosticsEngine.getHourlyHistory(groupId, variable as 'temperature' | 'humidity' | 'vpd')
+        );
         this.webDashboard.setControlCallback(async ({ groupId, actuatorId, command, durationMinutes }) => {
             const group = this.growConfig.groups.find(g => g.id === groupId);
             const actuator = group?.actuators.find(a => a.id === actuatorId);
@@ -796,6 +801,8 @@ class GrowManagerAdapter extends utils.Adapter {
                             name: a.name,
                             type: a.type,
                             command: as?.requested ?? null,
+                            effectiveState: as?.effectiveState ?? null,
+                            feedback: as?.feedback ?? null,
                             health: as?.health ?? 'unknown',
                         };
                     });
@@ -856,6 +863,12 @@ class GrowManagerAdapter extends utils.Adapter {
                     monitorSensors,
                     cameraUrl,
                     manualOverrides,
+                    outdoorTemp: g.outdoorSensor?.enabled && g.outdoorSensor.tempStateId
+                        ? (this.outdoorValues.get(g.outdoorSensor.tempStateId) ?? null)
+                        : null,
+                    outdoorHumidity: g.outdoorSensor?.enabled && g.outdoorSensor.humidityStateId
+                        ? (this.outdoorValues.get(g.outdoorSensor.humidityStateId) ?? null)
+                        : null,
                 };
             });
 

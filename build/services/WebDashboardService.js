@@ -49,10 +49,12 @@ class WebDashboardService {
         this.pin = '';
         this.controlCallback = null;
         this.modeCallback = null;
+        this.trendsCallback = null;
     }
     setPin(pin) { this.pin = pin; }
     setControlCallback(cb) { this.controlCallback = cb; }
     setModeCallback(cb) { this.modeCallback = cb; }
+    setTrendsCallback(cb) { this.trendsCallback = cb; }
     start(port, bindAddress) {
         const htmlPath = path.join(this.adapterDir, 'admin', 'web', 'dashboard.html');
         try {
@@ -124,6 +126,13 @@ class WebDashboardService {
         }
         if (url === '/api/mode' && req.method === 'POST') {
             this.handleMode(req, res);
+            return;
+        }
+        const trendMatch = url.match(/^\/api\/trends\/([^/]+)\/(temperature|humidity|vpd)$/);
+        if (trendMatch) {
+            const data = this.trendsCallback ? this.trendsCallback(trendMatch[1], trendMatch[2]) : [];
+            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify(data));
             return;
         }
         res.writeHead(404, { 'Content-Type': 'text/plain' });

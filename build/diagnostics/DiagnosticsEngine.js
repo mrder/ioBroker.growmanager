@@ -14,6 +14,10 @@ class DiagnosticsEngine {
         this.trendBuffers = new Map();
         this.effectChecks = [];
         this.maxTrendPoints = 60;
+        /** 1h-Durchschnitte für die letzten 48 Stunden pro Gruppe+Variable */
+        this.hourlyHistory = new Map();
+        this.hourlyAccum = new Map();
+        this.maxHourlyPoints = 48;
     }
     // ============================================================
     // Ebene 1: Datenpunkt-Erreichbarkeit → SensorService prüft dies
@@ -118,10 +122,39 @@ class DiagnosticsEngine {
             this.trendBuffers.set(key, points);
         }
         points.push({ ts: Date.now(), value });
-        // Puffer begrenzen
-        if (points.length > this.maxTrendPoints) {
+        if (points.length > this.maxTrendPoints)
             points.splice(0, points.length - this.maxTrendPoints);
+        // Stündlichen Durchschnitt akkumulieren
+        const now = Date.now();
+        const hourTs = Math.floor(now / 3600000) * 3600000;
+        const accum = this.hourlyAccum.get(key) ?? { sum: 0, count: 0, hourTs };
+        if (accum.hourTs !== hourTs) {
+            // Neue Stunde begonnen → vorherigen Bucket abschließen
+            if (accum.count > 0) {
+                let history = this.hourlyHistory.get(key);
+                if (!history) {
+                    history = [];
+                    this.hourlyHistory.set(key, history);
+                }
+                history.push({ ts: accum.hourTs, value: accum.sum / accum.count });
+                if (history.length > this.maxHourlyPoints)
+                    history.splice(0, history.length - this.maxHourlyPoints);
+            }
+            this.hourlyAccum.set(key, { sum: value, count: 1, hourTs });
         }
+        else {
+            this.hourlyAccum.set(key, { sum: accum.sum + value, count: accum.count + 1, hourTs });
+        }
+    }
+    /** Gibt die letzten 48 Stundenmittelwerte zurück (inklusive laufender Stunde). */
+    getHourlyHistory(groupId, variable) {
+        const key = `${groupId}:${variable}`;
+        const history = this.hourlyHistory.get(key) ?? [];
+        const accum = this.hourlyAccum.get(key);
+        if (accum && accum.count > 0) {
+            return [...history, { ts: accum.hourTs, value: accum.sum / accum.count }];
+        }
+        return [...history];
     }
     /**
      * Sensordifferenz-Prüfung: Warnung wenn mehrere Sensoren stark abweichen.

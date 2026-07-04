@@ -3,6 +3,8 @@ export interface DashboardActuatorState {
     name: string;
     type: string;
     command: boolean | number | null;
+    effectiveState: boolean | number | string | null;
+    feedback: boolean | number | string | null;
     health: string;
 }
 export interface DashboardAlarm {
@@ -40,6 +42,8 @@ export interface DashboardGroupState {
         until: number;
     }>;
     runtimeMode: string;
+    outdoorTemp: number | null;
+    outdoorHumidity: number | null;
 }
 export interface DashboardState {
     ts: number;
@@ -68,6 +72,7 @@ export declare class WebDashboardService {
     private pin;
     private controlCallback;
     private modeCallback;
+    private trendsCallback;
     constructor(log: {
         info: (m: string) => void;
         warn: (m: string) => void;
@@ -76,6 +81,10 @@ export declare class WebDashboardService {
     setPin(pin: string): void;
     setControlCallback(cb: (cmd: ControlCommand) => Promise<void>): void;
     setModeCallback(cb: (cmd: ModeCommand) => Promise<void>): void;
+    setTrendsCallback(cb: (groupId: string, variable: string) => Array<{
+        ts: number;
+        value: number;
+    }>): void;
     start(port: number, bindAddress: string): void;
     stop(): void;
     updateState(state: DashboardState): void;

@@ -13,6 +13,8 @@ export interface DashboardActuatorState {
     name: string;
     type: string;
     command: boolean | number | null;
+    effectiveState: boolean | number | string | null;
+    feedback: boolean | number | string | null;
     health: string;
 }
 
@@ -50,6 +52,8 @@ export interface DashboardGroupState {
     cameraUrl: string | null;
     manualOverrides: Record<string, { command: boolean | number; until: number }>;
     runtimeMode: string;
+    outdoorTemp: number | null;
+    outdoorHumidity: number | null;
 }
 
 export interface DashboardState {
@@ -86,6 +90,7 @@ export class WebDashboardService {
     private pin = '';
     private controlCallback: ((cmd: ControlCommand) => Promise<void>) | null = null;
     private modeCallback: ((cmd: ModeCommand) => Promise<void>) | null = null;
+    private trendsCallback: ((groupId: string, variable: string) => Array<{ ts: number; value: number }>) | null = null;
 
     constructor(
         private readonly log: {
@@ -99,6 +104,7 @@ export class WebDashboardService {
     setPin(pin: string): void { this.pin = pin; }
     setControlCallback(cb: (cmd: ControlCommand) => Promise<void>): void { this.controlCallback = cb; }
     setModeCallback(cb: (cmd: ModeCommand) => Promise<void>): void { this.modeCallback = cb; }
+    setTrendsCallback(cb: (groupId: string, variable: string) => Array<{ ts: number; value: number }>): void { this.trendsCallback = cb; }
 
     start(port: number, bindAddress: string): void {
         const htmlPath = path.join(this.adapterDir, 'admin', 'web', 'dashboard.html');
@@ -176,6 +182,14 @@ export class WebDashboardService {
 
         if (url === '/api/mode' && req.method === 'POST') {
             this.handleMode(req, res);
+            return;
+        }
+
+        const trendMatch = url.match(/^\/api\/trends\/([^/]+)\/(temperature|humidity|vpd)$/);
+        if (trendMatch) {
+            const data = this.trendsCallback ? this.trendsCallback(trendMatch[1], trendMatch[2]) : [];
+            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify(data));
             return;
         }
 

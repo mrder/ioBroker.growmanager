@@ -189,6 +189,13 @@
     font-size: 10px; color: var(--orange); background: rgba(255,152,0,0.1);
     border: 1px solid var(--orange); border-radius: 3px; padding: 1px 5px;
   }
+  .act-override-badge.clickable { cursor: pointer; }
+  .act-override-badge.clickable:hover { background: rgba(255,152,0,0.25); }
+  .act-mode-badge {
+    font-size: 10px; color: var(--green-light); background: rgba(102,187,106,0.1);
+    border: 1px solid var(--green-light); border-radius: 3px; padding: 1px 5px;
+  }
+  .act-feedback { font-size: 11px; color: var(--text-dim); margin-left: 4px; }
   .act-toggle {
     background: none; border: 1px solid var(--border); border-radius: 4px;
     color: var(--text-dim); cursor: pointer; font-size: 11px;
@@ -274,6 +281,36 @@
   .mode-btn.active-auto { background: var(--green-dark); color: var(--green-light); }
   .mode-btn.active-manual { background: rgba(255,152,0,0.2); color: var(--orange); }
 
+  /* Außensensor */
+  .outdoor-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 12px; font-size: 12px; color: var(--text-dim);
+    border-top: 1px solid var(--border);
+  }
+  .outdoor-label { opacity: 0.7; }
+  .outdoor-val { color: var(--accent); font-weight: 500; }
+
+  /* Trend-Popup */
+  .trend-popup {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.55); align-items: center; justify-content: center;
+  }
+  .trend-popup.visible { display: flex; }
+  .trend-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    width: min(520px, 94vw); padding: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .trend-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px; font-weight: 600; color: var(--text);
+  }
+  .trend-close {
+    background: none; border: none; color: var(--text-dim);
+    cursor: pointer; font-size: 16px; padding: 2px 6px;
+  }
+  .trend-close:hover { color: var(--text); }
+  #trendChart { width: 100%; }
+
   .spinner {
     width: 40px; height: 40px; border-radius: 50%;
     border: 3px solid var(--border); border-top-color: var(--green-light);
@@ -313,6 +350,16 @@
 <div class="reconnect-overlay" id="reconnectOverlay">
   <div class="spinner"></div>
   <p>Verbindung unterbrochen – verbinde neu…</p>
+</div>
+
+<div class="trend-popup" id="trendPopup">
+  <div class="trend-box">
+    <div class="trend-header">
+      <span id="trendTitle">Trend</span>
+      <button class="trend-close" onclick="closeTrend()">✕</button>
+    </div>
+    <div id="trendChart"></div>
+  </div>
 </div>
 
 <div class="pin-modal" id="pinModal">
@@ -447,6 +494,74 @@ async function sendControl(groupId, actuatorId, command, label) {
   } catch(e) { console.error('Control-Fehler:', e); }
 }
 
+// Trend-Popup
+let trendPopupActive = false;
+async function showTrend(groupId, variable, label, unit) {
+  if (trendPopupActive) { closeTrend(); return; }
+  trendPopupActive = true;
+  const popup = document.getElementById('trendPopup');
+  document.getElementById('trendTitle').textContent = `${label} – letzte 48 h`;
+  document.getElementById('trendChart').innerHTML = '<p style="color:var(--text-dim);padding:20px">Lade…</p>';
+  popup.classList.add('visible');
+  try {
+    const res = await fetch(`/api/trends/${groupId}/${variable}`);
+    const data = await res.json();
+    renderTrendChart(data, unit);
+  } catch(e) {
+    document.getElementById('trendChart').innerHTML = '<p style="color:var(--warn)">Fehler beim Laden</p>';
+  }
+}
+function closeTrend() {
+  trendPopupActive = false;
+  document.getElementById('trendPopup').classList.remove('visible');
+}
+function renderTrendChart(points, unit) {
+  const el = document.getElementById('trendChart');
+  if (!points || points.length < 2) {
+    el.innerHTML = '<p style="color:var(--text-dim);padding:20px">Noch nicht genug Daten (mind. 2 Stunden)</p>';
+    return;
+  }
+  const W = 480, H = 160, PL = 44, PR = 12, PT = 10, PB = 28;
+  const vals = points.map(p => p.value);
+  const ts   = points.map(p => p.ts);
+  const minV = Math.min(...vals), maxV = Math.max(...vals);
+  const range = maxV - minV || 1;
+  const minT = ts[0], maxT = ts[ts.length - 1];
+  const tRange = maxT - minT || 1;
+  const px = t => PL + ((t - minT) / tRange) * (W - PL - PR);
+  const py = v => PT + (1 - (v - minV) / range) * (H - PT - PB);
+
+  const polyline = points.map(p => `${px(p.ts).toFixed(1)},${py(p.value).toFixed(1)}`).join(' ');
+  const area = `${px(ts[0]).toFixed(1)},${(H-PB).toFixed(1)} ` +
+    points.map(p => `${px(p.ts).toFixed(1)},${py(p.value).toFixed(1)}`).join(' ') +
+    ` ${px(ts[ts.length-1]).toFixed(1)},${(H-PB).toFixed(1)}`;
+
+  // Y-Achse: 3 Labels
+  const yLabels = [minV, minV + range / 2, maxV].map((v, i) => {
+    const y = py(v);
+    return `<line x1="${PL}" y1="${y.toFixed(1)}" x2="${W-PR}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-dasharray="3,3"/>
+            <text x="${PL-4}" y="${(y+4).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-dim)">${v.toFixed(1)}</text>`;
+  }).join('');
+
+  // X-Achse: Zeitstempel alle ~12h
+  const step = Math.ceil(points.length / 4);
+  const xLabels = points.filter((_, i) => i % step === 0).map(p => {
+    const x = px(p.ts);
+    const d = new Date(p.ts);
+    const lbl = `${d.getHours().toString().padStart(2,'0')}:00`;
+    return `<text x="${x.toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="10" fill="var(--text-dim)">${lbl}</text>`;
+  }).join('');
+
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg">
+    ${yLabels}
+    <polygon points="${area}" fill="var(--accent)" fill-opacity="0.15"/>
+    <polyline points="${polyline}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+    ${xLabels}
+    <text x="${W/2}" y="${H-4}" text-anchor="middle" font-size="9" fill="var(--text-dim)">${unit}</text>
+  </svg>`;
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTrend(); });
+
 // ---- Aktive-Geräte-Zeile ----
 function actIconsHtml(actuators, groupId, manualOverrides) {
   if (!actuators || actuators.length === 0) return '';
@@ -512,14 +627,29 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   const isPercent = typeof a.command === 'number' && a.command > 0;
   const t = ACT_TYPE[a.type] ?? ACT_TYPE.custom;
   const ov = manualOverrides && manualOverrides[a.id];
-  const ovBadge = ov ? `<span class="act-override-badge">MANUELL</span>` : '';
 
-  let rightSide = isPercent
+  // Per-Aktor AUTO/MANUELL-Badge: klickbar zum Zurücksetzen auf AUTO
+  const esc = (s) => s.replace(/'/g, "\\'");
+  const modeBadge = ov
+    ? `<span class="act-override-badge clickable" title="Auf AUTO zurücksetzen – setzt alle Aktoren der Gruppe auf AUTO"
+         onclick="sendMode('${esc(groupId)}','auto','${esc(groupId)}')">MANUELL ↩</span>`
+    : `<span class="act-mode-badge">AUTO</span>`;
+
+  let cmdSide = isPercent
     ? `<span class="act-percent">${Math.round(a.command)}%</span>
        <div class="percent-bar-wrap"><div class="percent-bar-fill" style="width:${a.command}%"></div></div>`
     : `<span class="act-state ${isOn?'on':'off'}">${isOn?'EIN':'AUS'}</span>`;
 
-  const ctrlBtns = isManualMode
+  // Ist-Zustand (feedback / effectiveState)
+  let istHtml = '';
+  const fb = a.feedback ?? a.effectiveState;
+  if (fb !== null && fb !== undefined) {
+    const fbOn = fb === true || (typeof fb === 'number' && fb > 0) || fb === 'true' || fb === 'on';
+    const fbClass = fbOn ? 'on' : 'off';
+    istHtml = `<span class="act-feedback" title="Ist-Zustand">→ <span class="act-state ${fbClass}">${fbOn?'EIN':'AUS'}</span></span>`;
+  }
+
+  const ctrlBtns = isManualMode || ov
     ? `<button class="act-toggle on-btn"  onclick="sendControl('${groupId}','${a.id}',true,'${a.name} einschalten')">EIN</button>
        <button class="act-toggle off-btn" onclick="sendControl('${groupId}','${a.id}',false,'${a.name} ausschalten')">AUS</button>`
     : '';
@@ -527,7 +657,7 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   return `<div class="actuator-row">
     <div class="act-dot ${isOn?'on':'off'}"></div>
     <span class="act-name">${t.icon} ${a.name}</span>
-    ${ovBadge}${rightSide}
+    ${modeBadge}${cmdSide}${istHtml}
     ${ctrlBtns}
   </div>`;
 }
@@ -554,16 +684,22 @@ function groupCardHtml(g) {
   }
 
   // Klima-Zeile: Sollwert-Bar nur wenn der Modus diesen Wert regelt
-  const tempHtml = climateValHtml(g.temperature, '°', 'Temperatur', isCtrlTemp,
-    null, null, g.setpointTemp, 1);
-  const humHtml = climateValHtml(g.humidity, '%', 'Luftfeuchte', isCtrlHum,
-    g.setpointHumidity ? g.setpointHumidity - 5 : null,
-    g.setpointHumidity ? g.setpointHumidity + 5 : null,
-    null, 0);
-  const vpdHtml = climateValHtml(g.vpd, ' kPa', 'VPD', isCtrlVpd,
-    g.setpointVpdMin, g.setpointVpdMax, null, 2);
+  // Werte sind klickbar für Trend-Popup
+  const gid = g.id.replace(/'/g, "\\'");
+  const tempHtml = `<div onclick="showTrend('${gid}','temperature','Temperatur','°C')" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.temperature, '°', 'Temperatur', isCtrlTemp, null, null, g.setpointTemp, 1)}</div>`;
+  const humHtml  = `<div onclick="showTrend('${gid}','humidity','Luftfeuchte','%')" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.humidity, '%', 'Luftfeuchte', isCtrlHum, g.setpointHumidity ? g.setpointHumidity - 5 : null, g.setpointHumidity ? g.setpointHumidity + 5 : null, null, 0)}</div>`;
+  const vpdHtml  = `<div onclick="showTrend('${gid}','vpd','VPD','kPa')" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.vpd, ' kPa', 'VPD', isCtrlVpd, g.setpointVpdMin, g.setpointVpdMax, null, 2)}</div>`;
   const soilHtml = g.soilMoisture !== null
     ? climateValHtml(g.soilMoisture, '%', 'Boden', false, null, null, null, 0)
+    : '';
+
+  // Außensensor-Zeile
+  const outdoorHtml = (g.outdoorTemp !== null && g.outdoorTemp !== undefined) || (g.outdoorHumidity !== null && g.outdoorHumidity !== undefined)
+    ? `<div class="outdoor-row">
+        <span class="outdoor-label">🌡 Außen:</span>
+        ${g.outdoorTemp !== null && g.outdoorTemp !== undefined ? `<span class="outdoor-val">${g.outdoorTemp.toFixed(1)}°</span>` : ''}
+        ${g.outdoorHumidity !== null && g.outdoorHumidity !== undefined ? `<span class="outdoor-val">${g.outdoorHumidity.toFixed(0)}%</span>` : ''}
+      </div>`
     : '';
 
   const actHtml = g.actuators && g.actuators.length > 0
@@ -610,6 +746,7 @@ function groupCardHtml(g) {
     </div>
     ${actIconsHtml(g.actuators, g.id, g.manualOverrides)}
     <div class="climate-row">${tempHtml}${humHtml}${vpdHtml}${soilHtml}</div>
+    ${outdoorHtml}
     <div class="meta-row">
       <span class="meta-tag phase">${PHASE_LABELS[g.phase] ?? g.phase}</span>
       <span class="meta-tag mode">${MODE_LABELS[g.mode] ?? g.mode}</span>
