@@ -60,6 +60,13 @@ export interface SensorConfig {
     healthCheckMin?: number;
 }
 
+// ---- Geteilte Aktoren: Teilnehmer-Konfiguration ------------
+
+export interface SharedParticipant {
+    groupId: string;           // ID der teilnehmenden Gruppe
+    influenceFactor: number;   // 0-100: wie stark diese Gruppe betroffen ist (100 = voll, 30 = teilweise)
+}
+
 // ---- Aktor -------------------------------------------------
 
 export type ActuatorType =
@@ -123,6 +130,9 @@ export interface ActuatorConfig {
     invertLogic: boolean;
     interlockIds: string[];
     shared: boolean;
+    sharedVotingMode?: 'any' | 'majority' | 'primary';
+    sharedParticipants?: SharedParticipant[];
+    sharedVoteHysteresisSeconds?: number; // Standard: 60
     enabled: boolean;
     // Optional device-health companion state
     healthStateId?: string;

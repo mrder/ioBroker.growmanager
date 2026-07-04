@@ -28,6 +28,10 @@ export interface SensorConfig {
     healthCheckType?: 'boolean' | 'number';
     healthCheckMin?: number;
 }
+export interface SharedParticipant {
+    groupId: string;
+    influenceFactor: number;
+}
 export type ActuatorType = 'light' | 'circulationFan' | 'exhaustFan' | 'supplyFan' | 'heating' | 'cooling' | 'humidifier' | 'dehumidifier' | 'irrigation' | 'co2Valve' | 'damper' | 'custom';
 export type ActuatorDataType = 'boolean' | 'number' | 'string';
 export type ActuatorSafeState = 'off' | 'on' | 'keep' | 'minLevel';
@@ -61,6 +65,9 @@ export interface ActuatorConfig {
     invertLogic: boolean;
     interlockIds: string[];
     shared: boolean;
+    sharedVotingMode?: 'any' | 'majority' | 'primary';
+    sharedParticipants?: SharedParticipant[];
+    sharedVoteHysteresisSeconds?: number;
     enabled: boolean;
     healthStateId?: string;
     healthCheckType?: 'boolean' | 'number';

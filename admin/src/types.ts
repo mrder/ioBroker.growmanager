@@ -29,6 +29,11 @@ export type ActuatorSafeState = 'off' | 'on' | 'keep' | 'minLevel';
 export type ControlTarget = 'temperature' | 'humidity' | 'vpd' | 'co2' | 'soilMoisture' | 'light' | 'timer' | 'custom';
 export type ControlDirection = 'up' | 'down' | 'both';
 
+export interface SharedParticipant {
+    groupId: string;
+    influenceFactor: number; // 0-100
+}
+
 export interface ActuatorConfig {
     id: string; name: string; type: ActuatorType; commandStateId: string;
     dataType: ActuatorDataType; onValue: boolean | number | string;
@@ -40,7 +45,11 @@ export interface ActuatorConfig {
     maxSwitchesPerHour: number; coastDownSeconds: number;
     safeState: ActuatorSafeState; feedbackMissingBehavior: 'warn' | 'alarm' | 'disable';
     manualOverride: boolean; overrideDurationMinutes: number;
-    invertLogic: boolean; interlockIds: string[]; shared: boolean; enabled: boolean;
+    invertLogic: boolean; interlockIds: string[]; shared: boolean;
+    sharedVotingMode?: 'any' | 'majority' | 'primary';
+    sharedParticipants?: SharedParticipant[];
+    sharedVoteHysteresisSeconds?: number;
+    enabled: boolean;
     healthStateId?: string; healthCheckType?: 'boolean' | 'number'; healthCheckMin?: number;
     controlTarget?: ControlTarget;
     controlDirection?: ControlDirection;

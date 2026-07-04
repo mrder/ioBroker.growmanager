@@ -3,17 +3,26 @@
 // GrowManager – SharedActorManager
 // Verwaltet Aktoren die mehreren Gruppen gemeinsam dienen.
 // Eine "EIN"-Anforderung wird für alle betroffenen Gruppen
-// erfüllt; Konflikte werden nach Priorität aufgelöst.
+// erfüllt; Konflikte werden nach Priorität oder Abstimmung
+// aufgelöst.
 // ============================================================
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SharedActorManager = void 0;
 class SharedActorManager {
     constructor() {
-        // Pro Aktor: alle Anforderungen im aktuellen Zyklus
+        // Pro Aktor: alle Anforderungen im aktuellen Zyklus (Legacy)
         this.requests = new Map();
+        // Pro Aktor: alle Abstimmungen im aktuellen Zyklus
+        this.votes = new Map();
+        // Pro Aktor: bestätigter Zustand (nach Hysterese)
+        this.resolvedState = new Map();
+        // Pro Aktor: ausstehende Änderung (noch innerhalb Hysterese)
+        this.pendingChange = new Map();
     }
+    // ---- Legacy-Methoden (Rückwärtskompatibilität) ----
     /**
      * Registriert eine Anforderung für einen Aktor in diesem Zyklus.
+     * @internal Rückwärtskompatibel – für Aktoren ohne sharedParticipants
      */
     submitRequest(req) {
         const list = this.requests.get(req.actuatorId) ?? [];
@@ -23,6 +32,7 @@ class SharedActorManager {
     /**
      * Löst die Anforderungen für einen einzelnen Aktor auf.
      * Gibt null zurück wenn keine Anforderungen vorhanden.
+     * @internal Rückwärtskompatibel
      */
     resolve(actuatorId) {
         const list = this.requests.get(actuatorId);
@@ -81,7 +91,8 @@ class SharedActorManager {
         };
     }
     /**
-     * Löst alle ausstehenden Anforderungen auf.
+     * Löst alle ausstehenden Legacy-Anforderungen auf.
+     * @internal Rückwärtskompatibel
      */
     resolveAll() {
         const results = new Map();
@@ -92,11 +103,121 @@ class SharedActorManager {
         }
         return results;
     }
+    // ---- Abstimmungs-Methoden ----
     /**
-     * Leert alle Anforderungen nach dem Regelzyklus.
+     * Registriert eine Abstimmung eines Teilnehmers für einen Aktor.
+     */
+    submitVote(actuatorId, vote) {
+        const list = this.votes.get(actuatorId) ?? [];
+        list.push(vote);
+        this.votes.set(actuatorId, list);
+    }
+    /**
+     * Löst die Abstimmung für einen Aktor auf und wendet Hysterese an.
+     *
+     * @param actuatorId        - ID des Aktors
+     * @param mode              - Abstimmungsmodus: 'any' | 'majority' | 'primary'
+     * @param hysteresisSeconds - Wie lange der neue Zustand stabil sein muss bevor er angenommen wird
+     * @param ownerId           - GroupId der Eigentümer-Gruppe (für 'primary'-Modus)
+     * @param currentCommand    - Aktuell gesetzter Befehl (für Hysterese-Vergleich)
+     * @returns Den anzuwendenden Befehl
+     */
+    resolveWithVoting(actuatorId, mode, hysteresisSeconds, ownerId, currentCommand) {
+        const voteList = this.votes.get(actuatorId) ?? [];
+        // Legacy-Anforderungen auch als Stimmen berücksichtigen (Eigentümer)
+        const legacyReqs = this.requests.get(actuatorId) ?? [];
+        const ownerReq = legacyReqs.find(r => r.groupId === ownerId);
+        // Eigentümer-Stimme aus Legacy-Request ableiten
+        let ownerWantsOn = false;
+        if (ownerReq) {
+            ownerWantsOn = ownerReq.requested === true || (typeof ownerReq.requested === 'number' && ownerReq.requested > 0);
+        }
+        // Rohen Beschluss berechnen
+        let rawCommand;
+        switch (mode) {
+            case 'any': {
+                // EIN wenn Eigentümer ODER irgendein Teilnehmer EIN will
+                const anyParticipantOn = voteList.some(v => v.wantsOn);
+                rawCommand = ownerWantsOn || anyParticipantOn;
+                break;
+            }
+            case 'majority': {
+                // Gewichtete Mehrheit: Summe der EIN-Gewichte vs AUS-Gewichte
+                let onWeight = ownerWantsOn ? 1.0 : 0.0; // Eigentümer hat Gewicht 1.0
+                let offWeight = ownerWantsOn ? 0.0 : 1.0;
+                for (const v of voteList) {
+                    if (v.wantsOn) {
+                        onWeight += v.weight;
+                    }
+                    else {
+                        offWeight += v.weight;
+                    }
+                }
+                rawCommand = onWeight > offWeight;
+                break;
+            }
+            case 'primary': {
+                // Eigentümer entscheidet; aber wenn Eigentümer AUS und ein Teilnehmer
+                // mit hohem Einfluss (weight >= 0.8) EIN will, dann trotzdem EIN
+                if (ownerWantsOn) {
+                    rawCommand = true;
+                }
+                else {
+                    const highInfluenceOn = voteList.some(v => v.wantsOn && v.weight >= 0.8);
+                    rawCommand = highInfluenceOn;
+                }
+                break;
+            }
+            default:
+                rawCommand = ownerWantsOn;
+        }
+        // Hysterese anwenden
+        const now = Date.now();
+        const hysteresisMs = hysteresisSeconds * 1000;
+        // Aktuell bestätigter Zustand
+        const confirmed = this.resolvedState.get(actuatorId);
+        const confirmedCommand = confirmed?.command ?? currentCommand;
+        // Ist der neue Beschluss anders als der bestätigte?
+        const isChange = rawCommand !== confirmedCommand;
+        if (!isChange) {
+            // Kein Wechsel: bestätigten Zustand beibehalten, pendingChange löschen
+            this.pendingChange.delete(actuatorId);
+            // Bestätigten Zustand setzen falls noch nicht vorhanden
+            if (!confirmed) {
+                this.resolvedState.set(actuatorId, { command: rawCommand, since: now });
+            }
+            return confirmedCommand;
+        }
+        // Hysterese = 0: sofort übernehmen
+        if (hysteresisMs === 0) {
+            this.resolvedState.set(actuatorId, { command: rawCommand, since: now });
+            this.pendingChange.delete(actuatorId);
+            return rawCommand;
+        }
+        // Es gibt eine gewünschte Änderung — Hysterese prüfen
+        const pending = this.pendingChange.get(actuatorId);
+        if (!pending || pending.command !== rawCommand) {
+            // Neue Änderungsrichtung: Zeitstempel setzen
+            this.pendingChange.set(actuatorId, { command: rawCommand, since: now });
+            // Bestätigten Zustand noch beibehalten
+            return confirmedCommand;
+        }
+        // Änderung ist schon eine Weile stabil — Hysterese erfüllt?
+        if (now - pending.since >= hysteresisMs) {
+            // Neue Richtung annehmen
+            this.resolvedState.set(actuatorId, { command: rawCommand, since: now });
+            this.pendingChange.delete(actuatorId);
+            return rawCommand;
+        }
+        // Noch innerhalb der Hysterese: alten Zustand beibehalten
+        return confirmedCommand;
+    }
+    /**
+     * Leert alle Anforderungen und Stimmen nach dem Regelzyklus.
      */
     clearCycle() {
         this.requests.clear();
+        this.votes.clear();
     }
     // Wählt den Befehl mit dem höchsten Prozentwert / true aus einer Liste
     pickHighestCommand(list) {
