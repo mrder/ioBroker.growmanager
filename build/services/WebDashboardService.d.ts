@@ -81,10 +81,10 @@ export declare class WebDashboardService {
     setPin(pin: string): void;
     setControlCallback(cb: (cmd: ControlCommand) => Promise<void>): void;
     setModeCallback(cb: (cmd: ModeCommand) => Promise<void>): void;
-    setTrendsCallback(cb: (groupId: string, variable: string) => Array<{
+    setTrendsCallback(cb: (groupId: string, variable: string) => Promise<Array<{
         ts: number;
         value: number;
-    }>): void;
+    }>>): void;
     start(port: number, bindAddress: string): void;
     stop(): void;
     updateState(state: DashboardState): void;

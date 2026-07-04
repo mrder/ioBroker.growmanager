@@ -143,7 +143,21 @@ class GrowManagerAdapter extends utils.Adapter {
                 this.log.info(`Dashboard: Gruppe ${group.name} → MANUELL`);
             }
         });
-        this.webDashboard.setTrendsCallback((groupId, variable) => this.diagnosticsEngine.getHourlyHistory(groupId, variable));
+        this.webDashboard.setTrendsCallback(async (groupId, variable) => {
+            const stateId = `${this.namespace}.groups.${groupId}.climate.${variable}`;
+            const start = Date.now() - 48 * 3600 * 1000;
+            // History-Adapter der Reihe nach probieren
+            for (const adapter of ['history.0', 'influxdb.0', 'sql.0']) {
+                try {
+                    const pts = await this.queryHistory(adapter, stateId, start, Date.now());
+                    if (pts.length > 0)
+                        return pts;
+                }
+                catch { /* nächsten probieren */ }
+            }
+            // Fallback: eigener In-Memory-Puffer aus DiagnosticsEngine
+            return this.diagnosticsEngine.getHourlyHistory(groupId, variable);
+        });
         this.webDashboard.setControlCallback(async ({ groupId, actuatorId, command, durationMinutes }) => {
             const group = this.growConfig.groups.find(g => g.id === groupId);
             const actuator = group?.actuators.find(a => a.id === actuatorId);
@@ -292,6 +306,27 @@ class GrowManagerAdapter extends utils.Adapter {
         }
         catch { /* ignore */ }
         callback();
+    }
+    // ============================================================
+    // History-Adapter Abfrage
+    // ============================================================
+    queryHistory(adapter, stateId, start, end) {
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error(`${adapter} timeout`)), 4000);
+            this.sendTo(adapter, 'getHistory', {
+                id: stateId,
+                options: { start, end, aggregate: 'none', count: 5000, addId: false },
+            }, (result) => {
+                clearTimeout(timer);
+                const r = result;
+                if (!r || r.error) {
+                    reject(new Error(r?.error ?? 'no result'));
+                    return;
+                }
+                const pts = (r.result ?? []).filter(p => p.val !== null && p.val !== undefined);
+                resolve(pts.map(p => ({ ts: p.ts, value: Number(p.val) })));
+            });
+        });
     }
     // ============================================================
     // State-Abonnements

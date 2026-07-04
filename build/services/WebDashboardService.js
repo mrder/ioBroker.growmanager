@@ -130,9 +130,23 @@ class WebDashboardService {
         }
         const trendMatch = url.match(/^\/api\/trends\/([^/]+)\/(temperature|humidity|vpd)$/);
         if (trendMatch) {
-            const data = this.trendsCallback ? this.trendsCallback(trendMatch[1], trendMatch[2]) : [];
-            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-            res.end(JSON.stringify(data));
+            const cb = this.trendsCallback;
+            if (cb) {
+                cb(trendMatch[1], trendMatch[2])
+                    .then(data => {
+                    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                    res.end(JSON.stringify(data));
+                })
+                    .catch(err => {
+                    this.log.error(`Trend-Abfrage fehlgeschlagen: ${err}`);
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end('[]');
+                });
+            }
+            else {
+                res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.end('[]');
+            }
             return;
         }
         res.writeHead(404, { 'Content-Type': 'text/plain' });
