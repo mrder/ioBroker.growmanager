@@ -2005,46 +2005,15 @@ const App: React.FC = () => {
     const [dirty, setDirty] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'ok' | 'err'>('idle');
     const [saveError, setSaveError] = useState('');
-    const [socketReady, setSocketReady] = useState(false);
-
-    // Socket-Bridge: ioBroker admin lädt socket.io in den Parent-Frame.
-    // window.io ist die socket.io-Lib; window.io.connect() baut die Verbindung auf.
-    // Fallback: window.socket (ältere Admin-Versionen injizieren eine fertige Instanz).
-    useEffect(() => {
-        type W = Window & {
-            io?: { connect: (url?: string) => SocketLike };
-            socket?: SocketLike;
-            _growSocket?: SocketLike;
-            _growInstanceId?: string;
-        };
-        type SocketLike = { emit: (...a: unknown[]) => void; on: (ev: string, cb: (...a: unknown[]) => void) => void };
-
-        function doConnect(w: W) {
-            if (w._growSocket) return;
-            // Prefer window.socket if already available (some admin versions inject it)
-            if (w.socket?.emit) { w._growSocket = w.socket; return; }
-            // Otherwise connect via socket.io library (window.io injected by ioBroker admin)
-            if (w.io?.connect) {
-                const s = w.io.connect();
-                s.on('connect', () => { w._growSocket = s; });
-            }
-        }
-
-        const w = window as W;
-        doConnect(w);
-        // Retry a few times — socket.io script may not be ready on first mount
-        const t1 = setTimeout(() => doConnect(w), 200);
-        const t2 = setTimeout(() => doConnect(w), 800);
-        const t3 = setTimeout(() => doConnect(w), 2000);
-        return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-    }, []);
+    // adapterReady = ioBroker-Bridge ist bereit (loadConfig wurde aufgerufen)
+    const [adapterReady, setAdapterReady] = useState(false);
 
     // ioBroker-Anbindung: config laden sobald loadConfig verfügbar
     useEffect(() => {
         const load = () => {
             const w = window as Window & { loadConfig?: (cb: (c: GrowManagerConfig) => void) => void };
             if (typeof w.loadConfig === 'function') {
-                setSocketReady(true);
+                setAdapterReady(true);
                 w.loadConfig((c: GrowManagerConfig) => setConfig(prev => ({
                     ...prev,
                     ...c,
@@ -2062,53 +2031,58 @@ const App: React.FC = () => {
     // Stabile Referenz der Gruppen-IDs — verhindert Neustart des Intervals bei jedem Keystroke
     const groupIds = config.groups.map(g => g.id).join(',');
 
-    // Live-Polling der Adapter-States alle 5 Sekunden
+    // Live-Polling via sendTo('getGroupState') — funktioniert ohne socket.io im iframe
     useEffect(() => {
-        if (!socketReady || !groupIds) return;
-        // ioBroker admin passes the instance number as URL param "instance" (e.g. ?instance=0)
-        // or the full namespace "growmanager.0". Fall back to '0' for a single instance.
+        if (!adapterReady || !groupIds) return;
         const urlInstance = new URLSearchParams(window.location.search).get('instance') ?? '0';
-        const instanceId = (window as Window & { _growInstanceId?: string })._growInstanceId
-            ?? urlInstance.replace(/^growmanager\./, '');
+        const instanceId = urlInstance.replace(/^growmanager\./, '');
+        const instanceName = `growmanager.${instanceId}`;
         const groups = config.groups;
 
+        type GS = {
+            temperature?: number | null;
+            humidity?: number | null;
+            vpd?: number | null;
+            sensorQuality?: number;
+            degradation?: string;
+            mode?: string;
+            lastDecision?: { reason?: string } | null;
+        } | null;
+
+        function pollGroup(g: typeof groups[0]): Promise<void> {
+            return new Promise(resolve => {
+                sendTo(instanceName, 'getGroupState', { groupId: g.id }, (result: unknown) => {
+                    const gs = result as GS;
+                    setLiveStates(prev => ({
+                        ...prev,
+                        [g.id]: {
+                            temperature: gs?.temperature ?? null,
+                            humidity: gs?.humidity ?? null,
+                            vpd: gs?.vpd ?? null,
+                            sensorQuality: typeof gs?.sensorQuality === 'number' ? gs.sensorQuality : 0,
+                            health: gs?.degradation ?? 'FULL',
+                            mode: gs?.mode ?? g.mode,
+                            phase: g.phase,
+                            alarmSeverity: 'none',
+                            nextChange: '',
+                            actuators: {},
+                            lastDecision: gs?.lastDecision?.reason ?? '',
+                        },
+                    }));
+                    resolve();
+                });
+            });
+        }
+
         async function poll() {
-            type SV = { val: unknown } | null;
-            const updates: Record<string, GroupLiveState> = {};
-            for (const g of groups) {
-                const base = `growmanager.${instanceId}.groups.${g.id}`;
-                const [temp, hum, vpd, sq, health, mode, phase, lastDec] = await Promise.all([
-                    emitSocket('getState', `${base}.climate.temperature`) as Promise<SV>,
-                    emitSocket('getState', `${base}.climate.humidity`) as Promise<SV>,
-                    emitSocket('getState', `${base}.climate.vpd`) as Promise<SV>,
-                    emitSocket('getState', `${base}.climate.sensorQuality`) as Promise<SV>,
-                    emitSocket('getState', `${base}.info.health`) as Promise<SV>,
-                    emitSocket('getState', `${base}.info.mode`) as Promise<SV>,
-                    emitSocket('getState', `${base}.info.phase`) as Promise<SV>,
-                    emitSocket('getState', `${base}.diagnostics.lastDecision`) as Promise<SV>,
-                ]);
-                updates[g.id] = {
-                    temperature: typeof temp?.val === 'number' ? temp.val : null,
-                    humidity: typeof hum?.val === 'number' ? hum.val : null,
-                    vpd: typeof vpd?.val === 'number' ? vpd.val : null,
-                    sensorQuality: typeof sq?.val === 'number' ? sq.val : 0,
-                    health: typeof health?.val === 'string' ? health.val : 'FULL',
-                    mode: typeof mode?.val === 'string' ? mode.val : g.mode,
-                    phase: typeof phase?.val === 'string' ? phase.val : g.phase,
-                    alarmSeverity: 'none',
-                    nextChange: '',
-                    actuators: {},
-                    lastDecision: typeof lastDec?.val === 'string' ? lastDec.val : '',
-                };
-            }
-            setLiveStates(updates);
+            await Promise.all(groups.map(pollGroup));
         }
 
         poll();
         const timer = setInterval(poll, 5000);
         return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [socketReady, groupIds]);
+    }, [adapterReady, groupIds]);
 
     const saveToIoBroker = useCallback((newConfig: GrowManagerConfig) => {
         const w = window as Window & { saveConfig?: (c: GrowManagerConfig) => Promise<void> };
@@ -2260,9 +2234,9 @@ const App: React.FC = () => {
             <div style={styles.header}>
                 <h2 style={{ margin: 0 }}>🌿 GrowManager</h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontSize: 11, color: socketReady ? '#4caf50' : '#f57c00' }}
-                          title={socketReady ? (window as Window & {_growInstanceId?: string})._growInstanceId ?? '' : 'Warte auf ioBroker-Verbindung…'}>
-                        {socketReady ? '● Verbunden' : '○ Verbinde…'}
+                    <span style={{ fontSize: 11, color: adapterReady ? '#4caf50' : '#f57c00' }}
+                          title={adapterReady ? (window as Window & {_growInstanceId?: string})._growInstanceId ?? '' : 'Warte auf ioBroker-Verbindung…'}>
+                        {adapterReady ? '● Verbunden' : '○ Verbinde…'}
                     </span>
                     {saveStatus === 'saving' && <span style={{ fontSize: 13, color: '#888' }}>⏳ Speichern…</span>}
                     {saveStatus === 'ok' && <span style={{ color: '#4caf50', fontSize: 13 }}>✓ Gespeichert</span>}

@@ -1,8 +1,12 @@
-﻿{
+{
   "common": {
     "name": "growmanager",
-    "version": "0.1.31",
+    "version": "0.1.32",
     "news": {
+      "0.1.32": {
+        "en": "Fix admin dashboard live data: replace broken socket.io polling with sendTo('getGroupState') — works reliably in ioBroker admin iframe without socket.io",
+        "de": "Admin-Dashboard Livedaten behoben: kaputtes socket.io-Polling durch sendTo('getGroupState') ersetzt — funktioniert zuverlässig im ioBroker-Admin-Iframe ohne socket.io"
+      },
       "0.1.31": {
         "en": "Admin UI: info tooltips (i) on all key fields; clearer separation of health state (reachability), feedback state (actual switch state) and command state",
         "de": "Admin-UI: Info-Tooltips (i) an allen wichtigen Feldern; klarere Trennung von Gerätestatus (Erreichbarkeit), Rückmelde-State (Ist-Zustand) und Befehls-State"
