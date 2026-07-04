@@ -6,6 +6,11 @@ export interface DashboardActuatorState {
     effectiveState: boolean | number | string | null;
     feedback: boolean | number | string | null;
     health: string;
+    sharedVotingMode?: string;
+    sharedParticipants?: Array<{
+        groupId: string;
+        influenceFactor: number;
+    }>;
 }
 export interface DashboardAlarm {
     id: string;

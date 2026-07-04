@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { GrowManagerConfig, GroupConfig, ClimateProfile, ControlTarget, ControlDirection, OutdoorSensorConfig } from './types';
+import type { GrowManagerConfig, GroupConfig, ClimateProfile, ControlTarget, ControlDirection, OutdoorSensorConfig, SharedParticipant } from './types';
 
 // ioBroker Admin-Globals (werden vom Admin-Framework bereitgestellt)
 declare const socket: {
@@ -509,11 +509,13 @@ const SensorEditor: React.FC<SensorEditorProps> = ({ sensor, onSave, onClose }) 
 
 interface ActuatorEditorProps {
     actuator: GroupConfig['actuators'][0] | null;
+    allGroups: GroupConfig[];
+    ownerGroupId?: string;
     onSave: (a: GroupConfig['actuators'][0]) => void;
     onClose: () => void;
 }
 
-const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, onSave, onClose }) => {
+const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ownerGroupId, onSave, onClose }) => {
     const [edit, setEdit] = useState(actuator ?? defaultActuator());
 
     const f = (key: keyof typeof edit) => ({
@@ -671,6 +673,75 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, onSave, onClo
                     </label>
                 </div>
 
+                {edit.shared && (
+                    <div style={{ marginTop: 12, padding: '10px 12px', background: 'rgba(25,118,210,0.06)', borderRadius: 6, border: '1px solid #bbdefb' }}>
+                        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: '#1976d2' }}>Abstimmungs-Einstellungen (Geteilt)</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                            <div>
+                                <label style={styles.fieldLabel}>Abstimmungsmodus</label>
+                                <select style={styles.select}
+                                    value={edit.sharedVotingMode ?? 'any'}
+                                    onChange={e => setEdit(prev => ({ ...prev, sharedVotingMode: e.target.value as 'any' | 'majority' | 'primary' }))}>
+                                    <option value="any">Beliebige Gruppe (OR)</option>
+                                    <option value="majority">Gewichtete Mehrheit</option>
+                                    <option value="primary">Eigentümer entscheidet</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style={styles.fieldLabel}>Hysterese (s)</label>
+                                <input style={styles.input} type="number" min={0} max={600}
+                                    value={edit.sharedVoteHysteresisSeconds ?? 60}
+                                    onChange={e => setEdit(prev => ({ ...prev, sharedVoteHysteresisSeconds: +e.target.value }))} />
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: 10 }}>
+                            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>Teilnehmer-Gruppen</div>
+                            {(edit.sharedParticipants ?? []).map((p, idx) => {
+                                const availableGroups = allGroups.filter(g => g.id !== ownerGroupId);
+                                return (
+                                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                                        <select style={{ ...styles.select, flex: 1, marginTop: 0 }}
+                                            value={p.groupId}
+                                            onChange={e => setEdit(prev => {
+                                                const parts = [...(prev.sharedParticipants ?? [])];
+                                                parts[idx] = { ...parts[idx], groupId: e.target.value };
+                                                return { ...prev, sharedParticipants: parts };
+                                            })}>
+                                            <option value="">– Gruppe wählen –</option>
+                                            {availableGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                        </select>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                            <input type="number" min={0} max={100}
+                                                style={{ ...styles.input, width: 64, marginTop: 0 }}
+                                                value={p.influenceFactor}
+                                                onChange={e => setEdit(prev => {
+                                                    const parts = [...(prev.sharedParticipants ?? [])];
+                                                    parts[idx] = { ...parts[idx], influenceFactor: +e.target.value };
+                                                    return { ...prev, sharedParticipants: parts };
+                                                })} />
+                                            <span style={{ fontSize: 12, color: '#555' }}>%</span>
+                                        </div>
+                                        <button style={{ ...styles.btnSecondary, padding: '2px 8px', fontSize: 12 }}
+                                            onClick={() => setEdit(prev => ({
+                                                ...prev,
+                                                sharedParticipants: (prev.sharedParticipants ?? []).filter((_, i) => i !== idx),
+                                            }))}>✕</button>
+                                    </div>
+                                );
+                            })}
+                            <button style={{ ...styles.btnSecondary, fontSize: 12, marginTop: 4 }}
+                                onClick={() => {
+                                    const newParticipant: SharedParticipant = { groupId: '', influenceFactor: 100 };
+                                    setEdit(prev => ({
+                                        ...prev,
+                                        sharedParticipants: [...(prev.sharedParticipants ?? []), newParticipant],
+                                    }));
+                                }}>+ Teilnehmer hinzufügen</button>
+                        </div>
+                    </div>
+                )}
+
                 <hr style={{ margin: '14px 0', borderColor: '#e0e0e0' }} />
 
                 <StateIdInput
@@ -822,11 +893,12 @@ type GroupEditorTab = 'basis' | 'sensoren' | 'aktoren' | 'bewaesserung';
 interface GroupEditorProps {
     group: GroupConfig | null;
     profiles: ClimateProfile[];
+    allGroups: GroupConfig[];
     onSave: (g: GroupConfig) => void;
     onCancel: () => void;
 }
 
-const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, onSave, onCancel }) => {
+const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, onSave, onCancel }) => {
     const [edit, setEdit] = useState<GroupConfig>(group ?? defaultGroup());
     const [tab, setTab] = useState<GroupEditorTab>('basis');
     const [editingSensor, setEditingSensor] = useState<GroupConfig['sensors'][0] | null | 'new'>(null);
@@ -1098,6 +1170,8 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, onSave, onCa
                     {editingActuator !== null && (
                         <ActuatorEditor
                             actuator={editingActuator === 'new' ? null : editingActuator}
+                            allGroups={allGroups}
+                            ownerGroupId={edit.id}
                             onSave={a => {
                                 setEdit(prev => ({
                                     ...prev,
@@ -2157,6 +2231,7 @@ const App: React.FC = () => {
                         <GroupEditor
                             group={editingGroup === 'new' ? null : editingGroup}
                             profiles={config.climateProfiles}
+                            allGroups={config.groups}
                             onSave={handleGroupSave}
                             onCancel={() => setEditingGroup(null)}
                         />

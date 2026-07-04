@@ -476,13 +476,51 @@ class GrowManagerAdapter extends utils.Adapter {
                     this.log.error(`Gruppe ${group.name}: Fehler im Zyklus – ${err}`);
                 }
             }
-            // Gemeinsame Aktoren: Konflikte auflösen und Befehle schreiben
+            // Teilnehmer-Abstimmungen für geteilte Aktoren mit sharedParticipants
+            for (const group of this.growConfig.groups) {
+                for (const actuatorConfig of group.actuators) {
+                    if (!actuatorConfig.shared || !actuatorConfig.sharedParticipants?.length)
+                        continue;
+                    const hysteresisSeconds = actuatorConfig.sharedVoteHysteresisSeconds ?? 60;
+                    for (const participant of actuatorConfig.sharedParticipants) {
+                        const pState = this.groupStates.get(participant.groupId);
+                        if (!pState)
+                            continue;
+                        const need = this.computeParticipantNeed(actuatorConfig.type, pState, 3);
+                        this.sharedActorManager.submitVote(actuatorConfig.id, {
+                            groupId: participant.groupId,
+                            wantsOn: need.wantsOn,
+                            weight: participant.influenceFactor / 100,
+                            urgency: need.urgency,
+                            reason: `Teilnehmer ${participant.groupId}`,
+                        });
+                    }
+                    // Aktuellen Befehl als Basis für Hysterese ermitteln
+                    const currentActState = this.actuatorService.getState(actuatorConfig.id);
+                    const currentCommand = currentActState?.requested ?? false;
+                    const votingMode = actuatorConfig.sharedVotingMode ?? 'any';
+                    const hysteresisForVoting = hysteresisSeconds;
+                    const finalCommand = this.sharedActorManager.resolveWithVoting(actuatorConfig.id, votingMode, hysteresisForVoting, group.id, currentCommand);
+                    const can = this.actuatorService.canSwitch(actuatorConfig, finalCommand);
+                    if (can.allowed) {
+                        const changed = this.actuatorService.recordCommand(actuatorConfig, finalCommand);
+                        if (changed) {
+                            await this.setActuatorState(actuatorConfig.commandStateId, finalCommand);
+                            this.log.info(`SharedAktor ${actuatorConfig.name} → ${finalCommand} (Abstimmung: ${votingMode})`);
+                        }
+                    }
+                }
+            }
+            // Gemeinsame Aktoren (Legacy): Konflikte auflösen und Befehle schreiben
             const sharedResults = this.sharedActorManager.resolveAll();
             for (const [, result] of sharedResults) {
                 // Zuständigen Aktor in irgendeiner Gruppe finden
                 for (const group of this.growConfig.groups) {
                     const act = group.actuators.find(a => a.id === result.actuatorId && a.shared);
                     if (act) {
+                        // Wenn dieser Aktor sharedParticipants hat, wurde er bereits oben behandelt
+                        if (act.sharedParticipants?.length)
+                            break;
                         const can = this.actuatorService.canSwitch(act, result.finalCommand);
                         if (can.allowed) {
                             const changed = this.actuatorService.recordCommand(act, result.finalCommand);
@@ -740,6 +778,78 @@ class GrowManagerAdapter extends utils.Adapter {
         }
     }
     // ============================================================
+    // Teilnehmer-Bedarfsermittlung für Abstimmungen
+    // ============================================================
+    /**
+     * Berechnet ob eine Gruppe einen Aktor vom gegebenen Typ benötigt,
+     * basierend auf dem aktuellen Gruppenstand und Klimaprofil-Sollwerten.
+     */
+    computeParticipantNeed(actuatorType, gs, defaultHysteresis) {
+        const hyst = defaultHysteresis;
+        const tempHyst = 1.5; // °C
+        // Sollwerte aus aktivem Profil ermitteln
+        let tempSetpoint = null;
+        let humSetpoint = null;
+        if (gs.activeProfile) {
+            const sp = gs.activeProfile[gs.dayNight === 'night' ? 'night' : 'day'];
+            tempSetpoint = sp.temperature;
+            humSetpoint = sp.humidity;
+        }
+        switch (actuatorType) {
+            case 'dehumidifier': {
+                const target = humSetpoint ?? 60;
+                const hum = gs.humidity;
+                if (hum === null)
+                    return { wantsOn: false, urgency: 0 };
+                const excess = hum - (target + hyst);
+                return {
+                    wantsOn: excess > 0,
+                    urgency: Math.min(1, Math.max(0, excess / 10)),
+                };
+            }
+            case 'humidifier': {
+                const target = humSetpoint ?? 50;
+                const hum = gs.humidity;
+                if (hum === null)
+                    return { wantsOn: false, urgency: 0 };
+                const deficit = (target - hyst) - hum;
+                return {
+                    wantsOn: deficit > 0,
+                    urgency: Math.min(1, Math.max(0, deficit / 10)),
+                };
+            }
+            case 'cooling':
+            case 'exhaustFan': {
+                const target = tempSetpoint ?? 25;
+                const temp = gs.temperature;
+                if (temp === null)
+                    return { wantsOn: false, urgency: 0 };
+                const excess = temp - (target + tempHyst);
+                return {
+                    wantsOn: excess > 0,
+                    urgency: Math.min(1, Math.max(0, excess / 5)),
+                };
+            }
+            case 'heating': {
+                const target = tempSetpoint ?? 20;
+                const temp = gs.temperature;
+                if (temp === null)
+                    return { wantsOn: false, urgency: 0 };
+                const deficit = (target - tempHyst) - temp;
+                return {
+                    wantsOn: deficit > 0,
+                    urgency: Math.min(1, Math.max(0, deficit / 5)),
+                };
+            }
+            case 'co2Valve': {
+                // CO2 wird selten geteilt; kein Teilnehmer-Bedarf
+                return { wantsOn: false, urgency: 0 };
+            }
+            default:
+                return { wantsOn: false, urgency: 0 };
+        }
+    }
+    // ============================================================
     // ioBroker-State-Schreibfunktionen
     // ============================================================
     async setActuatorState(stateId, value) {
@@ -772,6 +882,8 @@ class GrowManagerAdapter extends utils.Adapter {
                     effectiveState: as?.effectiveState ?? null,
                     feedback: as?.feedback ?? null,
                     health: as?.health ?? 'unknown',
+                    sharedVotingMode: a.sharedVotingMode,
+                    sharedParticipants: a.sharedParticipants,
                 };
             });
             // Sollwerte aus aktivem Klimaprofil
