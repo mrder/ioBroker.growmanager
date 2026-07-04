@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.43",
+    "version": "0.1.44",
     "news": {
+      "0.1.44": {
+        "en": "Manual override propagation for shared actuators; VPD-based participant voting; Admin UI shows shared actuators in participant group",
+        "de": "Manual-Override Propagation für geteilte Aktoren; VPD-Abstimmung für Teilnehmer; Admin zeigt geteilte Aktoren in Teilnehmer-Gruppe"
+      },
       "0.1.43": {
         "en": "Shared actuators now auto-appear in participant group dashboards — no double configuration needed; owner group manages all settings",
         "de": "Geteilte Aktoren erscheinen automatisch im Dashboard der Teilnehmer-Gruppe — keine Doppelkonfiguration nötig; Eigentümer-Gruppe verwaltet alle Einstellungen"
