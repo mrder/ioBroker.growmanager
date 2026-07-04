@@ -712,22 +712,25 @@ function diagHintHtml(g) {
     if (vpdHigh) {
       // VPD zu hoch → Luft zu trocken/warm
       const delta = (g.vpd - g.setpointVpdMax).toFixed(2);
-      let tip = `VPD zu hoch (+${delta} kPa) – Luft zu trocken oder zu warm.`;
+      const tempOverSoll = g.temperature !== null && g.setpointTemp !== null && g.temperature > g.setpointTemp + 1;
+      let tip = `VPD zu hoch (+${delta} kPa) – Luft zu trocken${tempOverSoll ? ' und zu warm' : ''}.`;
       const fixes = [];
       if (hasAct('humidifier'))     fixes.push(`Befeuchter einschalten (${actNames('humidifier')})`);
-      if (hasAct('cooling'))        fixes.push(`Kühlung erhöhen (${actNames('cooling')})`);
-      if (hasAct('exhaustFan','supplyFan')) fixes.push(`Lüftung reduzieren um Feuchte zu halten`);
+      if (tempOverSoll && hasAct('cooling'))    fixes.push(`Kühlung erhöhen (${actNames('cooling')})`);
+      if (tempOverSoll && hasAct('exhaustFan')) fixes.push(`Abluft erhöhen (${actNames('exhaustFan')})`);
+      if (!tempOverSoll && hasAct('exhaustFan','supplyFan')) fixes.push(`Lüftung reduzieren um Feuchte zu halten`);
       if (g.outdoorHumidity !== null && g.humidity !== null && g.outdoorHumidity > g.humidity + 5)
-        fixes.push(`Außenluft feuchter (${g.outdoorHumidity.toFixed(0)}%) → Lüftung könnte helfen`);
+        fixes.push(`Außenluft feuchter (${g.outdoorHumidity.toFixed(0)}%) → kurze Lüftung könnte helfen`);
       if (fixes.length) tip += ' Optionen: ' + fixes.join('; ') + '.';
       hints.push({ lvl: 'warn', text: tip });
     } else if (vpdLow) {
       // VPD zu niedrig → Luft zu feucht/kalt
       const delta = (g.setpointVpdMin - g.vpd).toFixed(2);
-      let tip = `VPD zu niedrig (−${delta} kPa) – Luft zu feucht oder zu kalt.`;
+      const tempUnderSoll = g.temperature !== null && g.setpointTemp !== null && g.temperature < g.setpointTemp - 1;
+      let tip = `VPD zu niedrig (−${delta} kPa) – Luft zu feucht${tempUnderSoll ? ' und zu kalt' : ''}.`;
       const fixes = [];
       if (hasAct('dehumidifier'))   fixes.push(`Entfeuchter einschalten (${actNames('dehumidifier')})`);
-      if (hasAct('heating'))        fixes.push(`Heizung erhöhen (${actNames('heating')})`);
+      if (tempUnderSoll && hasAct('heating')) fixes.push(`Heizung erhöhen (${actNames('heating')})`);
       if (hasAct('exhaustFan','supplyFan')) fixes.push(`Lüftung erhöhen um Feuchte abzuführen`);
       if (g.outdoorHumidity !== null && g.humidity !== null && g.outdoorHumidity < g.humidity - 5)
         fixes.push(`Außenluft trockener (${g.outdoorHumidity.toFixed(0)}%) → Lüftung könnte helfen`);
