@@ -20,6 +20,40 @@ declare function sendTo(
     callback?: (result: unknown) => void
 ): void;
 
+// ---- InfoTip -----------------------------------------------
+const InfoTip: React.FC<{ text: string }> = ({ text }) => {
+    const [visible, setVisible] = useState(false);
+    return (
+        <span style={{ position: 'relative', display: 'inline-block', marginLeft: 5, verticalAlign: 'middle' }}>
+            <span
+                onMouseEnter={() => setVisible(true)}
+                onMouseLeave={() => setVisible(false)}
+                style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: 15, height: 15, borderRadius: '50%',
+                    background: '#1976d2', color: '#fff',
+                    fontSize: 10, fontWeight: 700, cursor: 'default', userSelect: 'none',
+                }}
+            >i</span>
+            {visible && (
+                <span style={{
+                    position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)',
+                    background: '#333', color: '#fff', borderRadius: 6, padding: '6px 10px',
+                    fontSize: 12, lineHeight: 1.4, whiteSpace: 'pre-wrap', maxWidth: 260,
+                    zIndex: 9999, boxShadow: '0 2px 8px rgba(0,0,0,0.3)', pointerEvents: 'none',
+                }}>{text}</span>
+            )}
+        </span>
+    );
+};
+
+// Hilfsfunktion: Label mit optionalem InfoTip
+const FieldLabel: React.FC<{ children: React.ReactNode; tip?: string }> = ({ children, tip }) => (
+    <label style={{ display: 'block', fontWeight: 600, marginTop: 12, marginBottom: 4, fontSize: 13 }}>
+        {children}{tip && <InfoTip text={tip} />}
+    </label>
+);
+
 // ---- Tabs --------------------------------------------------
 
 type TabId = 'dashboard' | 'groups' | 'profiles' | 'alarms' | 'diagnostics' | 'settings';
@@ -420,7 +454,8 @@ const SensorEditor: React.FC<SensorEditorProps> = ({ sensor, onSave, onClose }) 
                 <hr style={{ margin: '14px 0', borderColor: '#e0e0e0' }} />
 
                 <StateIdInput
-                    label="Gerätestatus-State (optional, z.B. available, link_quality, alive)"
+                    label="Gerätestatus (Erreichbarkeit)"
+                    tip={"Prüft ob das Gerät erreichbar/online ist.\nBeispiele:\n• available (bool) → true = ok\n• link_quality (Zahl) → ≥ Mindestwert = ok\n• alive (bool) → true = ok\n\nUnabhängig vom Schaltzustand des Aktors!"}
                     value={edit.healthStateId ?? ''}
                     onChange={v => setEdit(prev => ({ ...prev, healthStateId: v || undefined }))}
                     placeholder="z.B. zigbee.0.device.available"
@@ -551,17 +586,19 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, onSave, onClo
                 )}
 
                 <StateIdInput
-                    label="Befehls-State-ID (schreiben)"
+                    label="Befehls-State (schreiben)"
+                    tip={"Der State, in den der Adapter den Schaltbefehl schreibt.\nBeispiele:\n• tasmota.0.POWER\n• zigbee.0.device.state\n• shelly.0.relay0"}
                     value={edit.commandStateId}
                     onChange={v => setEdit(prev => ({ ...prev, commandStateId: v }))}
                     placeholder="z.B. tasmota.0.switch.POWER"
                 />
 
                 <StateIdInput
-                    label="Feedback-State-ID (lesen, optional)"
+                    label="Rückmelde-State (Ist-Zustand, optional)"
+                    tip={"Der State, den das Gerät als tatsächlichen Schaltzustand zurückmeldet.\nGETRENNT vom Befehls-State und vom Gerätestatus!\n\nBeispiel Zigbee-Steckdose:\n• Befehl: zigbee.0.device.state → 'ON'\n• Rückmeldung: zigbee.0.device.state_l (echo)\n\nWird im Dashboard als 'Ist-Zustand' neben dem Soll-Zustand angezeigt."}
                     value={edit.feedbackStateId ?? ''}
                     onChange={v => setEdit(prev => ({ ...prev, feedbackStateId: v || undefined }))}
-                    placeholder="z.B. tasmota.0.switch.STATE"
+                    placeholder="z.B. zigbee.0.device.state_l"
                 />
 
                 <label style={styles.fieldLabel}>Datentyp</label>
@@ -637,7 +674,8 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, onSave, onClo
                 <hr style={{ margin: '14px 0', borderColor: '#e0e0e0' }} />
 
                 <StateIdInput
-                    label="Gerätestatus-State (optional, z.B. alive, ENERGY_Power)"
+                    label="Gerätestatus (Erreichbarkeit)"
+                    tip={"Prüft ob das Gerät erreichbar ist – NICHT ob es gerade an/aus ist.\nBeispiele:\n• alive (bool) → true = erreichbar\n• available (bool) → true = erreichbar\n• link_quality (Zahl) → ≥ Mindestwert = erreichbar\n\nFür Leistungsmessung stattdessen 'Power-State' verwenden."}
                     value={edit.healthStateId ?? ''}
                     onChange={v => setEdit(prev => ({ ...prev, healthStateId: v || undefined }))}
                     placeholder="z.B. sonoff.0.device.alive"
@@ -1540,14 +1578,15 @@ interface StateIdInputProps {
     label: string;
     placeholder?: string;
     typeFilter?: string;
+    tip?: string;
 }
 
-const StateIdInput: React.FC<StateIdInputProps> = ({ value, onChange, label, placeholder, typeFilter }) => {
+const StateIdInput: React.FC<StateIdInputProps> = ({ value, onChange, label, placeholder, typeFilter, tip }) => {
     const [pickerOpen, setPickerOpen] = React.useState(false);
 
     return (
         <div>
-            <label style={styles.fieldLabel}>{label}</label>
+            <FieldLabel tip={tip}>{label}</FieldLabel>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <input
                     style={{ ...styles.input, flex: 1, fontFamily: 'monospace', fontSize: 12 }}
