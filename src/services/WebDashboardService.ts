@@ -39,17 +39,22 @@ export interface DashboardGroupState {
     humidity: number | null;
     vpd: number | null;
     soilMoisture: number | null;
+    co2: number | null;
+    leafTemperature: number | null;
     isDay: boolean;
     sensorQuality: number;
     actuators: DashboardActuatorState[];
     alarms: DashboardAlarm[];
     lastDecision: string;
     irrigationRunning: boolean;
-    // Neu:
     setpointTemp: number | null;
     setpointHumidity: number | null;
     setpointVpdMin: number | null;
     setpointVpdMax: number | null;
+    setpointSoilMoistureTarget: number | null;
+    setpointSoilMoistureTolerance: number | null;
+    setpointCo2Target: number | null;
+    setpointCo2Tolerance: number | null;
     monitorSensors: string[];
     cameraUrl: string | null;
     manualOverrides: Record<string, { command: boolean | number; until: number }>;

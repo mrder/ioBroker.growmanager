@@ -104,9 +104,9 @@
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 
   /* ---- Klimawerte ---- */
-  .climate-row { display: flex; border-bottom: 1px solid var(--border); }
+  .climate-row { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
   .climate-val {
-    flex: 1; text-align: center; padding: 12px 6px;
+    flex: 1; min-width: 80px; text-align: center; padding: 12px 6px;
     border-right: 1px solid var(--border); position: relative;
   }
   .climate-val:last-child { border-right: none; }
@@ -433,8 +433,8 @@ const MODE_CONTROLS = {
   temperature: ['temp'],
   humidity:    ['hum'],
   vpd:         ['vpd'],
-  combined:    ['temp','hum','vpd'],
-  schedule:    ['temp','hum','vpd'],
+  combined:    ['temp','hum','vpd','soil','co2'],
+  schedule:    ['temp','hum','vpd','soil','co2'],
   monitorOnly: [],
   manual:      [],
   off:         [],
@@ -835,8 +835,27 @@ function groupCardHtml(g) {
   const tempHtml = `<div onclick="showTrend('${gid}','temperature','Temperatur','°C')" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.temperature, '°', 'Temperatur', isCtrlTemp, null, null, g.setpointTemp, 1)}</div>`;
   const humHtml  = `<div onclick="showTrend('${gid}','humidity','Luftfeuchte','%')" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.humidity, '%', 'Luftfeuchte', isCtrlHum, g.setpointHumidity ? g.setpointHumidity - 5 : null, g.setpointHumidity ? g.setpointHumidity + 5 : null, null, 0)}</div>`;
   const vpdHtml  = `<div onclick="showTrend('${gid}','vpd','VPD','kPa')" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.vpd, ' kPa', 'VPD', isCtrlVpd, g.setpointVpdMin, g.setpointVpdMax, null, 2)}</div>`;
+  const isCtrlSoil = controlled.includes('soil');
+  const isCtrlCo2  = controlled.includes('co2');
+
   const soilHtml = g.soilMoisture !== null
-    ? climateValHtml(g.soilMoisture, '%', 'Boden', false, null, null, null, 0)
+    ? `<div onclick="showTrend('${gid}','soilMoisture','Bodenfeuchte','%')" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(
+        g.soilMoisture, '%', 'Bodenfeuchte', isCtrlSoil,
+        g.setpointSoilMoistureTarget != null && g.setpointSoilMoistureTolerance != null ? g.setpointSoilMoistureTarget - g.setpointSoilMoistureTolerance : null,
+        g.setpointSoilMoistureTarget != null && g.setpointSoilMoistureTolerance != null ? g.setpointSoilMoistureTarget + g.setpointSoilMoistureTolerance : null,
+        null, 0)}</div>`
+    : '';
+
+  const co2Html = g.co2 !== null && g.co2 !== undefined
+    ? `<div onclick="showTrend('${gid}','co2','CO₂','ppm')" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(
+        g.co2, ' ppm', 'CO₂', isCtrlCo2,
+        g.setpointCo2Target != null && g.setpointCo2Tolerance != null ? g.setpointCo2Target - g.setpointCo2Tolerance : null,
+        g.setpointCo2Target != null && g.setpointCo2Tolerance != null ? g.setpointCo2Target + g.setpointCo2Tolerance : null,
+        null, 0)}</div>`
+    : '';
+
+  const leafTempHtml = g.leafTemperature !== null && g.leafTemperature !== undefined
+    ? `<div>${climateValHtml(g.leafTemperature, '°', 'Blatt-T', false, null, null, null, 1)}</div>`
     : '';
 
   // Außensensor-Zeile
@@ -891,7 +910,7 @@ function groupCardHtml(g) {
       </div>
     </div>
     ${actIconsHtml(g.actuators, g.id, g.manualOverrides)}
-    <div class="climate-row">${tempHtml}${humHtml}${vpdHtml}${soilHtml}</div>
+    <div class="climate-row">${tempHtml}${humHtml}${vpdHtml}${soilHtml}${co2Html}${leafTempHtml}</div>
     ${diagHintHtml(g)}
     ${outdoorHtml}
     <div class="meta-row">

@@ -1007,13 +1007,26 @@ class GrowManagerAdapter extends utils.Adapter {
                 let setpointHumidity: number | null = null;
                 let setpointVpdMin: number | null = null;
                 let setpointVpdMax: number | null = null;
+                let setpointSoilMoistureTarget: number | null = null;
+                let setpointSoilMoistureTolerance: number | null = null;
+                let setpointCo2Target: number | null = null;
+                let setpointCo2Tolerance: number | null = null;
                 if (state?.activeProfile) {
                     const sp = this.scheduleService.getActiveSetpoint(state.activeProfile, state.dayNight ?? 'day', this.lightChangeTimes.get(g.id) ?? 0);
                     setpointTemp = sp.temperature;
                     setpointHumidity = sp.humidity;
                     setpointVpdMin = sp.vpdMin;
                     setpointVpdMax = sp.vpdMax;
+                    setpointSoilMoistureTarget = sp.soilMoistureTarget ?? null;
+                    setpointSoilMoistureTolerance = sp.soilMoistureTolerance ?? null;
+                    setpointCo2Target = sp.co2Target ?? null;
+                    setpointCo2Tolerance = sp.co2Tolerance ?? null;
                 }
+
+                // Zusätzliche Sensorwerte aggregieren
+                const soilAggDb = this.sensorService.aggregate(g.sensors, 'soilMoisture', g.aggregationMethod);
+                const co2Agg = this.sensorService.aggregate(g.sensors, 'co2', g.aggregationMethod);
+                const leafTempAggDb = this.sensorService.aggregate(g.sensors, 'leafTemperature', g.aggregationMethod);
 
                 // Sensoren in "monitor"-Rolle
                 const monitorSensors = g.sensors
@@ -1044,7 +1057,9 @@ class GrowManagerAdapter extends utils.Adapter {
                     temperature: state?.temperature ?? null,
                     humidity: state?.humidity ?? null,
                     vpd: state?.vpd ?? null,
-                    soilMoisture: null as number | null,
+                    soilMoisture: soilAggDb.value,
+                    co2: co2Agg.value,
+                    leafTemperature: leafTempAggDb.value,
                     isDay: state?.dayNight !== 'night',
                     sensorQuality: state?.sensorQuality ?? 0,
                     actuators,
@@ -1055,6 +1070,10 @@ class GrowManagerAdapter extends utils.Adapter {
                     setpointHumidity,
                     setpointVpdMin,
                     setpointVpdMax,
+                    setpointSoilMoistureTarget,
+                    setpointSoilMoistureTolerance,
+                    setpointCo2Target,
+                    setpointCo2Tolerance,
                     monitorSensors,
                     cameraUrl,
                     manualOverrides,

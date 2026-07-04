@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.39",
+    "version": "0.1.40",
     "news": {
+      "0.1.40": {
+        "en": "Dashboard shows additional sensor values: soil moisture, CO2 and leaf temperature appear in the climate row when sensors are configured in the group",
+        "de": "Dashboard zeigt zusätzliche Sensorwerte: Bodenfeuchte, CO₂ und Blatttemperatur erscheinen in der Klimazeile wenn Sensoren in der Gruppe konfiguriert sind"
+      },
       "0.1.39": {
         "en": "Per-actuator switch threshold (actuatorHysteresis): configurable minimum deviation from setpoint before switching, independent of climate profile tolerance",
         "de": "Per-Aktor Schaltschwelle (actuatorHysteresis): konfigurierbare Mindestabweichung vom Sollwert vor dem Schalten, unabhängig von der Klimaprofil-Toleranz"

@@ -30,6 +30,8 @@ export interface DashboardGroupState {
     humidity: number | null;
     vpd: number | null;
     soilMoisture: number | null;
+    co2: number | null;
+    leafTemperature: number | null;
     isDay: boolean;
     sensorQuality: number;
     actuators: DashboardActuatorState[];
@@ -40,6 +42,10 @@ export interface DashboardGroupState {
     setpointHumidity: number | null;
     setpointVpdMin: number | null;
     setpointVpdMax: number | null;
+    setpointSoilMoistureTarget: number | null;
+    setpointSoilMoistureTolerance: number | null;
+    setpointCo2Target: number | null;
+    setpointCo2Tolerance: number | null;
     monitorSensors: string[];
     cameraUrl: string | null;
     manualOverrides: Record<string, {
