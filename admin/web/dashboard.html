@@ -568,7 +568,11 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTrend()
 function actIconsHtml(actuators, groupId, manualOverrides) {
   if (!actuators || actuators.length === 0) return '';
   const chips = actuators.map(a => {
-    const isOn = a.command === true || (typeof a.command === 'number' && a.command > 0);
+    const sollOn = a.command === true || (typeof a.command === 'number' && a.command > 0);
+    const fb = a.feedback ?? a.effectiveState;
+    const isOn = fb !== null && fb !== undefined
+      ? (fb === true || (typeof fb === 'number' && fb > 0) || fb === 'true' || fb === 'on')
+      : sollOn;
     const t = ACT_TYPE[a.type] ?? ACT_TYPE.custom;
     const ov = manualOverrides && manualOverrides[a.id];
     const ovNote = ov ? ` · manuell bis ${new Date(ov.until).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}` : '';
