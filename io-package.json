@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.38",
+    "version": "0.1.39",
     "news": {
+      "0.1.39": {
+        "en": "Per-actuator switch threshold (actuatorHysteresis): configurable minimum deviation from setpoint before switching, independent of climate profile tolerance",
+        "de": "Per-Aktor Schaltschwelle (actuatorHysteresis): konfigurierbare Mindestabweichung vom Sollwert vor dem Schalten, unabhängig von der Klimaprofil-Toleranz"
+      },
       "0.1.38": {
         "en": "Shared actuator voting: multiple groups can vote on shared actuators with configurable voting mode (any/majority/primary), influence factor per group, and vote stability hysteresis",
         "de": "Geteilte Aktor-Abstimmung: mehrere Gruppen können auf gemeinsame Aktoren abstimmen mit konfigurierbarem Abstimmungsmodus (beliebig/Mehrheit/Eigentümer), Einflussfaktor pro Gruppe und Stimm-Hysterese"

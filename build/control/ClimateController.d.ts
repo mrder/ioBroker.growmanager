@@ -5,6 +5,7 @@ export declare class ClimateController {
     private readonly alarmService;
     private readonly log;
     private readonly hystStates;
+    private readonly actuatorHystStates;
     constructor(alarmService: AlarmService, log: ILogger);
     /**
      * Hauptregel-Funktion. Erzeugt eine ControlDecision für eine Gruppe.

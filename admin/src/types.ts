@@ -54,6 +54,7 @@ export interface ActuatorConfig {
     controlTarget?: ControlTarget;
     controlDirection?: ControlDirection;
     outdoorGuardEnabled?: boolean;
+    actuatorHysteresis?: number;
 }
 
 export interface OutdoorSensorConfig {

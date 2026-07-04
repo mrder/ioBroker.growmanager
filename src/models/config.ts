@@ -143,6 +143,9 @@ export interface ActuatorConfig {
     controlDirection?: ControlDirection;
     // Außenluft-Guard: Aktor nur schalten wenn Außenluft günstiger als Innenluft
     outdoorGuardEnabled?: boolean;
+    // Per-Aktor Schaltschwelle: Mindestabweichung vom Sollwert vor EIN-/AUS-Schaltung
+    // (°C für Temp-Aktoren, % für Feuchte-Aktoren, kPa für VPD-Aktoren; 0 = Profil-Toleranz)
+    actuatorHysteresis?: number;
 }
 
 // ---- Zeitplan ----------------------------------------------

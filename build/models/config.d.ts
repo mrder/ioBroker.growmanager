@@ -75,6 +75,7 @@ export interface ActuatorConfig {
     controlTarget?: ControlTarget;
     controlDirection?: ControlDirection;
     outdoorGuardEnabled?: boolean;
+    actuatorHysteresis?: number;
 }
 export interface TimeWindow {
     startHH: number;

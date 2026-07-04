@@ -63,6 +63,8 @@ function inferControlDirection(act: ActuatorConfig): ControlDirection {
 
 export class ClimateController {
     private readonly hystStates = new Map<string, GroupHystStates>();
+    // Per-Aktor Hysterese-State (wenn actuatorHysteresis konfiguriert)
+    private readonly actuatorHystStates = new Map<string, HystState>();
 
     constructor(
         private readonly alarmService: AlarmService,
@@ -222,8 +224,16 @@ export class ClimateController {
     ): string | null {
         if (temp === null) return null;
 
-        const tState = hysteresisCheck(temp, sp.temperature, sp.temperatureTolerance * 2, hyst.temperature);
-        hyst.temperature = tState;
+        let tState: HystState;
+        if (act.actuatorHysteresis !== undefined && act.actuatorHysteresis > 0) {
+            // Per-Aktor Schwelle: eigener State, unabhängig vom Gruppen-State
+            const prevAct = this.actuatorHystStates.get(act.id) ?? 0;
+            tState = hysteresisCheck(temp, sp.temperature, act.actuatorHysteresis * 2, prevAct);
+            this.actuatorHystStates.set(act.id, tState);
+        } else {
+            tState = hysteresisCheck(temp, sp.temperature, sp.temperatureTolerance * 2, hyst.temperature);
+            hyst.temperature = tState;
+        }
 
         if (dir === 'up') {
             // Heizung
@@ -271,8 +281,15 @@ export class ClimateController {
     ): string | null {
         if (hum === null) return null;
 
-        const hState = hysteresisCheck(hum, sp.humidity, sp.humidityTolerance * 2, hyst.humidity);
-        hyst.humidity = hState;
+        let hState: HystState;
+        if (act.actuatorHysteresis !== undefined && act.actuatorHysteresis > 0) {
+            const prevAct = this.actuatorHystStates.get(act.id) ?? 0;
+            hState = hysteresisCheck(hum, sp.humidity, act.actuatorHysteresis * 2, prevAct);
+            this.actuatorHystStates.set(act.id, hState);
+        } else {
+            hState = hysteresisCheck(hum, sp.humidity, sp.humidityTolerance * 2, hyst.humidity);
+            hyst.humidity = hState;
+        }
 
         if (dir === 'up') {
             // Befeuchter
@@ -321,8 +338,15 @@ export class ClimateController {
     ): string | null {
         if (vpd === null || temp === null || hum === null) return null;
 
-        const vpdState = hysteresisCheck(vpd, (sp.vpdMin + sp.vpdMax) / 2, sp.vpdMax - sp.vpdMin, hyst.vpd);
-        hyst.vpd = vpdState;
+        let vpdState: HystState;
+        if (act.actuatorHysteresis !== undefined && act.actuatorHysteresis > 0) {
+            const prevAct = this.actuatorHystStates.get(act.id) ?? 0;
+            vpdState = hysteresisCheck(vpd, (sp.vpdMin + sp.vpdMax) / 2, act.actuatorHysteresis * 2, prevAct);
+            this.actuatorHystStates.set(act.id, vpdState);
+        } else {
+            vpdState = hysteresisCheck(vpd, (sp.vpdMin + sp.vpdMax) / 2, sp.vpdMax - sp.vpdMin, hyst.vpd);
+            hyst.vpd = vpdState;
+        }
 
         if (vpdState === -1) {
             // VPD zu niedrig → Feuchte senken oder Temperatur erhöhen

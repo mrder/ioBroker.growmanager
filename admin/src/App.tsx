@@ -632,7 +632,7 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 4 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginTop: 4 }}>
                     <div>
                         <label style={styles.fieldLabel}>Min. Einschaltzeit (s)</label>
                         <input style={styles.input} type="number" min={0} value={edit.minimumOnSeconds}
@@ -647,6 +647,11 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                         <label style={styles.fieldLabel}>Max. Laufzeit (s)</label>
                         <input style={styles.input} type="number" min={0} value={edit.maximumOnSeconds}
                             onChange={e => setEdit(prev => ({ ...prev, maximumOnSeconds: +e.target.value }))} />
+                    </div>
+                    <div>
+                        <FieldLabel tip="Mindestabweichung vom Sollwert bevor dieser Aktor schaltet. Überschreibt die Profil-Toleranz. Einheit: °C (Temp), % (Feuchte), kPa (VPD). 0 = Profil-Toleranz nutzen.">Schaltschwelle</FieldLabel>
+                        <input style={styles.input} type="number" min={0} step={0.1} value={edit.actuatorHysteresis ?? 0}
+                            onChange={e => setEdit(prev => ({ ...prev, actuatorHysteresis: +e.target.value || undefined }))} />
                     </div>
                 </div>
 
