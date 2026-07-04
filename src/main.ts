@@ -1003,7 +1003,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     .slice(0, 5)
                     .map(a => ({ id: a.id, code: a.code, severity: a.severity, message: a.message, since: a.since }));
 
-                const actuators = g.actuators
+                const actuators: import('./services/WebDashboardService').DashboardActuatorState[] = g.actuators
                     .filter(a => a.enabled)
                     .map(a => {
                         const as = this.actuatorService.getState(a.id);
@@ -1019,6 +1019,34 @@ class GrowManagerAdapter extends utils.Adapter {
                             sharedParticipants: a.sharedParticipants,
                         };
                     });
+
+                // Externe geteilte Aktoren: Aktoren aus anderen Gruppen die diese Gruppe als Teilnehmer listen
+                for (const otherGroup of this.growConfig.groups) {
+                    if (otherGroup.id === g.id) continue;
+                    for (const a of otherGroup.actuators) {
+                        if (!a.enabled || !a.shared || !a.sharedParticipants?.length) continue;
+                        const participant = a.sharedParticipants.find(p => p.groupId === g.id);
+                        if (!participant) continue;
+                        // Nur hinzufügen wenn dieser Aktor nicht schon in der eigenen Gruppe konfiguriert ist
+                        const alreadyOwn = g.actuators.some(oa => oa.commandStateId === a.commandStateId);
+                        if (alreadyOwn) continue;
+                        const as = this.actuatorService.getState(a.id);
+                        actuators.push({
+                            id: a.id,
+                            name: a.name,
+                            type: a.type,
+                            command: as?.requested ?? null,
+                            effectiveState: as?.effectiveState ?? null,
+                            feedback: as?.feedback ?? null,
+                            health: as?.health ?? 'unknown',
+                            sharedVotingMode: a.sharedVotingMode,
+                            sharedParticipants: a.sharedParticipants,
+                            sharedFromGroupId: otherGroup.id,
+                            sharedFromGroupName: otherGroup.name,
+                            influenceFactor: participant.influenceFactor,
+                        });
+                    }
+                }
 
                 // Sollwerte aus aktivem Klimaprofil
                 let setpointTemp: number | null = null;

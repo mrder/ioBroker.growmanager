@@ -235,6 +235,8 @@
     width: 13px; height: 13px; display: flex; align-items: center; justify-content: center; }
   .act-icon-chip { position: relative; }
   .act-shared-badge { font-size: 10px; color: var(--blue); background: rgba(33,150,243,0.1); border: 1px solid var(--blue); border-radius: 3px; padding: 1px 5px; margin-right: 4px; }
+  .act-shared-from-badge { font-size: 10px; color: var(--blue); background: rgba(33,150,243,0.08); border: 1px solid rgba(33,150,243,0.4); border-radius: 3px; padding: 1px 6px; cursor: help; }
+  .act-shared-extern { opacity: 0.85; background: rgba(33,150,243,0.04); border-radius: 4px; }
   .act-soll-label { font-size: 10px; color: var(--text-dim); margin-left: 4px; }
   .act-ist-label  { font-size: 10px; color: var(--text-dim); margin-left: 8px; }
   .act-toggle {
@@ -680,6 +682,22 @@ function climateValHtml(value, unit, label, isControlled, setMin, setMax, setTar
 
 // ---- Aktor Detail-Zeile ----
 function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
+  // Externer geteilter Aktor (nur Teilnehmer, kein Eigentümer dieser Gruppe)
+  if (a.sharedFromGroupId) {
+    const fb = a.feedback ?? a.effectiveState;
+    const istOn = fb !== null && fb !== undefined
+      ? (fb === true || (typeof fb === 'number' && fb > 0) || fb === 'true' || fb === 'on')
+      : (a.command === true || (typeof a.command === 'number' && a.command > 0));
+    const ledClass = istOn ? 'on' : 'off';
+    const t = ACT_TYPE[a.type] ?? ACT_TYPE.custom;
+    const influence = a.influenceFactor != null ? ` · ${a.influenceFactor}% Einfluss` : '';
+    return `<div class="actuator-row act-shared-extern">
+      <div class="act-dot ${ledClass}"></div>
+      <span class="act-name">${t.icon} ${a.name}</span>
+      <span class="act-shared-from-badge" title="Eigentümer: ${a.sharedFromGroupName}${influence}">⇄ ${a.sharedFromGroupName}</span>
+      <span class="act-state ${istOn?'on':'off'}" style="margin-left:auto">${istOn?'EIN':'AUS'}</span>
+    </div>`;
+  }
   const sollOn = a.command === true || (typeof a.command === 'number' && a.command > 0);
   const isPercent = typeof a.command === 'number' && a.command > 0;
   const t = ACT_TYPE[a.type] ?? ACT_TYPE.custom;

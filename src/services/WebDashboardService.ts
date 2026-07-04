@@ -18,6 +18,10 @@ export interface DashboardActuatorState {
     health: string;
     sharedVotingMode?: string;
     sharedParticipants?: Array<{ groupId: string; influenceFactor: number }>;
+    // Wird gesetzt wenn dieser Aktor in einer anderen Gruppe konfiguriert ist (Teilnehmer-Sicht)
+    sharedFromGroupId?: string;
+    sharedFromGroupName?: string;
+    influenceFactor?: number;  // Einfluss dieser Gruppe auf den geteilten Aktor (0-100)
 }
 
 export interface DashboardAlarm {

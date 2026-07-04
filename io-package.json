@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.42",
+    "version": "0.1.43",
     "news": {
+      "0.1.43": {
+        "en": "Shared actuators now auto-appear in participant group dashboards — no double configuration needed; owner group manages all settings",
+        "de": "Geteilte Aktoren erscheinen automatisch im Dashboard der Teilnehmer-Gruppe — keine Doppelkonfiguration nötig; Eigentümer-Gruppe verwaltet alle Einstellungen"
+      },
       "0.1.42": {
         "en": "Fix shared actuator not turning on: supplyFan added to participant need, owner state updated before voting; Q% badge now shows per-sensor quality tooltip on hover",
         "de": "Bugfix geteilter Aktor schaltet nicht EIN: supplyFan in Teilnehmer-Bedarfsermittlung ergänzt, Eigentümer-State vor Abstimmung aktualisiert; Q%-Badge zeigt Sensor-Qualitäts-Tooltip beim Hover"

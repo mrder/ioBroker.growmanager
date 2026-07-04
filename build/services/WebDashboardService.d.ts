@@ -11,6 +11,9 @@ export interface DashboardActuatorState {
         groupId: string;
         influenceFactor: number;
     }>;
+    sharedFromGroupId?: string;
+    sharedFromGroupName?: string;
+    influenceFactor?: number;
 }
 export interface DashboardAlarm {
     id: string;
