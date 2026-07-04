@@ -171,17 +171,24 @@ class GrowManagerAdapter extends utils.Adapter {
         this.webDashboard.setTrendsCallback(async (groupId, variable) => {
             const stateId = `${this.namespace}.groups.${groupId}.climate.${variable}`;
             const start = Date.now() - 48 * 3600 * 1000;
-            // History-Adapter der Reihe nach probieren
-            for (const adapter of ['history.0', 'influxdb.0', 'sql.0']) {
+            const historyAdapters = ['history.0', 'influxdb.0', 'sql.0'];
+            for (const adapter of historyAdapters) {
                 try {
                     const pts = await this.queryHistory(adapter, stateId, start, Date.now());
-                    if (pts.length > 0) return pts;
-                } catch { /* nächsten probieren */ }
+                    if (pts.length > 0) return { points: pts };
+                    // Adapter antwortet, aber keine Daten → State-Aufzeichnung nicht aktiviert
+                    return {
+                        points: [],
+                        hint: `History-Adapter (${adapter}) gefunden, aber keine Daten für diesen State.\n` +
+                            `Bitte in ioBroker unter Objekte → ${stateId} → History-Tab die Aufzeichnung aktivieren.`,
+                    };
+                } catch { /* Adapter nicht installiert, nächsten probieren */ }
             }
-            // Fallback: eigener In-Memory-Puffer aus DiagnosticsEngine
-            return this.diagnosticsEngine.getHourlyHistory(
+            // Kein History-Adapter → eigener Puffer als Fallback
+            const pts = this.diagnosticsEngine.getHourlyHistory(
                 groupId, variable as 'temperature' | 'humidity' | 'vpd'
             );
+            return { points: pts };
         });
         this.webDashboard.setControlCallback(async ({ groupId, actuatorId, command, durationMinutes }) => {
             const group = this.growConfig.groups.find(g => g.id === groupId);

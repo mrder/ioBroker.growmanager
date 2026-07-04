@@ -90,7 +90,7 @@ export class WebDashboardService {
     private pin = '';
     private controlCallback: ((cmd: ControlCommand) => Promise<void>) | null = null;
     private modeCallback: ((cmd: ModeCommand) => Promise<void>) | null = null;
-    private trendsCallback: ((groupId: string, variable: string) => Promise<Array<{ ts: number; value: number }>>) | null = null;
+    private trendsCallback: ((groupId: string, variable: string) => Promise<{ points: Array<{ ts: number; value: number }>; hint?: string }>) | null = null;
 
     constructor(
         private readonly log: {
@@ -104,7 +104,7 @@ export class WebDashboardService {
     setPin(pin: string): void { this.pin = pin; }
     setControlCallback(cb: (cmd: ControlCommand) => Promise<void>): void { this.controlCallback = cb; }
     setModeCallback(cb: (cmd: ModeCommand) => Promise<void>): void { this.modeCallback = cb; }
-    setTrendsCallback(cb: (groupId: string, variable: string) => Promise<Array<{ ts: number; value: number }>>): void { this.trendsCallback = cb; }
+    setTrendsCallback(cb: (groupId: string, variable: string) => Promise<{ points: Array<{ ts: number; value: number }>; hint?: string }>): void { this.trendsCallback = cb; }
 
     start(port: number, bindAddress: string): void {
         const htmlPath = path.join(this.adapterDir, 'admin', 'web', 'dashboard.html');

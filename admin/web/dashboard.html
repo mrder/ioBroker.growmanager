@@ -196,6 +196,7 @@
     border: 1px solid var(--green-light); border-radius: 3px; padding: 1px 5px;
   }
   .act-feedback { font-size: 11px; color: var(--text-dim); margin-left: 4px; }
+  .trend-hint { padding: 20px; color: var(--text-dim); font-size: 12px; line-height: 1.6; }
   .act-soll-label { font-size: 10px; color: var(--text-dim); margin-left: 4px; }
   .act-ist-label  { font-size: 10px; color: var(--text-dim); margin-left: 8px; }
   .act-toggle {
@@ -507,8 +508,16 @@ async function showTrend(groupId, variable, label, unit) {
   popup.classList.add('visible');
   try {
     const res = await fetch(`/api/trends/${groupId}/${variable}`);
-    const data = await res.json();
-    renderTrendChart(data, unit);
+    const payload = await res.json();
+    // API liefert {points, hint?} oder (legacy) ein Array
+    const points = Array.isArray(payload) ? payload : (payload.points ?? []);
+    const hint = Array.isArray(payload) ? null : (payload.hint ?? null);
+    if (hint) {
+      document.getElementById('trendChart').innerHTML =
+        `<div class="trend-hint">ℹ️ ${hint.replace(/\n/g, '<br>')}</div>`;
+    } else {
+      renderTrendChart(points, unit);
+    }
   } catch(e) {
     document.getElementById('trendChart').innerHTML = '<p style="color:var(--warn)">Fehler beim Laden</p>';
   }
