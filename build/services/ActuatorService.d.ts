@@ -30,6 +30,17 @@ export declare class ActuatorService {
      */
     setOverride(config: ActuatorConfig, value: boolean | number, durationMinutes: number): void;
     /**
+     * Sperrt einen Aktor manuell (Dashboard-Override).
+     * Blockiert den Auto-Zyklus und setzt requested auf den manuellen Wert (→ korrekte LED-Anzeige).
+     */
+    lockForManual(actuatorId: string, command: boolean | number): void;
+    /**
+     * Hebt den manuellen Lock auf (→ AUTO).
+     * Setzt lastSwitchTs=0 damit der nächste Auto-Zyklus die Mindestzeiten ignoriert
+     * und durch den geänderten requested-Wert ein changed=true erzeugt.
+     */
+    unlockManual(actuatorId: string): void;
+    /**
      * Setzt einen Aktor in seinen sicheren Zustand.
      */
     setSafeState(config: ActuatorConfig): boolean | number;

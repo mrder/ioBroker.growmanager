@@ -156,9 +156,13 @@ class GrowManagerAdapter extends utils.Adapter {
             if (!group) throw new Error(`Gruppe ${groupId} nicht gefunden`);
             if (mode === 'auto') {
                 this.dashboardModeOverrides.delete(groupId);
-                // Alle manuellen Aktor-Overrides der Gruppe aufheben
-                for (const a of group.actuators) this.dashboardOverrides.delete(a.id);
-                this.log.info(`Dashboard: Gruppe ${group.name} → AUTO (Overrides gelöscht)`);
+                for (const a of group.actuators) {
+                    this.dashboardOverrides.delete(a.id);
+                    this.actuatorService.unlockManual(a.id);
+                }
+                this.log.info(`Dashboard: Gruppe ${group.name} → AUTO (Locks aufgehoben, Sofort-Zyklus)`);
+                // Sofort-Zyklus damit der korrekte Zustand direkt gesetzt wird
+                await this.runCycle();
             } else {
                 this.dashboardModeOverrides.set(groupId, mode);
                 this.log.info(`Dashboard: Gruppe ${group.name} → MANUELL`);
@@ -172,6 +176,8 @@ class GrowManagerAdapter extends utils.Adapter {
             const actuator = group?.actuators.find(a => a.id === actuatorId);
             if (!actuator) throw new Error(`Aktor ${actuatorId} nicht gefunden`);
             this.dashboardOverrides.set(actuatorId, { command, until: Date.now() + durationMinutes * 60_000 });
+            // Lock blockiert Auto-Zyklus und setzt requested auf manuellen Wert (→ korrekte LED-Anzeige)
+            this.actuatorService.lockForManual(actuatorId, command);
             const val = command ? actuator.onValue : actuator.offValue;
             await this.setForeignStateAsync(actuator.commandStateId, { val: val as ioBroker.StateValue, ack: false });
             this.log.info(`Dashboard: ${actuator.name} → ${command ? 'EIN' : 'AUS'} (${durationMinutes} min)`);

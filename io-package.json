@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.32",
+    "version": "0.1.33",
     "news": {
+      "0.1.33": {
+        "en": "Fix actuator manual override: LED now shows actual state; AUTO resume triggers immediate cycle and actuator returns to correct state; manualLock blocks auto cycle while override active",
+        "de": "Manueller Aktor-Override behoben: LED zeigt jetzt den tatsächlichen Zustand; AUTO-Rückkehr triggert sofortigen Zyklus und Aktor kehrt in korrekten Zustand zurück; manualLock sperrt Auto-Zyklus während Override aktiv"
+      },
       "0.1.32": {
         "en": "Fix admin dashboard live data: replace broken socket.io polling with sendTo('getGroupState') — works reliably in ioBroker admin iframe without socket.io",
         "de": "Admin-Dashboard Livedaten behoben: kaputtes socket.io-Polling durch sendTo('getGroupState') ersetzt — funktioniert zuverlässig im ioBroker-Admin-Iframe ohne socket.io"

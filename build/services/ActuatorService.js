@@ -21,6 +21,7 @@ class ActuatorService {
             effectiveState: config.offValue,
             blocked: false,
             overrideActive: false,
+            manualLock: false,
             health: 'unknown',
             runTimeSeconds: 0,
             switchCount: 0,
@@ -41,6 +42,10 @@ class ActuatorService {
         const state = this.states.get(config.id);
         if (!state)
             return { allowed: false, reason: 'Nicht initialisiert' };
+        // Manueller Dashboard-Lock sperrt den Auto-Zyklus komplett
+        if (state.manualLock) {
+            return { allowed: false, reason: 'Manuell gesperrt' };
+        }
         // Override ignoriert Sperrzeiten (außer kritische Sicherheit)
         if (state.overrideActive) {
             return { allowed: true };
@@ -155,6 +160,32 @@ class ActuatorService {
         this.overrideUntil.set(config.id, state.overrideUntil);
         state.requested = value;
         this.log.info(`Override für ${config.name}: ${value} für ${durationMinutes}min`);
+    }
+    /**
+     * Sperrt einen Aktor manuell (Dashboard-Override).
+     * Blockiert den Auto-Zyklus und setzt requested auf den manuellen Wert (→ korrekte LED-Anzeige).
+     */
+    lockForManual(actuatorId, command) {
+        const state = this.states.get(actuatorId);
+        if (!state)
+            return;
+        state.manualLock = true;
+        state.requested = command;
+        if (state.feedback === null && state.power === null) {
+            state.effectiveState = command;
+        }
+    }
+    /**
+     * Hebt den manuellen Lock auf (→ AUTO).
+     * Setzt lastSwitchTs=0 damit der nächste Auto-Zyklus die Mindestzeiten ignoriert
+     * und durch den geänderten requested-Wert ein changed=true erzeugt.
+     */
+    unlockManual(actuatorId) {
+        const state = this.states.get(actuatorId);
+        if (!state)
+            return;
+        state.manualLock = false;
+        state.lastSwitchTs = 0;
     }
     /**
      * Setzt einen Aktor in seinen sicheren Zustand.
