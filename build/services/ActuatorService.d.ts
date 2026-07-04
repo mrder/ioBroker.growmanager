@@ -35,6 +35,11 @@ export declare class ActuatorService {
      */
     lockForManual(actuatorId: string, command: boolean | number): void;
     /**
+     * Setzt den Geräteerreichbarkeits-Status (aus healthStateId).
+     * Überschreibt computeHealth wenn nicht erreichbar.
+     */
+    setReachable(actuatorId: string, reachable: boolean): void;
+    /**
      * Hebt den manuellen Lock auf (→ AUTO).
      * Setzt lastSwitchTs=0 damit der nächste Auto-Zyklus die Mindestzeiten ignoriert
      * und durch den geänderten requested-Wert ein changed=true erzeugt.

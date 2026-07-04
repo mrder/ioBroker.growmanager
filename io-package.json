@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.36",
+    "version": "0.1.37",
     "news": {
+      "0.1.37": {
+        "en": "Actuator unreachable: health state now updates ActuatorState, raises ACTUATOR_UNREACHABLE alarm, shows error icon in dashboard row and icon strip",
+        "de": "Aktor nicht erreichbar: Health-State aktualisiert ActuatorState, löst ACTUATOR_UNREACHABLE-Alarm aus, zeigt Fehler-Icon in Aktor-Zeile und Icon-Strip"
+      },
       "0.1.36": {
         "en": "Trend chart data: query ioBroker history adapter (history/influxdb/sql) for persistent 48h data; fallback to in-memory hourly buffer if no history adapter available",
         "de": "Trend-Daten: ioBroker History-Adapter (history/influxdb/sql) für persistente 48h-Daten; Fallback auf internen Stundenpuffer wenn kein History-Adapter vorhanden"

@@ -18,7 +18,7 @@ import type {
 import { SensorService, setDeviceHealth } from './services/SensorService';
 import { ActuatorService } from './services/ActuatorService';
 import { ScheduleService } from './services/ScheduleService';
-import { AlarmService } from './services/AlarmService';
+import { AlarmService, ALARM_CODES } from './services/AlarmService';
 import { SafetyService } from './services/SafetyService';
 import { ClimateController } from './control/ClimateController';
 import { DiagnosticsEngine } from './diagnostics/DiagnosticsEngine';
@@ -457,6 +457,26 @@ class GrowManagerAdapter extends utils.Adapter {
             healthy = val === true || val === 1 || val === 'true';
         }
         setDeviceHealth(stateId, healthy);
+        // Für Aktoren: ActuatorState.health aktualisieren + Alarm
+        for (const group of this.growConfig.groups) {
+            for (const actuator of group.actuators) {
+                if (actuator.healthStateId === stateId) {
+                    this.actuatorService.setReachable(actuator.id, healthy);
+                    if (!healthy) {
+                        this.log.warn(`Aktor ${actuator.name} nicht erreichbar (${stateId} = ${val})`);
+                        this.alarmService.raise(
+                            ALARM_CODES.ACTUATOR_UNREACHABLE,
+                            group.id,
+                            actuator.id,
+                            'fault',
+                            `Aktor "${actuator.name}" nicht erreichbar`
+                        );
+                    } else {
+                        this.alarmService.clear(ALARM_CODES.ACTUATOR_UNREACHABLE, group.id, actuator.id);
+                    }
+                }
+            }
+        }
         if (!healthy) {
             this.log.debug(`Health-State ${stateId} = ${val} → Gerät nicht erreichbar`);
         }

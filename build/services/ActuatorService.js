@@ -148,7 +148,10 @@ class ActuatorService {
             state.power = typeof powerValue === 'number' ? powerValue : null;
         }
         state.effectiveState = this.computeEffectiveState(config, state);
-        state.health = this.computeHealth(config, state);
+        // Gerätestatus nicht überschreiben wenn explizit als unreachable markiert
+        if (state.health !== 'unreachable') {
+            state.health = this.computeHealth(config, state);
+        }
     }
     /**
      * Setzt einen manuellen Override.
@@ -175,6 +178,21 @@ class ActuatorService {
         state.requested = command;
         if (state.feedback === null && state.power === null) {
             state.effectiveState = command;
+        }
+    }
+    /**
+     * Setzt den Geräteerreichbarkeits-Status (aus healthStateId).
+     * Überschreibt computeHealth wenn nicht erreichbar.
+     */
+    setReachable(actuatorId, reachable) {
+        const state = this.states.get(actuatorId);
+        if (!state)
+            return;
+        if (!reachable) {
+            state.health = 'unreachable';
+        }
+        else if (state.health === 'unreachable') {
+            state.health = 'unknown'; // computeHealth() übernimmt beim nächsten Zyklus
         }
     }
     /**

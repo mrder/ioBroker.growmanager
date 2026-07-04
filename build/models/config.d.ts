@@ -288,7 +288,7 @@ export interface ActuatorState {
     overrideUntil?: number;
     /** Manuell gesperrt durch Dashboard-Override — blockiert Auto-Zyklus */
     manualLock: boolean;
-    health: 'ok' | 'noFeedback' | 'noPower' | 'stuckOn' | 'stuckOff' | 'noEffect' | 'unknown';
+    health: 'ok' | 'noFeedback' | 'noPower' | 'stuckOn' | 'stuckOff' | 'noEffect' | 'unknown' | 'unreachable';
     effectCheck?: EffectCheckResult;
     runTimeSeconds: number;
     switchCount: number;

@@ -204,6 +204,14 @@
   .diag-hint-row.info { background: rgba(33,150,243,0.08); border-left: 3px solid var(--blue); }
   .diag-hint-icon { flex-shrink: 0; font-size: 13px; margin-top: 1px; }
   .diag-hint-text { color: var(--text); }
+  .act-unreachable { opacity: 0.6; }
+  .act-health-err  { font-size: 14px; margin-right: 4px; }
+  .act-health-warn { font-size: 12px; color: var(--orange); margin-right: 4px; }
+  .chip-unreachable { opacity: 0.5; border: 1px solid var(--orange) !important; }
+  .act-chip-err { position: absolute; top: -4px; right: -4px; background: var(--orange);
+    color: #000; font-size: 9px; font-weight: bold; border-radius: 50%;
+    width: 13px; height: 13px; display: flex; align-items: center; justify-content: center; }
+  .act-icon-chip { position: relative; }
   .act-soll-label { font-size: 10px; color: var(--text-dim); margin-left: 4px; }
   .act-ist-label  { font-size: 10px; color: var(--text-dim); margin-left: 8px; }
   .act-toggle {
@@ -593,9 +601,11 @@ function actIconsHtml(actuators, groupId, manualOverrides) {
     const ov = manualOverrides && manualOverrides[a.id];
     const ovNote = ov ? ` · manuell bis ${new Date(ov.until).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}` : '';
     const pulse = isOn ? '<span class="act-icon-pulse"></span>' : '';
-    return `<span class="act-icon-chip ${isOn ? 'on ' + t.cls : 'off'}">
-      ${t.icon}${pulse}
-      <span class="act-icon-tip">${a.name}${ovNote} · ${isOn ? 'EIN' : 'AUS'}</span>
+    const unreachable = a.health === 'unreachable';
+    const errBadge = unreachable ? '<span class="act-chip-err">!</span>' : '';
+    return `<span class="act-icon-chip ${isOn ? 'on ' + t.cls : 'off'}${unreachable ? ' chip-unreachable' : ''}">
+      ${t.icon}${errBadge}${pulse}
+      <span class="act-icon-tip">${a.name}${ovNote} · ${unreachable ? '⚠ Nicht erreichbar' : (isOn ? 'EIN' : 'AUS')}</span>
     </span>`;
   }).join('');
   return `<div class="act-icons-row">${chips}</div>`;
@@ -684,10 +694,17 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
        <button class="act-toggle off-btn" onclick="sendControl('${groupId}','${a.id}',false,'${a.name} ausschalten')">AUS</button>`
     : '';
 
-  return `<div class="actuator-row">
+  const unreachable = a.health === 'unreachable';
+  const healthIcon = unreachable
+    ? `<span class="act-health-err" title="Gerät nicht erreichbar">📵</span>`
+    : (a.health !== 'ok' && a.health !== 'unknown'
+        ? `<span class="act-health-warn" title="Gerätestatus: ${a.health}">⚠</span>`
+        : '');
+
+  return `<div class="actuator-row${unreachable ? ' act-unreachable' : ''}">
     <div class="act-dot ${ledClass}"></div>
     <span class="act-name">${t.icon} ${a.name}</span>
-    ${modeBadge}${sollHtml}${istHtml}
+    ${healthIcon}${modeBadge}${sollHtml}${istHtml}
     ${ctrlBtns}
   </div>`;
 }

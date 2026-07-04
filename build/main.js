@@ -404,6 +404,21 @@ class GrowManagerAdapter extends utils.Adapter {
             healthy = val === true || val === 1 || val === 'true';
         }
         (0, SensorService_1.setDeviceHealth)(stateId, healthy);
+        // Für Aktoren: ActuatorState.health aktualisieren + Alarm
+        for (const group of this.growConfig.groups) {
+            for (const actuator of group.actuators) {
+                if (actuator.healthStateId === stateId) {
+                    this.actuatorService.setReachable(actuator.id, healthy);
+                    if (!healthy) {
+                        this.log.warn(`Aktor ${actuator.name} nicht erreichbar (${stateId} = ${val})`);
+                        this.alarmService.raise(AlarmService_1.ALARM_CODES.ACTUATOR_UNREACHABLE, group.id, actuator.id, 'fault', `Aktor "${actuator.name}" nicht erreichbar`);
+                    }
+                    else {
+                        this.alarmService.clear(AlarmService_1.ALARM_CODES.ACTUATOR_UNREACHABLE, group.id, actuator.id);
+                    }
+                }
+            }
+        }
         if (!healthy) {
             this.log.debug(`Health-State ${stateId} = ${val} → Gerät nicht erreichbar`);
         }
