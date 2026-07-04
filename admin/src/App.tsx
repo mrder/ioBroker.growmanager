@@ -1172,6 +1172,45 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                         </div>
                     ))}
 
+                    {/* Geteilte Aktoren aus anderen Gruppen (Teilnehmer-Sicht) */}
+                    {(() => {
+                        const sharedFromOthers = allGroups
+                            .filter(g => g.id !== edit.id)
+                            .flatMap(g => g.actuators
+                                .filter(a => a.enabled && a.shared && (a.sharedParticipants ?? []).some(p => p.groupId === edit.id))
+                                .map(a => ({
+                                    actuator: a,
+                                    group: g,
+                                    influenceFactor: (a.sharedParticipants ?? []).find(p => p.groupId === edit.id)?.influenceFactor ?? 0,
+                                }))
+                            );
+                        if (sharedFromOthers.length === 0) return null;
+                        return (
+                            <div style={{ marginTop: 16, padding: '10px 14px', background: '#f0f4ff', borderRadius: 8, border: '1px solid #c5cae9' }}>
+                                <div style={{ fontWeight: 600, fontSize: 13, color: '#3949ab', marginBottom: 8 }}>
+                                    ⇄ Geteilte Aktoren (aus anderen Gruppen)
+                                </div>
+                                <div style={{ fontSize: 12, color: '#555', marginBottom: 8 }}>
+                                    Diese Aktoren werden von anderen Gruppen verwaltet. Diese Gruppe beeinflusst die Abstimmung mit dem konfigurierten Einfluss-Faktor.
+                                </div>
+                                {sharedFromOthers.map(({ actuator: a, group: og, influenceFactor: inf }) => (
+                                    <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderTop: '1px solid #e8eaf6' }}>
+                                        <span style={{ flex: 1 }}>
+                                            <span style={{ fontWeight: 600 }}>{a.name}</span>
+                                            <span style={{ fontSize: 12, color: '#666', marginLeft: 8 }}>{a.type} · {a.sharedVotingMode ?? 'any'}</span>
+                                        </span>
+                                        <span style={{ fontSize: 12, background: '#e8eaf6', color: '#3949ab', borderRadius: 4, padding: '2px 8px' }}>
+                                            aus: {og.name}
+                                        </span>
+                                        <span style={{ fontSize: 12, background: '#e3f2fd', color: '#1565c0', borderRadius: 4, padding: '2px 8px' }}>
+                                            Einfluss: {inf}%
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        );
+                    })()}
+
                     {editingActuator !== null && (
                         <ActuatorEditor
                             actuator={editingActuator === 'new' ? null : editingActuator}

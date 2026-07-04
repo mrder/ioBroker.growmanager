@@ -192,8 +192,14 @@ class GrowManagerAdapter extends utils.Adapter {
             return { points: pts };
         });
         this.webDashboard.setControlCallback(async ({ groupId, actuatorId, command, durationMinutes }) => {
-            const group = this.growConfig.groups.find(g => g.id === groupId);
-            const actuator = group?.actuators.find(a => a.id === actuatorId);
+            // Aktor in eigener Gruppe suchen; falls nicht gefunden, quer über alle Gruppen (shared-from Sicht)
+            let actuator = this.growConfig.groups.find(g => g.id === groupId)?.actuators.find(a => a.id === actuatorId);
+            if (!actuator) {
+                for (const g of this.growConfig.groups) {
+                    actuator = g.actuators.find(a => a.id === actuatorId);
+                    if (actuator) break;
+                }
+            }
             if (!actuator) throw new Error(`Aktor ${actuatorId} nicht gefunden`);
             this.dashboardOverrides.set(actuatorId, { command, until: Date.now() + durationMinutes * 60_000 });
             // Lock blockiert Auto-Zyklus und setzt requested auf manuellen Wert (→ korrekte LED-Anzeige)
@@ -928,38 +934,57 @@ class GrowManagerAdapter extends utils.Adapter {
             humSetpoint = sp.humidity;
         }
 
+        // VPD-Sollwerte für VPD-geregelte Gruppen
+        let vpdMax: number | null = null;
+        let vpdMin: number | null = null;
+        if (gs.activeProfile) {
+            const sp = gs.activeProfile[gs.dayNight === 'night' ? 'night' : 'day'];
+            vpdMax = sp.vpdMax ?? null;
+            vpdMin = sp.vpdMin ?? null;
+        }
+
         switch (actuatorType) {
             case 'dehumidifier': {
                 const target = humSetpoint ?? 60;
                 const hum = gs.humidity;
                 if (hum === null) return { wantsOn: false, urgency: 0 };
                 const excess = hum - (target + hyst);
-                return {
-                    wantsOn: excess > 0,
-                    urgency: Math.min(1, Math.max(0, excess / 10)),
-                };
+                if (excess > 0) return { wantsOn: true, urgency: Math.min(1, excess / 10) };
+                // VPD zu niedrig → Luftfeuchtigkeit zu hoch → Entfeuchter
+                if (vpdMin !== null && gs.vpd !== null && gs.vpd < vpdMin - 0.2) {
+                    const deficit = vpdMin - gs.vpd;
+                    return { wantsOn: true, urgency: Math.min(1, deficit / 0.5) };
+                }
+                return { wantsOn: false, urgency: 0 };
             }
             case 'humidifier': {
                 const target = humSetpoint ?? 50;
                 const hum = gs.humidity;
                 if (hum === null) return { wantsOn: false, urgency: 0 };
                 const deficit = (target - hyst) - hum;
-                return {
-                    wantsOn: deficit > 0,
-                    urgency: Math.min(1, Math.max(0, deficit / 10)),
-                };
+                if (deficit > 0) return { wantsOn: true, urgency: Math.min(1, deficit / 10) };
+                // VPD zu hoch → Luftfeuchtigkeit zu niedrig → Befeuchter
+                if (vpdMax !== null && gs.vpd !== null && gs.vpd > vpdMax + 0.2) {
+                    const excess = gs.vpd - vpdMax;
+                    return { wantsOn: true, urgency: Math.min(1, excess / 0.5) };
+                }
+                return { wantsOn: false, urgency: 0 };
             }
             case 'cooling':
             case 'exhaustFan':
             case 'supplyFan': {
                 const target = tempSetpoint ?? 25;
                 const temp = gs.temperature;
-                if (temp === null) return { wantsOn: false, urgency: 0 };
-                const excess = temp - (target + tempHyst);
-                return {
-                    wantsOn: excess > 0,
-                    urgency: Math.min(1, Math.max(0, excess / 5)),
-                };
+                if (temp !== null) {
+                    const excess = temp - (target + tempHyst);
+                    if (excess > 0) return { wantsOn: true, urgency: Math.min(1, excess / 5) };
+                }
+                // VPD-basiert: zu hoch → Lüftung/Kühlung hilft
+                if (vpdMax !== null && gs.vpd !== null && gs.vpd > vpdMax + 0.2) {
+                    const excess = gs.vpd - vpdMax;
+                    return { wantsOn: true, urgency: Math.min(1, excess / 0.5) };
+                }
+                return { wantsOn: false, urgency: 0 };
             }
             case 'heating': {
                 const target = tempSetpoint ?? 20;
@@ -970,6 +995,19 @@ class GrowManagerAdapter extends utils.Adapter {
                     wantsOn: deficit > 0,
                     urgency: Math.min(1, Math.max(0, deficit / 5)),
                 };
+            }
+            case 'circulationFan':
+            case 'damper': {
+                // Zirkulationslüfter: läuft wenn Temp oder VPD erhöht
+                const target = tempSetpoint ?? 25;
+                const temp = gs.temperature;
+                if (temp !== null && temp > target + tempHyst) {
+                    return { wantsOn: true, urgency: Math.min(1, (temp - target - tempHyst) / 5) };
+                }
+                if (vpdMax !== null && gs.vpd !== null && gs.vpd > vpdMax + 0.3) {
+                    return { wantsOn: true, urgency: Math.min(1, (gs.vpd - vpdMax) / 0.5) };
+                }
+                return { wantsOn: false, urgency: 0 };
             }
             case 'co2Valve': {
                 // CO2 wird selten geteilt; kein Teilnehmer-Bedarf
@@ -1113,6 +1151,12 @@ class GrowManagerAdapter extends utils.Adapter {
                     const ov = this.dashboardOverrides.get(a.id);
                     if (ov && ov.until > now) manualOverrides[a.id] = ov;
                     else if (ov) this.dashboardOverrides.delete(a.id);
+                }
+                // Manuelle Übersteuerungen auch für externe geteilte Aktoren anzeigen (Teilnehmer-Sicht)
+                for (const a of actuators) {
+                    if (!a.sharedFromGroupId || manualOverrides[a.id]) continue;
+                    const ov = this.dashboardOverrides.get(a.id);
+                    if (ov && ov.until > now) manualOverrides[a.id] = ov;
                 }
 
                 return {
