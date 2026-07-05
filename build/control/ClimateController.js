@@ -303,12 +303,17 @@ class ClimateController {
         else if (vpdState === 1) {
             // VPD zu hoch → Feuchte erhöhen oder Temperatur senken
             if (dir === 'up') {
-                // Befeuchter
+                // Befeuchter: mehr Feuchte → VPD sinkt ✓
                 this.pushAction(actions, act, true, `VPD ${vpd.toFixed(2)} zu hoch – Befeuchten`, false);
                 return `VPD ${vpd.toFixed(2)} kPa → zu hoch: Befeuchten`;
             }
             else if (dir === 'down' || dir === 'both') {
-                // Kühlung / Abluft
+                // Entfeuchter senkt Feuchte → VPD würde steigen → darf bei VPD-zu-hoch NICHT laufen
+                if (act.type === 'dehumidifier') {
+                    this.pushAction(actions, act, false, `VPD zu hoch – Entfeuchter gesperrt`, false);
+                    return null;
+                }
+                // Kühlung / Abluft: senkt Temperatur → VPD sinkt ✓
                 if (act.outdoorGuardEnabled && outdoorTemp !== null) {
                     const minDelta = outdoorCfg?.minTempDeltaCelsius ?? 2;
                     const delta = temp - outdoorTemp;

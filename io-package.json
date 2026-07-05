@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.10",
+    "version": "0.2.11",
     "news": {
+      "0.2.11": {
+        "en": "Fix: dehumidifier no longer runs when VPD is too high (would worsen it); only runs when VPD is too low",
+        "de": "Fix: Entfeuchter läuft nicht mehr wenn VPD zu hoch ist (würde es verschlimmern); läuft nur noch wenn VPD zu niedrig"
+      },
       "0.2.10": {
         "en": "Fix Tag/Nacht display: transition phase shown as '⇄ Übergang' instead of 'Tag'; isDay now only true for actual day",
         "de": "Tag/Nacht-Anzeige korrigiert: Übergangsphase zeigt '⇄ Übergang' statt 'Tag'; isDay ist nur noch bei echtem Tag true"
