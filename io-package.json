@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.48",
+    "version": "0.1.49",
     "news": {
+      "0.1.49": {
+        "en": "Bugfix: Light actuators now always follow their schedule, even in monitorOnly/maintenance mode or shadow mode",
+        "de": "Bugfix: Licht-Aktoren folgen jetzt immer dem Zeitplan, auch im monitorOnly/Wartungsmodus oder Shadow Mode"
+      },
       "0.1.48": {
         "en": "Bugfix: In VPD mode, dehumidifiers/humidifiers/fans now use VPD as control target instead of absolute humidity/temperature",
         "de": "Bugfix: Im VPD-Modus regeln Entfeuchter/Befeuchter/Lüfter jetzt über VPD statt absolute Feuchte/Temperatur"

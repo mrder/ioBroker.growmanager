@@ -79,11 +79,11 @@ export class SafetyService {
         }
 
         if (this.isGroupPaused(config.id)) {
-            const maintenanceActions = decision.actions.map(a => ({
-                ...a,
-                blocked: true,
-                blockedReason: 'Wartungsmodus',
-            }));
+            const maintenanceActions = decision.actions.map(a => {
+                const type = this.getActuatorType(config, a.actuatorId);
+                if (type === 'light') return a; // Licht immer nach Zeitplan, auch im Wartungsmodus
+                return { ...a, blocked: true, blockedReason: 'Wartungsmodus' };
+            });
             return {
                 ...decision,
                 reason: `Wartungsmodus: ${decision.reason}`,

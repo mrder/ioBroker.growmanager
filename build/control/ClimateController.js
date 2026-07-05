@@ -337,7 +337,7 @@ class ClimateController {
         for (const act of config.actuators) {
             if (!act.enabled)
                 continue;
-            if (inferControlTarget(act) !== target)
+            if (inferControlTarget(act, config.mode) !== target)
                 continue;
             if (dir !== 'both' && inferControlDirection(act) !== dir && inferControlDirection(act) !== 'both')
                 continue;
@@ -375,7 +375,14 @@ class ClimateController {
             temperature: state.temperature,
             humidity: state.humidity,
             vpd: state.vpd,
-            actions: shadowMode ? actions.map(a => ({ ...a, blocked: true, blockedReason: 'Shadow Mode' })) : actions,
+            actions: shadowMode
+                ? actions.map(a => {
+                    const act = config.actuators.find(x => x.id === a.actuatorId);
+                    if (act?.type === 'light')
+                        return a; // Licht immer nach Zeitplan, nie durch Shadow Mode blockieren
+                    return { ...a, blocked: true, blockedReason: 'Shadow Mode' };
+                })
+                : actions,
             degradation: state.degradation,
         };
     }
