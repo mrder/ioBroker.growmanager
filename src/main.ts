@@ -1091,7 +1091,7 @@ class GrowManagerAdapter extends utils.Adapter {
         const schedule = (isRetry: boolean) => this.setTimeout(async () => {
             this.pendingVerify.delete(actuatorConfig.id);
             const actual = await this.getForeignStateAsync(feedbackId);
-            if (!actual) return;
+            if (!actual || actual.val === null || actual.val === undefined) return;
             const actVal = actual.val;
             const requestedOn = typeof value === 'boolean' ? value : value > 0;
             const actualOn = typeof actVal === 'boolean' ? actVal : (actVal as number) > 0;
