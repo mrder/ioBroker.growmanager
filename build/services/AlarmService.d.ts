@@ -29,7 +29,7 @@ export interface AlarmRaisedEvent {
     alarm: AlarmRecord;
     isNew: boolean;
 }
-type AlarmListener = (event: AlarmRaisedEvent) => void;
+type AlarmListener = (event: AlarmRaisedEvent) => void | Promise<void>;
 export declare class AlarmService {
     private readonly log;
     private readonly alarms;

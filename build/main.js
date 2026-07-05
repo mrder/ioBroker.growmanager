@@ -62,6 +62,8 @@ class GrowManagerAdapter extends utils.Adapter {
         this.dashboardModeOverrides = new Map();
         // Pending command verifications {actuatorId → timer}
         this.pendingVerify = new Map();
+        // Lock gegen parallele Regelzyklen
+        this.cycleRunning = false;
         // Außenluft-Sensorwerte {stateId → Wert}
         this.outdoorValues = new Map();
         const log = {
@@ -341,12 +343,18 @@ class GrowManagerAdapter extends utils.Adapter {
                 this.clearTimeout(this.cycleTimer);
             if (this.watchdogTimer)
                 this.clearInterval(this.watchdogTimer);
+            for (const t of this.pendingVerify.values())
+                this.clearTimeout(t);
+            this.pendingVerify.clear();
             this.webDashboard.stop();
-            this.setStateAsync('info.connection', { val: false, ack: true }).catch(() => { });
-            this.setStateAsync('info.status', { val: 'stopped', ack: true }).catch(() => { });
+            Promise.all([
+                this.setStateAsync('info.connection', { val: false, ack: true }),
+                this.setStateAsync('info.status', { val: 'stopped', ack: true }),
+            ]).catch(() => { }).finally(() => callback());
         }
-        catch { /* ignore */ }
-        callback();
+        catch {
+            callback();
+        }
     }
     // ============================================================
     // History-Adapter Abfrage
@@ -501,6 +509,11 @@ class GrowManagerAdapter extends utils.Adapter {
         }, interval);
     }
     async runCycle() {
+        if (this.cycleRunning) {
+            this.log.debug('Regelzyklus übersprungen – vorheriger Zyklus läuft noch');
+            return;
+        }
+        this.cycleRunning = true;
         const cycleStart = Date.now();
         try {
             if (this.safetyService.isEmergencyStop()) {
@@ -605,6 +618,9 @@ class GrowManagerAdapter extends utils.Adapter {
         }
         catch (err) {
             this.log.error(`Fehler im Regelzyklus: ${err}`);
+        }
+        finally {
+            this.cycleRunning = false;
         }
     }
     async processGroup(config) {
@@ -858,18 +874,17 @@ class GrowManagerAdapter extends utils.Adapter {
         // Sollwerte aus aktivem Profil ermitteln
         let tempSetpoint = null;
         let humSetpoint = null;
-        if (gs.activeProfile) {
-            const sp = gs.activeProfile[gs.dayNight === 'night' ? 'night' : 'day'];
-            tempSetpoint = sp.temperature;
-            humSetpoint = sp.humidity;
-        }
-        // VPD-Sollwerte für VPD-geregelte Gruppen
         let vpdMax = null;
         let vpdMin = null;
         if (gs.activeProfile) {
-            const sp = gs.activeProfile[gs.dayNight === 'night' ? 'night' : 'day'];
-            vpdMax = sp.vpdMax ?? null;
-            vpdMin = sp.vpdMin ?? null;
+            const spKey = gs.dayNight === 'night' ? 'night' : 'day';
+            const sp = gs.activeProfile[spKey];
+            if (sp) {
+                tempSetpoint = sp.temperature ?? null;
+                humSetpoint = sp.humidity ?? null;
+                vpdMax = sp.vpdMax ?? null;
+                vpdMin = sp.vpdMin ?? null;
+            }
         }
         switch (actuatorType) {
             case 'dehumidifier': {
@@ -1200,7 +1215,7 @@ class GrowManagerAdapter extends utils.Adapter {
         ];
         if (state.activeProfile) {
             const sp = this.scheduleService.getActiveSetpoint(state.activeProfile, state.dayNight, this.lightChangeTimes.get(config.id) ?? Date.now());
-            updates.push([`${base}.climate.targetTemperature`, sp.temperature], [`${base}.climate.targetHumidity`, sp.humidity], [`${base}.climate.targetVpd`, (sp.vpdMin + sp.vpdMax) / 2]);
+            updates.push([`${base}.climate.targetTemperature`, sp.temperature], [`${base}.climate.targetHumidity`, sp.humidity], [`${base}.climate.targetVpd`, (sp.vpdMin != null && sp.vpdMax != null) ? (sp.vpdMin + sp.vpdMax) / 2 : null]);
         }
         if (state.nextScheduleChange) {
             updates.push([`${base}.info.nextChange`, state.nextScheduleChange]);

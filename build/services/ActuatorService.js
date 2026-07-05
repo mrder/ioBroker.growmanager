@@ -124,6 +124,9 @@ class ActuatorService {
             const rt = this.runTime.get(config.id);
             rt.switchCount++;
             rt.lastHourSwitches.push(Date.now());
+            // Array trimmen: nur Timestamps der letzten Stunde behalten
+            const oneHourAgo = Date.now() - 3600000;
+            rt.lastHourSwitches = rt.lastHourSwitches.filter(ts => ts > oneHourAgo);
             if (!isNowOn && rt.startTs > 0) {
                 rt.totalSeconds += (Date.now() - rt.startTs) / 1000;
                 rt.startTs = 0;
@@ -298,8 +301,9 @@ class ActuatorService {
         const effectiveOn = this.isEffectivelyOn(config, state);
         const timeSince = (Date.now() - state.lastSwitchTs) / 1000;
         // Kleben prüfen (EIN obwohl AUS befohlen)
+        // lastSwitchTs=0: Adapter-Start, noch kein Schaltbefehl ausgeführt → kein stuckOn
         // Bei geteilten Aktoren überspringen: eine andere Gruppe kann den Aktor halten
-        if (!config.shared && !requestedOn && effectiveOn && timeSince > config.offDelaySeconds + 30) {
+        if (!config.shared && !requestedOn && effectiveOn && state.lastSwitchTs > 0 && timeSince > config.offDelaySeconds + 30) {
             return 'stuckOn';
         }
         // Kein Feedback innerhalb der Frist

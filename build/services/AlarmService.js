@@ -161,7 +161,11 @@ class AlarmService {
     notifyListeners(event) {
         for (const fn of this.listeners) {
             try {
-                fn(event);
+                const result = fn(event);
+                // Async listener: unhandled rejection abfangen
+                if (result && typeof result.catch === 'function') {
+                    result.catch(() => { });
+                }
             }
             catch { /* ignore */ }
         }

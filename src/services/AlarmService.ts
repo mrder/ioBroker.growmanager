@@ -39,7 +39,7 @@ export interface AlarmRaisedEvent {
     isNew: boolean;
 }
 
-type AlarmListener = (event: AlarmRaisedEvent) => void;
+type AlarmListener = (event: AlarmRaisedEvent) => void | Promise<void>;
 
 export class AlarmService {
     private readonly alarms = new Map<string, AlarmRecord>();
@@ -191,7 +191,13 @@ export class AlarmService {
 
     private notifyListeners(event: AlarmRaisedEvent): void {
         for (const fn of this.listeners) {
-            try { fn(event); } catch { /* ignore */ }
+            try {
+                const result = fn(event);
+                // Async listener: unhandled rejection abfangen
+                if (result && typeof (result as Promise<void>).catch === 'function') {
+                    (result as Promise<void>).catch(() => { /* Fehler wird im Listener selbst geloggt */ });
+                }
+            } catch { /* ignore */ }
         }
     }
 }

@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.51",
+    "version": "0.1.52",
     "news": {
+      "0.1.52": {
+        "en": "Bugfix batch: NaN VPD target, stuckOn false positive on restart, double cycle lock, memory leak, async alarm listeners, safe onUnload",
+        "de": "Bugfix-Batch: NaN VPD-Sollwert, stuckOn Fehlalarm nach Neustart, Doppelzyklus-Lock, Memory Leak, async Alarm-Listener, sicheres onUnload"
+      },
       "0.1.51": {
         "en": "Command verification: after 10s check if actuator responded, retry once, then raise alarm",
         "de": "Befehlsverifikation: nach 10s prüfen ob Aktor reagiert hat, 1x Retry, dann Alarm"
