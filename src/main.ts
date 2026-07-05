@@ -632,6 +632,9 @@ class GrowManagerAdapter extends utils.Adapter {
                         const changed = this.actuatorService.recordCommand(actuatorConfig, finalCommand);
                         if (changed) {
                             await this.setActuatorState(actuatorConfig.commandStateId, finalCommand);
+                            if (typeof finalCommand === 'boolean') {
+                                this.setActuatorStateWithVerify(actuatorConfig, group.id, finalCommand);
+                            }
                             this.log.info(`SharedAktor ${actuatorConfig.name} → ${finalCommand} (Abstimmung: ${votingMode})`);
                         }
                     }
@@ -652,6 +655,9 @@ class GrowManagerAdapter extends utils.Adapter {
                             const changed = this.actuatorService.recordCommand(act, result.finalCommand);
                             if (changed) {
                                 await this.setActuatorState(act.commandStateId, result.finalCommand);
+                                if (typeof result.finalCommand === 'boolean') {
+                                    this.setActuatorStateWithVerify(act, result.winningGroupId, result.finalCommand);
+                                }
                                 this.log.info(`SharedAktor ${act.name} → ${result.finalCommand} (Gruppe ${result.winningGroupId}: ${result.reason})`);
                             }
                         }
@@ -925,7 +931,7 @@ class GrowManagerAdapter extends utils.Adapter {
             const changed = this.actuatorService.recordCommand(actuatorConfig, action.requested);
             if (changed) {
                 await this.setActuatorState(actuatorConfig.commandStateId, action.requested);
-                if (!actuatorConfig.shared && typeof action.requested === 'boolean') {
+                if (typeof action.requested === 'boolean') {
                     this.setActuatorStateWithVerify(actuatorConfig, config.id, action.requested);
                 }
                 this.log.info(
