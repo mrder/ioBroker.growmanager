@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.53",
+    "version": "0.1.54",
     "news": {
+      "0.1.54": {
+        "en": "Bugfix batch 3: SensorService weights sync after outlier removal, WebDashboard POST body limit, ConfigurationService undefined guards",
+        "de": "Bugfix-Batch 3: SensorService Gewichte synchron nach Ausreißerfilter, WebDashboard POST-Body-Limit 64KB, ConfigurationService undefined-Guards"
+      },
       "0.1.53": {
         "en": "Bugfix batch 2: Flow accumulation delta fix, override duration validation, VPD band minimum, ratioPoints null guard, manualLock expiry, effectChecks cleanup",
         "de": "Bugfix-Batch 2: Flow-Akkumulation Delta-Fix, Override-Dauer Validierung, VPD-Mindestband, ratioPoints Null-Guard, manualLock Ablauf, effectChecks Cleanup"

@@ -33,10 +33,10 @@ class ConfigurationService {
                 warnings.push(...gErrors.warnings);
             }
         }
-        if (config.controlCycleSeconds < 1) {
+        if (!config.controlCycleSeconds || config.controlCycleSeconds < 1) {
             errors.push('controlCycleSeconds muss ≥ 1 sein');
         }
-        if (config.webPort < 1 || config.webPort > 65535) {
+        if (!config.webPort || config.webPort < 1 || config.webPort > 65535) {
             errors.push(`Ungültiger Web-Port: ${config.webPort}`);
         }
         return { valid: errors.length === 0, errors, warnings };

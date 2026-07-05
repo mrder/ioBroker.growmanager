@@ -164,18 +164,24 @@ class SensorService {
         if (validStates.length === 0) {
             return { value: null, quality: 0, validCount: 0, totalCount: total, usingBackup: false };
         }
-        let values = validStates.map(s => s.processedValue);
-        const weights = validStates.map(s => {
+        let pairs = validStates.map(s => {
             const cfg = relevant.find(c => c.id === s.id);
-            return cfg?.weight ?? 1;
+            return { value: s.processedValue, weight: cfg?.weight ?? 1 };
         });
-        // Ausreißerfilter wenn mehr als 3 Werte
-        if (values.length > 3) {
-            const filtered = (0, calculations_1.removeOutliers)(values);
+        // Ausreißerfilter wenn mehr als 3 Werte — Gewichte synchron mit Werten filtern
+        if (pairs.length > 3) {
+            const vals = pairs.map(p => p.value);
+            const sorted = [...vals].sort((a, b) => a - b);
+            const q1 = sorted[Math.floor(sorted.length * 0.25)];
+            const q3 = sorted[Math.floor(sorted.length * 0.75)];
+            const iqr = q3 - q1;
+            const low = q1 - 1.5 * iqr;
+            const high = q3 + 1.5 * iqr;
+            const filtered = pairs.filter(p => p.value >= low && p.value <= high);
             if (filtered.length > 0)
-                values = filtered;
+                pairs = filtered;
         }
-        const value = (0, calculations_1.aggregateValues)(values, weights, method);
+        const value = (0, calculations_1.aggregateValues)(pairs.map(p => p.value), pairs.map(p => p.weight), method);
         const quality = (0, calculations_1.sensorQuality)(validStates.length, total);
         return { value, quality, validCount: validStates.length, totalCount: total, usingBackup };
     }
