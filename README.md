@@ -235,7 +235,7 @@ src/
 ├── models/config.ts                # Vollständiges Typmodell
 ├── services/
 │   ├── SensorService.ts            # Sensorverarbeitung, Aggregation, Stabilitätszeit
-│   ├── ActuatorService.ts          # Aktorsteuerung, Sperrzeiten, Feedback
+│   ├── ActuatorService.ts          # Aktorsteuerung, Sperrzeiten, Feedback, Verifizierung
 │   ├── ScheduleService.ts          # Zeitplan, Tag/Nacht, Übergangsrampen
 │   ├── AlarmService.ts             # Alarmzentrale mit Deduplizierung
 │   ├── SafetyService.ts            # Sicherheitsregeln, Not-Aus, Wartung
@@ -244,41 +244,111 @@ src/
 │   ├── AirSystemService.ts         # Abluft/Zuluft-Verbund, Umluft-Rotation
 │   ├── IrrigationService.ts        # Bewässerungszonen, Schutzfunktionen
 │   ├── CameraService.ts            # Snapshots, Timelapse, KI-Analyse
-│   ├── SharedActorManager.ts       # Geteilte Aktoren, Konfliktauflösung
+│   ├── NotificationService.ts      # Discord, E-Mail, Telegram mit Cooldown
+│   ├── SharedActorManager.ts       # Geteilte Aktoren, Abstimmung, Hysterese
 │   └── WebDashboardService.ts      # Interner HTTP-Server, SSE Live-Updates
 ├── control/
-│   ├── ClimateController.ts        # 7-Stufen-Priorität, Shadow Mode
+│   ├── ClimateController.ts        # 7-Stufen-Priorität, Shadow Mode, VPD-Routing
 │   └── PidController.ts            # PID, Anti-Windup, Zweipunkt, Stepped
 ├── diagnostics/
-│   └── DiagnosticsEngine.ts        # 4-Ebenen-Diagnose, Trend-Auswertung
+│   └── DiagnosticsEngine.ts        # 4-Ebenen-Diagnose, Effekt-Checks, Trend
 └── utils/
-    ├── calculations.ts             # VPD, Taupunkt, Aggregation, Trend
-    ├── time.ts                     # Zeitfenster, Formatierung
+    ├── calculations.ts             # VPD, Taupunkt, Aggregation, Kennlinien
+    ├── time.ts                     # Zeitfenster, Übergang, Formatierung
     └── logger.ts                   # ILogger, PrefixedLogger
 admin/
 ├── src/App.tsx                     # React Admin-UI
 └── web/dashboard.html              # Standalone Live-Dashboard (Port 8097)
-test/unit/                          # Jest Unit-Tests (116 Tests)
+test/unit/                          # Jest Unit-Tests (254 Tests, alle grün)
 ```
 
 ---
 
 ## Changelog
 
-### 0.1.0 (2026-06-30)
-- Erste vollständige Implementierung aller Phasen 1–11
-- Vollständig optionale Sensorik und Aktorik
-- Live-Dashboard auf Port 8097
-- VPD-, Temperatur-, Feuchte- und Kombinationsregelung
-- Bewässerungssteuerung mit optionalem Bodenfeuchte-Sensor
-- Luftstrommanagement mit 4 Modi
-- Kamera-Modul (optional)
-- 4-Ebenen-Diagnose und Alarmzentrale
+### 0.2.0 (2026-07-05) — Stabiles Release
+
+6 aufeinanderfolgende Audit-Runden abgeschlossen. 254 Unit-Tests grün. Kein bekannter Laufzeit-Bug offen.
+
+#### Neue Features
+
+**Geteilte Aktoren — erweiterter Abstimmungsmodus**
+- Abstimmungsmodi: `any` (OR), `majority` (gewichtete Mehrheit), `primary` (Eigentümer mit Veto)
+- Hysterese-Timer für Zustandswechsel, `influenceFactor` als Stimmgewicht
+- Feedback des Geräts erscheint in allen beteiligten Gruppen
+
+**Befehlsverifizierung mit Retry & Alarm**
+- 10 s nach Schreibbefehl: prüft ob Gerät mit `ack:true` geantwortet hat
+- Bei Abweichung: 1× automatischer Retry, dann `ACTUATOR_NO_FEEDBACK` Alarm
+- Korrekte Trennung von eigenen Schreibbefehlen (`ack:false`) und Geräte-Bestätigungen (`ack:true`)
+
+**Shadow- und Wartungsmodus (verfeinert)**
+- Licht-Aktoren werden in beiden Modi nie blockiert — Beleuchtungszeitplan läuft immer durch
+- Alle anderen Aktoren werden sicher gesperrt
+
+**Benachrichtigungsservice**
+- Discord, E-Mail, Telegram konfigurierbar
+- Quiet-Hours, Severity-Filter, Cooldown pro Alarm-ID
+- Cooldown wird erst nach erfolgreichem Versand gesetzt (Netzfehler → automatischer Retry)
+
+**History-Trends im Dashboard**
+- Unterstützt `history.0`, `influxdb.0`, `sql.0` mit automatischem Fallback
+- Fallback auf internen Stunden-Puffer wenn kein History-Adapter installiert
+
+#### Bugfixes
+
+| # | Bereich | Beschreibung |
+|---|---------|--------------|
+| 1 | SensorService | IQR-Ausreißerfilter desynchronisierte Gewichte → falsche gewichtete Mittelwerte |
+| 2 | ActuatorService | `canSwitch` Logik invertiert → Schaltungen fälschlich blockiert |
+| 3 | ActuatorService | `lastHourSwitches` nicht getrimmt → unbegrenztes Wachstum im Speicher |
+| 4 | ActuatorService | `stuckOn` false-positive beim Neustart (initialem `lastSwitchTs=0`) |
+| 5 | ActuatorService | `manualLock` lief nie ab |
+| 6 | IrrigationService | Durchfluss-Akkumulation mit Gesamt-Laufzeit statt Delta → Überschätzung |
+| 7 | AirSystemService | `ratioPoints` null-Deref ohne Koppelkurve |
+| 8 | AlarmService | Async Listener-Fehler nicht gefangen → unhandled rejection |
+| 9 | ClimateController | Shadow-Mode blockierte Licht-Aktoren |
+| 10 | ClimateController | VPD-Routing defekt durch fehlenden `config.mode`-Parameter |
+| 11 | ClimateController | `vpdMin`/`vpdMax` null in `lerp` → NaN in Sollwerten |
+| 12 | SafetyService | Wartungsmodus blockierte Licht-Aktoren |
+| 13 | main.ts | Fehlender `cycleRunning`-Lock → parallele Regelzyklen |
+| 14 | main.ts | Eigene Schreibbefehle als Geräte-Feedback verarbeitet → falscher Dashboard-Status |
+| 15 | main.ts | Null-Deref in `computeParticipantNeed` ohne aktives Profil |
+| 16 | main.ts | VPD-Ziel NaN ohne `vpdMin`/`vpdMax` im Profil |
+| 17 | main.ts | `setOverride` kein Fehler-Callback bei unbekannter Aktor-ID |
+| 18 | main.ts | `getActiveSetpoint` 4× redundant pro Regelzyklus |
+| 19 | main.ts | `lightChangeTimes ?? 0` → Übergangs-Fortschritt immer 100% nach Neustart |
+| 20 | main.ts | History-Fallback-Kette brach beim ersten Adapter mit 0 Daten ab |
+| 21 | calculations.ts | `dewPoint(t, 0)` → `Math.log(0) = -Infinity` → NaN downstream |
+| 22 | calculations.ts | `curveInterpolate` Division durch 0 bei doppelten x-Stützpunkten |
+| 23 | time.ts | `transitionProgress(ts, 0)` Division durch 0 |
+| 24 | SharedActorManager | `anyOn` prüfte alle Gruppen → Niedrig-Priorität überstimmte Hoch-Priorität |
+| 25 | CameraService | `captureIntervalMinutes = 0` → sofortiger Offline-Alarm |
+| 26 | ScheduleService | Übergangs-Erkennung falsch für `transitionMinutes > 60` |
+| 27 | NotificationService | Cooldown vor Versand gesetzt → bei Netzfehler Alarm dauerhaft stumm |
+| 28 | WebDashboardService | `req.destroy()` ohne Error-Handler → `uncaughtException` → Adapter-Crash |
+
+---
+
+### 0.1.26 (2026-07-03)
+
+- Zusammenfassung aller Neuerungen seit v0.1.0
+- Stale-Erkennung verbessert: Alive-State, Geräte-Liveness-Sharing, Startup-Fix
+- Außenluft-Guard: optionaler Vergleichssensor pro Gruppe
+- Admin-UI: Objektpicker, Klimaprofil-Presets, Live-Dashboard, Diagnose-Ansicht
+- Sensor-Stabilitätszeit, Aggregationsoptionen, Sensor-Glättung
 - Fähigkeitsbasierte Degradierung (FULL → FAULT)
-- Geteilte Aktoren mit Prioritätsauflösung
-- Sensor-Stabilitätszeit nach Wiederherstellung
-- PID-Regler mit Anti-Windup und bumpless Transfer
-- Admin-UI mit vollständigem Sensor/Aktor-Editor
+- PID-Regler mit Anti-Windup, bumpless Transfer, Derivative Filter
+- Build: fester Bundle-Dateiname, IIFE-Format
+
+### 0.1.0 (2026-06-30)
+
+- Erste vollständige Implementierung aller Kernfunktionen
+- Gruppen-basierte Klimaregelung (VPD / Temperatur / Feuchte / CO₂)
+- Bewässerungssteuerung, Luftstrommanagement, Kamera-Modul
+- 4-Ebenen-Diagnose, Alarmzentrale, Geteilte Aktoren
+- Live-Dashboard (Port 8097), React Admin-UI
+- 116 Unit-Tests
 
 ---
 
