@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.47",
+    "version": "0.1.48",
     "news": {
+      "0.1.48": {
+        "en": "Bugfix: In VPD mode, dehumidifiers/humidifiers/fans now use VPD as control target instead of absolute humidity/temperature",
+        "de": "Bugfix: Im VPD-Modus regeln Entfeuchter/Befeuchter/Lüfter jetzt über VPD statt absolute Feuchte/Temperatur"
+      },
       "0.1.47": {
         "en": "Push notifications: Telegram, WhatsApp, Discord webhook, Signal with cooldown and quiet hours",
         "de": "Push-Benachrichtigungen: Telegram, WhatsApp, Discord Webhook, Signal mit Cooldown und Ruhephase"

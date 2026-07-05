@@ -30,18 +30,20 @@ interface GroupHystStates {
     co2: HystState;
 }
 
-// Ableitung des Regelziels aus Aktor-Typ (wenn controlTarget nicht explizit gesetzt)
-function inferControlTarget(act: ActuatorConfig): ControlTarget {
+// Ableitung des Regelziels aus Aktor-Typ (wenn controlTarget nicht explizit gesetzt).
+// Im VPD-Modus regeln Feuchte- und Temperatur-Aktoren über VPD statt absolut.
+function inferControlTarget(act: ActuatorConfig, groupMode?: string): ControlTarget {
     if (act.controlTarget) return act.controlTarget;
+    const isVpdMode = groupMode === 'vpd';
     switch (act.type) {
         case 'light':          return 'light';
         case 'circulationFan': return 'timer';
         case 'exhaustFan':
         case 'supplyFan':
-        case 'cooling':        return 'temperature';
-        case 'heating':        return 'temperature';
-        case 'humidifier':     return 'humidity';
-        case 'dehumidifier':   return 'humidity';
+        case 'cooling':        return isVpdMode ? 'vpd' : 'temperature';
+        case 'heating':        return isVpdMode ? 'vpd' : 'temperature';
+        case 'humidifier':     return isVpdMode ? 'vpd' : 'humidity';
+        case 'dehumidifier':   return isVpdMode ? 'vpd' : 'humidity';
         case 'co2Valve':       return 'co2';
         case 'irrigation':     return 'soilMoisture';
         default:               return 'custom';
@@ -146,7 +148,7 @@ export class ClimateController {
 
         for (const act of config.actuators) {
             if (!act.enabled) continue;
-            const target = inferControlTarget(act);
+            const target = inferControlTarget(act, config.mode);
             const dir = inferControlDirection(act);
 
             switch (target) {
