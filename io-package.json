@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.50",
+    "version": "0.1.51",
     "news": {
+      "0.1.51": {
+        "en": "Command verification: after 10s check if actuator responded, retry once, then raise alarm",
+        "de": "Befehlsverifikation: nach 10s prüfen ob Aktor reagiert hat, 1x Retry, dann Alarm"
+      },
       "0.1.50": {
         "en": "Bugfix: Dashboard now shows actual device state (ack feedback) instead of last commanded value",
         "de": "Bugfix: Dashboard zeigt jetzt den echten Gerätezustand (ack-Feedback) statt den zuletzt gesendeten Befehl"

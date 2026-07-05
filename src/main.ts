@@ -76,6 +76,9 @@ class GrowManagerAdapter extends utils.Adapter {
     // Modus-Übersteuerungen vom Dashboard {groupId → 'auto'|'manual'}
     private readonly dashboardModeOverrides = new Map<string, string>();
 
+    // Pending command verifications {actuatorId → timer}
+    private readonly pendingVerify = new Map<string, ioBroker.Timeout>();
+
     // Außenluft-Sensorwerte {stateId → Wert}
     private readonly outdoorValues = new Map<string, number>();
 
@@ -454,11 +457,14 @@ class GrowManagerAdapter extends utils.Adapter {
 
             // Feedback/Leistung verarbeiten
             for (const actuator of group.actuators) {
-                if (actuator.feedbackStateId === id) {
+                const isFeedback = actuator.feedbackStateId === id;
+                const isCommandAck = !actuator.feedbackStateId && actuator.commandStateId === id;
+                // Nur ack:true verarbeiten — eigene ack:false Schreibbefehle ignorieren
+                if ((isFeedback || isCommandAck) && state.ack) {
                     this.actuatorService.processFeedback(actuator, state.val);
-                } else if (!actuator.feedbackStateId && actuator.commandStateId === id && state.ack) {
-                    // Zigbee/Z-Wave schreibt ack:true wenn Gerät den Zustand bestätigt hat
-                    this.actuatorService.processFeedback(actuator, state.val);
+                    // Ausstehende Verifikation abbrechen, Gerät hat geantwortet
+                    const t = this.pendingVerify.get(actuator.id);
+                    if (t) { this.clearTimeout(t); this.pendingVerify.delete(actuator.id); }
                 }
                 if (actuator.powerStateId === id) {
                     const actState = this.actuatorService.getState(actuator.id);
@@ -919,6 +925,9 @@ class GrowManagerAdapter extends utils.Adapter {
             const changed = this.actuatorService.recordCommand(actuatorConfig, action.requested);
             if (changed) {
                 await this.setActuatorState(actuatorConfig.commandStateId, action.requested);
+                if (!actuatorConfig.shared && typeof action.requested === 'boolean') {
+                    this.setActuatorStateWithVerify(actuatorConfig, config.id, action.requested);
+                }
                 this.log.info(
                     `Gruppe ${config.name}: ${actuatorConfig.name} → ${action.requested} (${action.reason})`
                 );
@@ -1056,6 +1065,51 @@ class GrowManagerAdapter extends utils.Adapter {
         } catch (err) {
             this.log.error(`Fehler beim Schreiben von ${stateId}: ${err}`);
         }
+    }
+
+    /**
+     * Schreibt einen Aktorbefehl und prüft nach verifyDelay Sekunden ob der
+     * State tatsächlich gesetzt wurde. Bei Abweichung: 1x Retry, dann Alarm.
+     */
+    private setActuatorStateWithVerify(
+        actuatorConfig: import('./models/config').ActuatorConfig,
+        groupId: string,
+        value: boolean | number,
+        verifyDelaySec = 10,
+    ): void {
+        const feedbackId = actuatorConfig.feedbackStateId ?? actuatorConfig.commandStateId;
+        // Ausstehende Verifikation für diesen Aktor abbrechen
+        const existing = this.pendingVerify.get(actuatorConfig.id);
+        if (existing) this.clearTimeout(existing);
+
+        const schedule = (isRetry: boolean) => this.setTimeout(async () => {
+            this.pendingVerify.delete(actuatorConfig.id);
+            const actual = await this.getForeignStateAsync(feedbackId);
+            if (!actual) return;
+            const actVal = actual.val;
+            const requestedOn = typeof value === 'boolean' ? value : value > 0;
+            const actualOn = typeof actVal === 'boolean' ? actVal : (actVal as number) > 0;
+            if (requestedOn === actualOn) {
+                this.alarmService.clear(ALARM_CODES.ACTUATOR_NO_FEEDBACK, groupId, actuatorConfig.id);
+                return;
+            }
+            if (!isRetry) {
+                this.log.warn(`Aktor ${actuatorConfig.name}: Soll=${value} aber Ist=${actVal} – 1x Retry`);
+                await this.setActuatorState(actuatorConfig.commandStateId, value);
+                this.pendingVerify.set(actuatorConfig.id, schedule(true));
+            } else {
+                this.log.error(`Aktor ${actuatorConfig.name}: Gerät reagiert nicht auf Befehl ${value}`);
+                this.alarmService.raise(
+                    ALARM_CODES.ACTUATOR_NO_FEEDBACK,
+                    groupId,
+                    actuatorConfig.id,
+                    'warning',
+                    `Gerät hat auf Befehl "${value}" nicht reagiert`,
+                );
+            }
+        }, verifyDelaySec * 1000) as ioBroker.Timeout;
+
+        this.pendingVerify.set(actuatorConfig.id, schedule(false));
     }
 
     private buildDashboardState() {
