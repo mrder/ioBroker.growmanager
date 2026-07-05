@@ -110,13 +110,11 @@ class NotificationService {
                 break;
             }
             case 'whatsapp': {
-                // whatsapp-cmb: command='send', Payload {phone, message}
-                // (Feldname ist 'message', nicht 'text')
                 const instance = ch.whatsappInstance ?? '0';
-                this.sendTo(`whatsapp-cmb.${instance}`, 'send', {
-                    phone: ch.whatsappPhone ?? '',
-                    message: text,
-                });
+                const waPayload = { text };
+                if (ch.whatsappPhone)
+                    waPayload.phone = ch.whatsappPhone;
+                this.sendTo(`whatsapp-cmb.${instance}`, 'send', waPayload);
                 this.log.info(`WhatsApp-Notification gesendet (Instanz ${instance})`);
                 break;
             }
