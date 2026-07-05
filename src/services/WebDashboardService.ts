@@ -22,6 +22,10 @@ export interface DashboardActuatorState {
     sharedFromGroupId?: string;
     sharedFromGroupName?: string;
     influenceFactor?: number;  // Einfluss dieser Gruppe auf den geteilten Aktor (0-100)
+    manualLock?: boolean;
+    blocked?: boolean;
+    blockReason?: string;
+    blockSecondsLeft?: number;
 }
 
 export interface DashboardAlarm {

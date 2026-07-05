@@ -239,6 +239,8 @@
   .act-shared-extern { opacity: 0.85; background: rgba(33,150,243,0.04); border-radius: 4px; }
   .act-soll-label { font-size: 10px; color: var(--text-dim); margin-left: 4px; }
   .act-ist-label  { font-size: 10px; color: var(--text-dim); margin-left: 8px; }
+  .act-countdown { font-size: 10px; color: var(--orange); background: rgba(255,152,0,0.1); border: 1px solid rgba(255,152,0,0.35); border-radius: 3px; padding: 1px 6px; margin-left: 6px; font-variant-numeric: tabular-nums; cursor: help; }
+  .act-manual-lock { font-size: 10px; color: var(--yellow); background: rgba(251,192,45,0.1); border: 1px solid rgba(251,192,45,0.35); border-radius: 3px; padding: 1px 6px; margin-left: 6px; }
   .act-toggle {
     background: none; border: 1px solid var(--border); border-radius: 4px;
     color: var(--text-dim); cursor: pointer; font-size: 11px;
@@ -732,6 +734,17 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
     istHtml = `<span class="act-ist-label">Ist:</span><span class="act-state ${istOn?'on':'off'}">${istOn?'EIN':'AUS'}</span>`;
   }
 
+  // Countdown: Sperrzeit läuft noch und Soll ≠ Ist
+  let countdownHtml = '';
+  if (a.blocked && a.blockSecondsLeft > 0) {
+    const mins = Math.floor(a.blockSecondsLeft / 60);
+    const secs = a.blockSecondsLeft % 60;
+    const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+    countdownHtml = `<span class="act-countdown" title="${a.blockReason ?? 'Sperrzeit läuft'}">⏱ ${timeStr}</span>`;
+  } else if (a.manualLock) {
+    countdownHtml = `<span class="act-manual-lock" title="Manuell gesperrt – Auto-Zyklus pausiert">🔒 MANUELL</span>`;
+  }
+
   const ctrlBtns = isManualMode || ov
     ? `<button class="act-toggle on-btn"  onclick="sendControl('${groupId}','${a.id}',true,'${a.name} einschalten')">EIN</button>
        <button class="act-toggle off-btn" onclick="sendControl('${groupId}','${a.id}',false,'${a.name} ausschalten')">AUS</button>`
@@ -751,7 +764,7 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   return `<div class="actuator-row${unreachable ? ' act-unreachable' : ''}">
     <div class="act-dot ${ledClass}"></div>
     <span class="act-name">${t.icon} ${a.name}</span>
-    ${sharedBadge}${healthIcon}${modeBadge}${sollHtml}${istHtml}
+    ${sharedBadge}${healthIcon}${modeBadge}${sollHtml}${istHtml}${countdownHtml}
     ${ctrlBtns}
   </div>`;
 }

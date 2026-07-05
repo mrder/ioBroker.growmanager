@@ -927,10 +927,14 @@ class GrowManagerAdapter extends utils.Adapter {
                 .filter(a => a.groupId === g.id)
                 .slice(0, 5)
                 .map(a => ({ id: a.id, code: a.code, severity: a.severity, message: a.message, since: a.since }));
+            const now2 = Date.now();
             const actuators = g.actuators
                 .filter(a => a.enabled)
                 .map(a => {
                 const as = this.actuatorService.getState(a.id);
+                const blockSecondsLeft = as?.blockedUntil
+                    ? Math.max(0, Math.round((as.blockedUntil - now2) / 1000))
+                    : undefined;
                 return {
                     id: a.id,
                     name: a.name,
@@ -941,6 +945,10 @@ class GrowManagerAdapter extends utils.Adapter {
                     health: as?.health ?? 'unknown',
                     sharedVotingMode: a.sharedVotingMode,
                     sharedParticipants: a.sharedParticipants,
+                    manualLock: as?.manualLock ?? false,
+                    blocked: as?.blocked ?? false,
+                    blockReason: as?.blockedReason,
+                    blockSecondsLeft: blockSecondsLeft && blockSecondsLeft > 0 ? blockSecondsLeft : undefined,
                 };
             });
             // Externe geteilte Aktoren: Aktoren aus anderen Gruppen die diese Gruppe als Teilnehmer listen

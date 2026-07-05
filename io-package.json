@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.44",
+    "version": "0.1.45",
     "news": {
+      "0.1.45": {
+        "en": "Actuator countdown timer for min-on/off blocking times; manual lock indicator; influence factor tooltip in admin UI",
+        "de": "Countdown-Anzeige für Mindestlauf-/Sperrzeiten; Manuell-Sperr-Badge; Einfluss-%-Erklärung im Admin per Hover-Tooltip"
+      },
       "0.1.44": {
         "en": "Manual override propagation for shared actuators; VPD-based participant voting; Admin UI shows shared actuators in participant group",
         "de": "Manual-Override Propagation für geteilte Aktoren; VPD-Abstimmung für Teilnehmer; Admin zeigt geteilte Aktoren in Teilnehmer-Gruppe"

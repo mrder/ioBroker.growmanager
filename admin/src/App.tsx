@@ -701,7 +701,24 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                         </div>
 
                         <div style={{ marginTop: 10 }}>
-                            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>Teilnehmer-Gruppen</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                                <span style={{ fontWeight: 600, fontSize: 12 }}>Teilnehmer-Gruppen</span>
+                                <span title={
+`Einfluss-% = Stimmgewicht der Teilnehmer-Gruppe bei der Abstimmung.
+
+Abstimmungsmodi:
+• Beliebige Gruppe (OR): Jede Gruppe die EIN will → Aktor geht an. Einfluss-% wird ignoriert.
+• Mehrheit: Summe der Gewichte aller EIN-Gruppen > 50% → an. Einfluss-% bestimmt wie viel die Gruppe zählt.
+• Eigentümer entscheidet: Nur die Eigentümer-Gruppe steuert den Aktor. Teilnehmer beeinflussen nicht.
+
+Beispiel Wuchs (VPD 0.8–1.2) + Blüte (VPD 1.0–1.3), Modus "Mehrheit":
+• Eigentümer (Blüte): Gewicht 1.0 (=100%), Teilnehmer (Wuchs): 80%
+• Beide müssen EIN wollen → Aktor geht an sobald 50% überschritten
+• Tipp: Bei unterschiedlichen Sollwerten "Beliebige Gruppe (OR)" wählen, damit der Lüfter läuft sobald eine Gruppe ihn braucht.
+
+Hinweis: Der angezeigte VPD-Sollwert im Dashboard ist immer der eigene Sollwert der jeweiligen Gruppe – er ändert sich nicht durch den Einfluss-%.`
+                                } style={{ cursor: 'help', fontSize: 13, color: '#1976d2', userSelect: 'none' }}>ⓘ</span>
+                            </div>
                             {(edit.sharedParticipants ?? []).map((p, idx) => {
                                 const availableGroups = allGroups.filter(g => g.id !== ownerGroupId);
                                 return (
