@@ -541,7 +541,7 @@ async function sendControl(groupId, actuatorId, command, label) {
 
 // Trend-Popup
 let trendPopupActive = false;
-async function showTrend(groupId, variable, label, unit) {
+async function showTrend(groupId, variable, label, unit, setMin, setMax) {
   if (trendPopupActive) { closeTrend(); return; }
   trendPopupActive = true;
   const popup = document.getElementById('trendPopup');
@@ -558,7 +558,7 @@ async function showTrend(groupId, variable, label, unit) {
       document.getElementById('trendChart').innerHTML =
         `<div class="trend-hint">ℹ️ ${hint.replace(/\n/g, '<br>')}</div>`;
     } else {
-      renderTrendChart(points, unit);
+      renderTrendChart(points, unit, setMin, setMax);
     }
   } catch(e) {
     document.getElementById('trendChart').innerHTML = '<p style="color:var(--warn)">Fehler beim Laden</p>';
@@ -568,7 +568,7 @@ function closeTrend() {
   trendPopupActive = false;
   document.getElementById('trendPopup').classList.remove('visible');
 }
-function renderTrendChart(points, unit) {
+function renderTrendChart(points, unit, setMin, setMax) {
   const el = document.getElementById('trendChart');
   if (!points || points.length < 2) {
     el.innerHTML = '<p style="color:var(--text-dim);padding:20px">Noch nicht genug Daten (mind. 2 Stunden)</p>';
@@ -577,7 +577,12 @@ function renderTrendChart(points, unit) {
   const W = 480, H = 160, PL = 44, PR = 12, PT = 10, PB = 28;
   const vals = points.map(p => p.value);
   const ts   = points.map(p => p.ts);
-  const minV = Math.min(...vals), maxV = Math.max(...vals);
+  // Expand Y range to include setpoint lines if provided
+  const dataMin = Math.min(...vals), dataMax = Math.max(...vals);
+  const allV = [...vals];
+  if (setMin != null) allV.push(setMin);
+  if (setMax != null) allV.push(setMax);
+  const minV = Math.min(...allV), maxV = Math.max(...allV);
   const range = maxV - minV || 1;
   const minT = ts[0], maxT = ts[ts.length - 1];
   const tRange = maxT - minT || 1;
@@ -596,6 +601,19 @@ function renderTrendChart(points, unit) {
             <text x="${PL-4}" y="${(y+4).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-dim)">${v.toFixed(1)}</text>`;
   }).join('');
 
+  // Gestrichelte Soll-Min/Max Linien
+  let setpointLines = '';
+  if (setMax != null) {
+    const y = py(setMax);
+    setpointLines += `<line x1="${PL}" y1="${y.toFixed(1)}" x2="${W-PR}" y2="${y.toFixed(1)}" stroke="var(--green-light,#7ecb7e)" stroke-width="1.5" stroke-dasharray="6,3" opacity="0.85"/>
+      <text x="${(W-PR-2).toFixed(1)}" y="${(y-3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--green-light,#7ecb7e)" opacity="0.9">Soll-Max ${setMax.toFixed(1)}</text>`;
+  }
+  if (setMin != null) {
+    const y = py(setMin);
+    setpointLines += `<line x1="${PL}" y1="${y.toFixed(1)}" x2="${W-PR}" y2="${y.toFixed(1)}" stroke="var(--green-light,#7ecb7e)" stroke-width="1.5" stroke-dasharray="6,3" opacity="0.85"/>
+      <text x="${(W-PR-2).toFixed(1)}" y="${(y+10).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--green-light,#7ecb7e)" opacity="0.9">Soll-Min ${setMin.toFixed(1)}</text>`;
+  }
+
   // X-Achse: Zeitstempel alle ~12h
   const step = Math.ceil(points.length / 4);
   const xLabels = points.filter((_, i) => i % step === 0).map(p => {
@@ -607,6 +625,7 @@ function renderTrendChart(points, unit) {
 
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg">
     ${yLabels}
+    ${setpointLines}
     <polygon points="${area}" fill="var(--accent)" fill-opacity="0.15"/>
     <polyline points="${polyline}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
     ${xLabels}
@@ -916,9 +935,13 @@ function groupCardHtml(g) {
   // Klima-Zeile: Sollwert-Bar nur wenn der Modus diesen Wert regelt
   // Werte sind klickbar für Trend-Popup
   const gid = g.id.replace(/'/g, "\\'");
-  const tempHtml = `<div onclick="showTrend('${gid}','temperature','Temperatur','°C')" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.temperature, '°', 'Temperatur', isCtrlTemp, null, null, g.setpointTemp, 1)}</div>`;
-  const humHtml  = `<div onclick="showTrend('${gid}','humidity','Luftfeuchte','%')" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.humidity, '%', 'Luftfeuchte', isCtrlHum, g.setpointHumidity ? g.setpointHumidity - 5 : null, g.setpointHumidity ? g.setpointHumidity + 5 : null, null, 0)}</div>`;
-  const vpdHtml  = `<div onclick="showTrend('${gid}','vpd','VPD','kPa')" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.vpd, ' kPa', 'VPD', isCtrlVpd, g.setpointVpdMin, g.setpointVpdMax, null, 2)}</div>`;
+  const tempMin = g.setpointTemp != null && g.setpointTempTolerance != null ? g.setpointTemp - g.setpointTempTolerance : (g.setpointTempMin ?? null);
+  const tempMax = g.setpointTemp != null && g.setpointTempTolerance != null ? g.setpointTemp + g.setpointTempTolerance : (g.setpointTempMax ?? null);
+  const tempHtml = `<div onclick="showTrend('${gid}','temperature','Temperatur','°C',${tempMin},${tempMax})" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.temperature, '°', 'Temperatur', isCtrlTemp, null, null, g.setpointTemp, 1)}</div>`;
+  const humMin = g.setpointHumidity != null && g.setpointHumidityTolerance != null ? g.setpointHumidity - g.setpointHumidityTolerance : (g.setpointHumidityMin ?? null);
+  const humMax = g.setpointHumidity != null && g.setpointHumidityTolerance != null ? g.setpointHumidity + g.setpointHumidityTolerance : (g.setpointHumidityMax ?? null);
+  const humHtml  = `<div onclick="showTrend('${gid}','humidity','Luftfeuchte','%',${humMin},${humMax})" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.humidity, '%', 'Luftfeuchte', isCtrlHum, g.setpointHumidity ? g.setpointHumidity - 5 : null, g.setpointHumidity ? g.setpointHumidity + 5 : null, null, 0)}</div>`;
+  const vpdHtml  = `<div onclick="showTrend('${gid}','vpd','VPD','kPa',${g.setpointVpdMin ?? null},${g.setpointVpdMax ?? null})" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.vpd, ' kPa', 'VPD', isCtrlVpd, g.setpointVpdMin, g.setpointVpdMax, null, 2)}</div>`;
   const isCtrlSoil = controlled.includes('soil');
   const isCtrlCo2  = controlled.includes('co2');
 
@@ -928,21 +951,20 @@ function groupCardHtml(g) {
   if (g.soilSensors && g.soilSensors.length > 1) {
     // Mehrere Bodenfeuchtesensoren → jeden einzeln anzeigen
     soilHtml = g.soilSensors.map(s =>
-      `<div onclick="showTrend('${gid}','soilMoisture','${s.name}','%')" style="cursor:pointer" title="Trend anzeigen">${
+      `<div onclick="showTrend('${gid}','soilMoisture','${s.name}','%',${soilMin},${soilMax})" style="cursor:pointer" title="Trend anzeigen">${
         climateValHtml(s.value, '%', s.name, isCtrlSoil, soilMin, soilMax, null, 0)}</div>`
     ).join('');
   } else if (g.soilMoisture !== null && g.soilMoisture !== undefined) {
     const label = g.soilSensors && g.soilSensors.length === 1 ? g.soilSensors[0].name : 'Bodenfeuchte';
-    soilHtml = `<div onclick="showTrend('${gid}','soilMoisture','Bodenfeuchte','%')" style="cursor:pointer" title="Trend anzeigen">${
+    soilHtml = `<div onclick="showTrend('${gid}','soilMoisture','Bodenfeuchte','%',${soilMin},${soilMax})" style="cursor:pointer" title="Trend anzeigen">${
       climateValHtml(g.soilMoisture, '%', label, isCtrlSoil, soilMin, soilMax, null, 0)}</div>`;
   }
 
+  const co2Min = g.setpointCo2Target != null && g.setpointCo2Tolerance != null ? g.setpointCo2Target - g.setpointCo2Tolerance : null;
+  const co2Max = g.setpointCo2Target != null && g.setpointCo2Tolerance != null ? g.setpointCo2Target + g.setpointCo2Tolerance : null;
   const co2Html = g.co2 !== null && g.co2 !== undefined
-    ? `<div onclick="showTrend('${gid}','co2','CO₂','ppm')" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(
-        g.co2, ' ppm', 'CO₂', isCtrlCo2,
-        g.setpointCo2Target != null && g.setpointCo2Tolerance != null ? g.setpointCo2Target - g.setpointCo2Tolerance : null,
-        g.setpointCo2Target != null && g.setpointCo2Tolerance != null ? g.setpointCo2Target + g.setpointCo2Tolerance : null,
-        null, 0)}</div>`
+    ? `<div onclick="showTrend('${gid}','co2','CO₂','ppm',${co2Min},${co2Max})" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(
+        g.co2, ' ppm', 'CO₂', isCtrlCo2, co2Min, co2Max, null, 0)}</div>`
     : '';
 
   let leafTempHtml = '';

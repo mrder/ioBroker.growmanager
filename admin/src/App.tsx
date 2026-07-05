@@ -2350,28 +2350,40 @@ const NotificationSettings: React.FC<{
 
     const setChannels = (channels: NotificationChannel[]) => onChange({ ...value, channels });
 
-    const detectAdapters = () => {
-        if (typeof sendTo !== 'undefined') {
-            sendTo('growmanager.0', 'detectAdapters', {}, (result: unknown) => {
-                const r = result as { detected: Array<{ type: string; instance: string }> };
-                setDetected(r?.detected ?? []);
-            });
+    // ioBroker Admin 5+ stellt sendTo nicht mehr als globale Funktion bereit,
+    // sondern über socket.emit. Wir unterstützen beide Varianten.
+    const iobSendTo = (target: string, cmd: string, data: unknown, cb: (r: unknown) => void) => {
+        const sock = (window as unknown as Record<string, unknown>).socket as { emit: (...a: unknown[]) => void } | undefined;
+        const legacy = (window as unknown as Record<string, unknown>).sendTo as ((t: string, c: string, d: unknown, cb: (r: unknown) => void) => void) | undefined;
+        if (sock?.emit) {
+            sock.emit('sendTo', target, cmd, data, cb);
+        } else if (legacy) {
+            legacy(target, cmd, data, cb);
         } else {
-            alert('Nur in ioBroker Admin verfügbar');
+            cb(null);
         }
     };
 
+    const detectAdapters = () => {
+        iobSendTo('growmanager.0', 'detectAdapters', {}, (result: unknown) => {
+            if (result === null) {
+                alert('Adapter-Erkennung nicht verfügbar – bitte Instanznummer manuell eintragen.');
+                return;
+            }
+            const r = result as { detected: Array<{ type: string; instance: string }> };
+            setDetected(r?.detected ?? []);
+        });
+    };
+
     const testChannel = (ch: NotificationChannel) => {
-        if (typeof sendTo !== 'undefined') {
-            setTestResults(prev => ({ ...prev, [ch.id]: '⏳ Sende…' }));
-            sendTo('growmanager.0', 'testNotification', { channel: ch }, (result: unknown) => {
-                const r = result as { ok: boolean; error?: string };
-                setTestResults(prev => ({
-                    ...prev,
-                    [ch.id]: r?.ok ? '✅ Gesendet' : `❌ ${r?.error ?? 'Fehler'}`,
-                }));
-            });
-        }
+        setTestResults(prev => ({ ...prev, [ch.id]: '⏳ Sende…' }));
+        iobSendTo('growmanager.0', 'testNotification', { channel: ch }, (result: unknown) => {
+            const r = result as { ok: boolean; error?: string } | null;
+            setTestResults(prev => ({
+                ...prev,
+                [ch.id]: r?.ok ? '✅ Gesendet' : `❌ ${r?.error ?? 'Kein Ergebnis – Adapter läuft?'}`,
+            }));
+        });
     };
 
     return (
