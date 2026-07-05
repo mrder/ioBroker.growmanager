@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { GrowManagerConfig, GroupConfig, ClimateProfile, ControlTarget, ControlDirection, OutdoorSensorConfig, SharedParticipant } from './types';
+import type { GrowManagerConfig, GroupConfig, ClimateProfile, ControlTarget, ControlDirection, OutdoorSensorConfig, SharedParticipant, NotificationChannel, NotificationConfig, NotificationChannelType } from './types';
 
 // ioBroker Admin-Globals (werden vom Admin-Framework bereitgestellt)
 declare const socket: {
@@ -2130,6 +2130,248 @@ const SettingsView: React.FC<{
                     />
                 </label>
             </div>
+
+            <hr style={{ margin: '24px 0', borderColor: '#e0e0e0' }} />
+            <NotificationSettings
+                value={config.notifications ?? { enabled: false, channels: [], cooldownMinutes: 30 }}
+                onChange={n => onChange({ ...config, notifications: n })}
+            />
+        </div>
+    );
+};
+
+// ---- NotificationSettings ----------------------------------
+
+const CHANNEL_TYPE_LABELS: Record<NotificationChannelType, string> = {
+    telegram: '📨 Telegram',
+    whatsapp: '💬 WhatsApp',
+    discord: '🟣 Discord Webhook',
+    signal: '🔵 Signal',
+};
+
+function defaultChannel(type: NotificationChannelType): NotificationChannel {
+    return {
+        id: `ch_${Date.now()}`,
+        type,
+        enabled: true,
+        minSeverity: 'warning',
+        quietHoursEnabled: false,
+        quietHoursStart: 22,
+        quietHoursEnd: 7,
+    };
+}
+
+const NotificationSettings: React.FC<{
+    value: NotificationConfig;
+    onChange: (v: NotificationConfig) => void;
+}> = ({ value, onChange }) => {
+    const [detected, setDetected] = useState<Array<{ type: string; instance: string }> | null>(null);
+    const [testResults, setTestResults] = useState<Record<string, string>>({});
+    const [editingChannel, setEditingChannel] = useState<NotificationChannel | null>(null);
+
+    const setChannels = (channels: NotificationChannel[]) => onChange({ ...value, channels });
+
+    const detectAdapters = () => {
+        if (typeof sendTo !== 'undefined') {
+            sendTo('growmanager.0', 'detectAdapters', {}, (result: unknown) => {
+                const r = result as { detected: Array<{ type: string; instance: string }> };
+                setDetected(r?.detected ?? []);
+            });
+        } else {
+            alert('Nur in ioBroker Admin verfügbar');
+        }
+    };
+
+    const testChannel = (ch: NotificationChannel) => {
+        if (typeof sendTo !== 'undefined') {
+            setTestResults(prev => ({ ...prev, [ch.id]: '⏳ Sende…' }));
+            sendTo('growmanager.0', 'testNotification', { channel: ch }, (result: unknown) => {
+                const r = result as { ok: boolean; error?: string };
+                setTestResults(prev => ({
+                    ...prev,
+                    [ch.id]: r?.ok ? '✅ Gesendet' : `❌ ${r?.error ?? 'Fehler'}`,
+                }));
+            });
+        }
+    };
+
+    return (
+        <div>
+            <h4 style={{ margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                Push-Benachrichtigungen
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 400, fontSize: 13, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={value.enabled}
+                        onChange={e => onChange({ ...value, enabled: e.target.checked })} />
+                    Aktiv
+                </label>
+            </h4>
+
+            {value.enabled && (
+                <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                        <label style={{ fontSize: 13 }}>
+                            Cooldown (Min.)
+                            <InfoTip text={'Gleicher Alarm wird frühestens nach dieser Zeit erneut gesendet.\nVerhindert Alarm-Flut bei wiederkehrenden Problemen.'} />
+                        </label>
+                        <input type="number" min={1} max={1440} style={{ ...styles.input, width: 80, marginTop: 0 }}
+                            value={value.cooldownMinutes}
+                            onChange={e => onChange({ ...value, cooldownMinutes: +e.target.value })} />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+                        <button style={styles.btnSecondary} onClick={detectAdapters}>
+                            🔍 Adapter erkennen
+                        </button>
+                        {detected && (
+                            <span style={{ fontSize: 12, color: '#555', alignSelf: 'center' }}>
+                                Gefunden: {detected.filter(d => d.type !== 'discord').map(d => `${d.type}.${d.instance}`).join(', ') || 'keine ioBroker-Adapter'} · Discord immer verfügbar
+                            </span>
+                        )}
+                    </div>
+
+                    {value.channels.length === 0 && (
+                        <div style={{ color: '#888', fontSize: 13, marginBottom: 12 }}>
+                            Noch keine Kanäle konfiguriert. Kanal hinzufügen:
+                        </div>
+                    )}
+
+                    {value.channels.map(ch => (
+                        <div key={ch.id} style={{ border: '1px solid #ddd', borderRadius: 8, padding: '10px 14px', marginBottom: 10, background: ch.enabled ? '#fff' : '#f9f9f9' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                <span style={{ fontWeight: 600, fontSize: 13 }}>{CHANNEL_TYPE_LABELS[ch.type]}</span>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer' }}>
+                                    <input type="checkbox" checked={ch.enabled}
+                                        onChange={e => setChannels(value.channels.map(c => c.id === ch.id ? { ...c, enabled: e.target.checked } : c))} />
+                                    Aktiv
+                                </label>
+                                <span style={{ fontSize: 12, background: '#eee', borderRadius: 4, padding: '2px 8px' }}>
+                                    ab {ch.minSeverity}
+                                </span>
+                                {ch.quietHoursEnabled && (
+                                    <span style={{ fontSize: 12, color: '#888' }}>🌙 Ruhephase {ch.quietHoursStart}–{ch.quietHoursEnd} Uhr</span>
+                                )}
+                                <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                                    <button style={{ ...styles.btnSecondary, fontSize: 12 }} onClick={() => setEditingChannel({ ...ch })}>Bearbeiten</button>
+                                    {testResults[ch.id] && (
+                                        <span style={{ fontSize: 12, alignSelf: 'center' }}>{testResults[ch.id]}</span>
+                                    )}
+                                    <button style={{ ...styles.btnSecondary, fontSize: 12 }} onClick={() => testChannel(ch)}>Test</button>
+                                    <button style={{ ...styles.btnSecondary, fontSize: 12, color: '#d32f2f' }}
+                                        onClick={() => setChannels(value.channels.filter(c => c.id !== ch.id))}>✕</button>
+                                </div>
+                            </div>
+                            <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                                {ch.type === 'telegram' && `telegram.${ch.telegramInstance ?? '0'}${ch.telegramChatId ? ` · Chat: ${ch.telegramChatId}` : ' · Broadcast'}`}
+                                {ch.type === 'whatsapp' && `whatsapp-cmb.${ch.whatsappInstance ?? '0'} · ${ch.whatsappPhone ?? 'keine Nummer'}`}
+                                {ch.type === 'signal' && `signal-cmb.${ch.signalInstance ?? '0'} · ${ch.signalPhone ?? 'keine Nummer'}`}
+                                {ch.type === 'discord' && (ch.discordWebhookUrl ? 'Webhook konfiguriert ✓' : '⚠ Webhook-URL fehlt')}
+                            </div>
+                        </div>
+                    ))}
+
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {(['telegram', 'whatsapp', 'discord', 'signal'] as NotificationChannelType[]).map(t => (
+                            <button key={t} style={{ ...styles.btnSecondary, fontSize: 12 }}
+                                onClick={() => setEditingChannel(defaultChannel(t))}>
+                                + {CHANNEL_TYPE_LABELS[t]}
+                            </button>
+                        ))}
+                    </div>
+                </>
+            )}
+
+            {editingChannel && (
+                <NotificationChannelEditor
+                    channel={editingChannel}
+                    onSave={ch => {
+                        const exists = value.channels.some(c => c.id === ch.id);
+                        setChannels(exists ? value.channels.map(c => c.id === ch.id ? ch : c) : [...value.channels, ch]);
+                        setEditingChannel(null);
+                    }}
+                    onClose={() => setEditingChannel(null)}
+                />
+            )}
+        </div>
+    );
+};
+
+const NotificationChannelEditor: React.FC<{
+    channel: NotificationChannel;
+    onSave: (ch: NotificationChannel) => void;
+    onClose: () => void;
+}> = ({ channel, onSave, onClose }) => {
+    const [ch, setCh] = useState<NotificationChannel>(channel);
+
+    return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: '#fff', borderRadius: 10, padding: 24, width: 420, maxWidth: '95vw', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }}>
+                <h4 style={{ margin: '0 0 16px' }}>{CHANNEL_TYPE_LABELS[ch.type]} konfigurieren</h4>
+
+                <FieldLabel>Mindest-Schweregrad</FieldLabel>
+                <select style={styles.select} value={ch.minSeverity} onChange={e => setCh({ ...ch, minSeverity: e.target.value as NotificationChannel['minSeverity'] })}>
+                    <option value="info">Info (alle Alarme)</option>
+                    <option value="warning">Warnung+</option>
+                    <option value="fault">Fehler+</option>
+                    <option value="critical">Nur Kritisch</option>
+                </select>
+
+                {ch.type === 'telegram' && (<>
+                    <FieldLabel tip="Instanznummer des Telegram-Adapters, z.B. 0 für telegram.0">Instanz-Nummer</FieldLabel>
+                    <input style={styles.input} placeholder="0" value={ch.telegramInstance ?? ''}
+                        onChange={e => setCh({ ...ch, telegramInstance: e.target.value })} />
+                    <FieldLabel tip="Leer lassen für Broadcast an alle bekannten Chats. Oder Chat-ID / Username eintragen.">Chat-ID (optional)</FieldLabel>
+                    <input style={styles.input} placeholder="Leer = Broadcast" value={ch.telegramChatId ?? ''}
+                        onChange={e => setCh({ ...ch, telegramChatId: e.target.value })} />
+                </>)}
+
+                {ch.type === 'whatsapp' && (<>
+                    <FieldLabel tip="Instanznummer des whatsapp-cmb Adapters">Instanz-Nummer</FieldLabel>
+                    <input style={styles.input} placeholder="0" value={ch.whatsappInstance ?? ''}
+                        onChange={e => setCh({ ...ch, whatsappInstance: e.target.value })} />
+                    <FieldLabel tip="Telefonnummer im E.164-Format, z.B. +491234567890">Telefonnummer</FieldLabel>
+                    <input style={styles.input} placeholder="+491234567890" value={ch.whatsappPhone ?? ''}
+                        onChange={e => setCh({ ...ch, whatsappPhone: e.target.value })} />
+                </>)}
+
+                {ch.type === 'discord' && (<>
+                    <FieldLabel tip={'Discord → Servereinstellungen → Integrationen → Webhooks → Neuen Webhook erstellen → URL kopieren'}>Webhook-URL</FieldLabel>
+                    <input style={styles.input} placeholder="https://discord.com/api/webhooks/…" value={ch.discordWebhookUrl ?? ''}
+                        onChange={e => setCh({ ...ch, discordWebhookUrl: e.target.value })} />
+                </>)}
+
+                {ch.type === 'signal' && (<>
+                    <FieldLabel tip="Instanznummer des signal-cmb Adapters">Instanz-Nummer</FieldLabel>
+                    <input style={styles.input} placeholder="0" value={ch.signalInstance ?? ''}
+                        onChange={e => setCh({ ...ch, signalInstance: e.target.value })} />
+                    <FieldLabel tip="Empfänger-Rufnummer im E.164-Format">Telefonnummer</FieldLabel>
+                    <input style={styles.input} placeholder="+491234567890" value={ch.signalPhone ?? ''}
+                        onChange={e => setCh({ ...ch, signalPhone: e.target.value })} />
+                </>)}
+
+                <FieldLabel>Ruhephase (keine Benachrichtigungen)</FieldLabel>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={ch.quietHoursEnabled}
+                            onChange={e => setCh({ ...ch, quietHoursEnabled: e.target.checked })} />
+                        Aktiv
+                    </label>
+                    {ch.quietHoursEnabled && (<>
+                        <input type="number" min={0} max={23} style={{ ...styles.input, width: 64, marginTop: 0 }}
+                            value={ch.quietHoursStart}
+                            onChange={e => setCh({ ...ch, quietHoursStart: +e.target.value })} />
+                        <span style={{ fontSize: 13 }}>bis</span>
+                        <input type="number" min={0} max={23} style={{ ...styles.input, width: 64, marginTop: 0 }}
+                            value={ch.quietHoursEnd}
+                            onChange={e => setCh({ ...ch, quietHoursEnd: +e.target.value })} />
+                        <span style={{ fontSize: 13 }}>Uhr</span>
+                    </>)}
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+                    <button style={styles.btnPrimary} onClick={() => onSave(ch)}>Speichern</button>
+                    <button style={styles.btnSecondary} onClick={onClose}>Abbrechen</button>
+                </div>
+            </div>
         </div>
     );
 };
@@ -2154,6 +2396,7 @@ const App: React.FC = () => {
         groups: [],
         climateProfiles: [],
         alarmChannels: [],
+        notifications: { enabled: false, channels: [], cooldownMinutes: 30 },
     });
     const [editingGroup, setEditingGroup] = useState<GroupConfig | null | 'new'>(null);
     const [alarms, setAlarms] = useState<AlarmRecord[]>([]);

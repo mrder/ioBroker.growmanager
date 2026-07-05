@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.46",
+    "version": "0.1.47",
     "news": {
+      "0.1.47": {
+        "en": "Push notifications: Telegram, WhatsApp, Discord webhook, Signal with cooldown and quiet hours",
+        "de": "Push-Benachrichtigungen: Telegram, WhatsApp, Discord Webhook, Signal mit Cooldown und Ruhephase"
+      },
       "0.1.46": {
         "en": "Improved influence-% tooltip with concrete examples and mode explanations",
         "de": "Einfluss-%-Tooltip verbessert mit konkreten Beispielen und Modus-Erklärungen"

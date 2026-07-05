@@ -250,6 +250,28 @@ export interface GroupConfig {
     sensorDisagreementThreshold: number;
     outdoorSensor?: OutdoorSensorConfig;
 }
+export type NotificationChannelType = 'telegram' | 'whatsapp' | 'discord' | 'signal';
+export interface NotificationChannel {
+    id: string;
+    type: NotificationChannelType;
+    enabled: boolean;
+    telegramInstance?: string;
+    telegramChatId?: string;
+    whatsappInstance?: string;
+    whatsappPhone?: string;
+    discordWebhookUrl?: string;
+    signalInstance?: string;
+    signalPhone?: string;
+    minSeverity: 'info' | 'warning' | 'fault' | 'critical';
+    quietHoursEnabled: boolean;
+    quietHoursStart: number;
+    quietHoursEnd: number;
+}
+export interface NotificationConfig {
+    enabled: boolean;
+    channels: NotificationChannel[];
+    cooldownMinutes: number;
+}
 export type StartBehavior = 'lastState' | 'delayedStart' | 'safeTurnOff' | 'monitorOnly';
 export interface GrowManagerConfig {
     language: 'de' | 'en';
@@ -267,6 +289,7 @@ export interface GrowManagerConfig {
     groups: GroupConfig[];
     climateProfiles: ClimateProfile[];
     alarmChannels: AlarmChannel[];
+    notifications?: NotificationConfig;
 }
 export type DegradationLevel = 'FULL' | 'LIMITED' | 'FALLBACK' | 'MONITOR_ONLY' | 'SAFE' | 'FAULT';
 export type DayNight = 'day' | 'night' | 'transition';

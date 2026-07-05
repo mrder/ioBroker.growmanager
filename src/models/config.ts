@@ -406,6 +406,38 @@ export interface GroupConfig {
     outdoorSensor?: OutdoorSensorConfig;
 }
 
+// ---- Push-Benachrichtigungen -------------------------------
+
+export type NotificationChannelType = 'telegram' | 'whatsapp' | 'discord' | 'signal';
+
+export interface NotificationChannel {
+    id: string;
+    type: NotificationChannelType;
+    enabled: boolean;
+    // Telegram (telegram adapter)
+    telegramInstance?: string;    // z.B. "0" für telegram.0
+    telegramChatId?: string;      // optional: bestimmter Chat/User; leer = Broadcast
+    // WhatsApp (whatsapp-cmb adapter)
+    whatsappInstance?: string;
+    whatsappPhone?: string;       // E.164-Format, z.B. +491234567890
+    // Discord (Webhook-URL)
+    discordWebhookUrl?: string;
+    // Signal (signal-cmb adapter)
+    signalInstance?: string;
+    signalPhone?: string;
+    // Filter
+    minSeverity: 'info' | 'warning' | 'fault' | 'critical';
+    quietHoursEnabled: boolean;
+    quietHoursStart: number;      // 0–23
+    quietHoursEnd: number;        // 0–23
+}
+
+export interface NotificationConfig {
+    enabled: boolean;
+    channels: NotificationChannel[];
+    cooldownMinutes: number;      // Gleicher Alarm wird frühestens nach N Minuten erneut gesendet
+}
+
 // ---- Globale Konfiguration ---------------------------------
 
 export type StartBehavior = 'lastState' | 'delayedStart' | 'safeTurnOff' | 'monitorOnly';
@@ -426,6 +458,7 @@ export interface GrowManagerConfig {
     groups: GroupConfig[];
     climateProfiles: ClimateProfile[];
     alarmChannels: AlarmChannel[];
+    notifications?: NotificationConfig;
 }
 
 // ---- Laufzeitzustände (nicht persistent) -------------------

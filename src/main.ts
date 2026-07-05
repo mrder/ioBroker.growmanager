@@ -30,6 +30,7 @@ import { CameraService } from './services/CameraService';
 import { ConfigurationService } from './services/ConfigurationService';
 import { SharedActorManager } from './services/SharedActorManager';
 import { WebDashboardService } from './services/WebDashboardService';
+import { NotificationService } from './services/NotificationService';
 import * as path from 'path';
 import { PrefixedLogger } from './utils/logger';
 import {
@@ -59,6 +60,7 @@ class GrowManagerAdapter extends utils.Adapter {
     private readonly configurationService: ConfigurationService;
     private readonly sharedActorManager: SharedActorManager;
     private readonly webDashboard: WebDashboardService;
+    private readonly notificationService: NotificationService;
 
     // Laufzeit-Zustände
     private readonly groupStates = new Map<string, GroupState>();
@@ -101,6 +103,9 @@ class GrowManagerAdapter extends utils.Adapter {
         this.configurationService = new ConfigurationService(log);
         this.sharedActorManager = new SharedActorManager();
         this.webDashboard = new WebDashboardService(log, path.join(__dirname, '..'));
+        this.notificationService = new NotificationService(log, (adapter, command, data) => {
+            this.sendTo(adapter, command, data as ioBroker.MessagePayload);
+        });
 
         this.on('ready', this.onReady.bind(this));
         this.on('stateChange', this.onStateChange.bind(this));
@@ -119,8 +124,21 @@ class GrowManagerAdapter extends utils.Adapter {
         if (!this.growConfig.groups) this.growConfig.groups = [];
         if (!this.growConfig.climateProfiles) this.growConfig.climateProfiles = [];
         if (!this.growConfig.alarmChannels) this.growConfig.alarmChannels = [];
+        if (!this.growConfig.notifications) {
+            this.growConfig.notifications = { enabled: false, channels: [], cooldownMinutes: 30 };
+        }
 
         this.alarmService.setRetentionDays(this.growConfig.eventRetentionDays ?? 30);
+
+        // Push-Benachrichtigungen: bei neuem Alarm benachrichtigen
+        this.alarmService.addListener(({ alarm, isNew }) => {
+            const notifCfg = this.growConfig.notifications;
+            if (!notifCfg?.enabled) return;
+            const groupName = this.growConfig.groups.find(g => g.id === alarm.groupId)?.name ?? alarm.groupId;
+            this.notificationService.notify(alarm, isNew, groupName, notifCfg).catch(e => {
+                this.log.error(`Notification-Fehler: ${e}`);
+            });
+        });
 
         // Instanz-States aktualisieren
         await this.setStateAsync('info.version', { val: this.version, ack: true });
@@ -1520,7 +1538,7 @@ class GrowManagerAdapter extends utils.Adapter {
     // Admin-Nachrichten
     // ============================================================
 
-    private onMessage(obj: ioBroker.Message): void {
+    private async onMessage(obj: ioBroker.Message): Promise<void> {
         if (!obj) return;
         this.log.debug(`Message: ${obj.command}`);
 
@@ -1617,6 +1635,42 @@ class GrowManagerAdapter extends utils.Adapter {
                     if (obj.callback) this.sendTo(obj.from, obj.command, { ok: true } as unknown as ioBroker.MessagePayload, obj.callback);
                 }
                 break;
+            case 'detectAdapters': {
+                // Prüft welche Benachrichtigungs-Adapter installiert sind
+                const checks = [
+                    { type: 'telegram', ids: ['telegram.0', 'telegram.1'] },
+                    { type: 'whatsapp',  ids: ['whatsapp-cmb.0', 'whatsapp-cmb.1'] },
+                    { type: 'signal',   ids: ['signal-cmb.0'] },
+                ];
+                const detected: Array<{ type: string; instance: string }> = [];
+                for (const check of checks) {
+                    for (const id of check.ids) {
+                        try {
+                            const adapterObj = await this.getForeignObjectAsync(`system.adapter.${id}`);
+                            if (adapterObj) {
+                                detected.push({ type: check.type, instance: id.split('.').pop() ?? '0' });
+                                break; // Erste gefundene Instanz reicht
+                            }
+                        } catch { /* nicht installiert */ }
+                    }
+                }
+                // Discord ist immer verfügbar (nur Webhook-URL nötig)
+                detected.push({ type: 'discord', instance: '' });
+                if (obj.callback) {
+                    this.sendTo(obj.from, obj.command, { detected } as unknown as ioBroker.MessagePayload, obj.callback);
+                }
+                break;
+            }
+            case 'testNotification': {
+                if (obj.message && typeof obj.message === 'object' && 'channel' in obj.message) {
+                    const channel = (obj.message as { channel: import('./models/config').NotificationChannel }).channel;
+                    const result = await this.notificationService.sendTest(channel);
+                    if (obj.callback) {
+                        this.sendTo(obj.from, obj.command, result as unknown as ioBroker.MessagePayload, obj.callback);
+                    }
+                }
+                break;
+            }
             default:
                 if (obj.callback) {
                     this.sendTo(obj.from, obj.command, { error: `Unbekannter Befehl: ${obj.command}` }, obj.callback);

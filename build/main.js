@@ -42,6 +42,7 @@ const CameraService_1 = require("./services/CameraService");
 const ConfigurationService_1 = require("./services/ConfigurationService");
 const SharedActorManager_1 = require("./services/SharedActorManager");
 const WebDashboardService_1 = require("./services/WebDashboardService");
+const NotificationService_1 = require("./services/NotificationService");
 const path = __importStar(require("path"));
 const calculations_1 = require("./utils/calculations");
 class GrowManagerAdapter extends utils.Adapter {
@@ -81,6 +82,9 @@ class GrowManagerAdapter extends utils.Adapter {
         this.configurationService = new ConfigurationService_1.ConfigurationService(log);
         this.sharedActorManager = new SharedActorManager_1.SharedActorManager();
         this.webDashboard = new WebDashboardService_1.WebDashboardService(log, path.join(__dirname, '..'));
+        this.notificationService = new NotificationService_1.NotificationService(log, (adapter, command, data) => {
+            this.sendTo(adapter, command, data);
+        });
         this.on('ready', this.onReady.bind(this));
         this.on('stateChange', this.onStateChange.bind(this));
         this.on('message', this.onMessage.bind(this));
@@ -98,7 +102,20 @@ class GrowManagerAdapter extends utils.Adapter {
             this.growConfig.climateProfiles = [];
         if (!this.growConfig.alarmChannels)
             this.growConfig.alarmChannels = [];
+        if (!this.growConfig.notifications) {
+            this.growConfig.notifications = { enabled: false, channels: [], cooldownMinutes: 30 };
+        }
         this.alarmService.setRetentionDays(this.growConfig.eventRetentionDays ?? 30);
+        // Push-Benachrichtigungen: bei neuem Alarm benachrichtigen
+        this.alarmService.addListener(({ alarm, isNew }) => {
+            const notifCfg = this.growConfig.notifications;
+            if (!notifCfg?.enabled)
+                return;
+            const groupName = this.growConfig.groups.find(g => g.id === alarm.groupId)?.name ?? alarm.groupId;
+            this.notificationService.notify(alarm, isNew, groupName, notifCfg).catch(e => {
+                this.log.error(`Notification-Fehler: ${e}`);
+            });
+        });
         // Instanz-States aktualisieren
         await this.setStateAsync('info.version', { val: this.version, ack: true });
         await this.setStateAsync('info.status', { val: 'initializing', ack: true });
@@ -1362,7 +1379,7 @@ class GrowManagerAdapter extends utils.Adapter {
     // ============================================================
     // Admin-Nachrichten
     // ============================================================
-    onMessage(obj) {
+    async onMessage(obj) {
         if (!obj)
             return;
         this.log.debug(`Message: ${obj.command}`);
@@ -1467,6 +1484,43 @@ class GrowManagerAdapter extends utils.Adapter {
                         this.sendTo(obj.from, obj.command, { ok: true }, obj.callback);
                 }
                 break;
+            case 'detectAdapters': {
+                // Prüft welche Benachrichtigungs-Adapter installiert sind
+                const checks = [
+                    { type: 'telegram', ids: ['telegram.0', 'telegram.1'] },
+                    { type: 'whatsapp', ids: ['whatsapp-cmb.0', 'whatsapp-cmb.1'] },
+                    { type: 'signal', ids: ['signal-cmb.0'] },
+                ];
+                const detected = [];
+                for (const check of checks) {
+                    for (const id of check.ids) {
+                        try {
+                            const adapterObj = await this.getForeignObjectAsync(`system.adapter.${id}`);
+                            if (adapterObj) {
+                                detected.push({ type: check.type, instance: id.split('.').pop() ?? '0' });
+                                break; // Erste gefundene Instanz reicht
+                            }
+                        }
+                        catch { /* nicht installiert */ }
+                    }
+                }
+                // Discord ist immer verfügbar (nur Webhook-URL nötig)
+                detected.push({ type: 'discord', instance: '' });
+                if (obj.callback) {
+                    this.sendTo(obj.from, obj.command, { detected }, obj.callback);
+                }
+                break;
+            }
+            case 'testNotification': {
+                if (obj.message && typeof obj.message === 'object' && 'channel' in obj.message) {
+                    const channel = obj.message.channel;
+                    const result = await this.notificationService.sendTest(channel);
+                    if (obj.callback) {
+                        this.sendTo(obj.from, obj.command, result, obj.callback);
+                    }
+                }
+                break;
+            }
             default:
                 if (obj.callback) {
                     this.sendTo(obj.from, obj.command, { error: `Unbekannter Befehl: ${obj.command}` }, obj.callback);
