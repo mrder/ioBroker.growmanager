@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.45",
+    "version": "0.1.46",
     "news": {
+      "0.1.46": {
+        "en": "Improved influence-% tooltip with concrete examples and mode explanations",
+        "de": "Einfluss-%-Tooltip verbessert mit konkreten Beispielen und Modus-Erklärungen"
+      },
       "0.1.45": {
         "en": "Actuator countdown timer for min-on/off blocking times; manual lock indicator; influence factor tooltip in admin UI",
         "de": "Countdown-Anzeige für Mindestlauf-/Sperrzeiten; Manuell-Sperr-Badge; Einfluss-%-Erklärung im Admin per Hover-Tooltip"

@@ -14,6 +14,10 @@ export interface DashboardActuatorState {
     sharedFromGroupId?: string;
     sharedFromGroupName?: string;
     influenceFactor?: number;
+    manualLock?: boolean;
+    blocked?: boolean;
+    blockReason?: string;
+    blockSecondsLeft?: number;
 }
 export interface DashboardAlarm {
     id: string;

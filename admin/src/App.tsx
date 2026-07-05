@@ -704,19 +704,40 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                                 <span style={{ fontWeight: 600, fontSize: 12 }}>Teilnehmer-Gruppen</span>
                                 <span title={
-`Einfluss-% = Stimmgewicht der Teilnehmer-Gruppe bei der Abstimmung.
+`EINFLUSS-% UND ABSTIMMUNGSMODI
 
-Abstimmungsmodi:
-• Beliebige Gruppe (OR): Jede Gruppe die EIN will → Aktor geht an. Einfluss-% wird ignoriert.
-• Mehrheit: Summe der Gewichte aller EIN-Gruppen > 50% → an. Einfluss-% bestimmt wie viel die Gruppe zählt.
-• Eigentümer entscheidet: Nur die Eigentümer-Gruppe steuert den Aktor. Teilnehmer beeinflussen nicht.
+Der Einfluss-% ist das Stimmgewicht der Teilnehmer-Gruppe.
+Er wirkt NUR im Modus "Mehrheit" – in allen anderen Modi wird er ignoriert.
 
-Beispiel Wuchs (VPD 0.8–1.2) + Blüte (VPD 1.0–1.3), Modus "Mehrheit":
-• Eigentümer (Blüte): Gewicht 1.0 (=100%), Teilnehmer (Wuchs): 80%
-• Beide müssen EIN wollen → Aktor geht an sobald 50% überschritten
-• Tipp: Bei unterschiedlichen Sollwerten "Beliebige Gruppe (OR)" wählen, damit der Lüfter läuft sobald eine Gruppe ihn braucht.
+─── MODI IM ÜBERBLICK ───────────────────────────────
 
-Hinweis: Der angezeigte VPD-Sollwert im Dashboard ist immer der eigene Sollwert der jeweiligen Gruppe – er ändert sich nicht durch den Einfluss-%.`
+  Beliebige Gruppe (OR)
+  → Aktor geht AN sobald EINE Gruppe EIN will.
+  → Einfluss-% wird ignoriert.
+  → Empfohlen für geteilte Lüfter, Befeuchter o.ä.:
+    Jede Gruppe regelt nach ihrem eigenen Sollwert,
+    der Aktor läuft wenn irgendwer ihn braucht.
+
+  Mehrheit
+  → Aktor geht AN wenn EIN-Gewichte > 50% aller Gewichte.
+  → Einfluss-% bestimmt wie viel die Gruppe zählt.
+  → Achtung: Mit max. 100% Einfluss kann eine Teilnehmer-
+    Gruppe den Eigentümer NICHT alleine überstimmen.
+    (100/(100+100) = 50% → nicht > 50% → bleibt AUS)
+  → Sinnvoll wenn der Aktor nur bei Einigkeit laufen soll.
+
+  Eigentümer entscheidet
+  → Nur die Eigentümer-Gruppe steuert den Aktor.
+  → Teilnehmer sehen den Status, beeinflussen ihn nicht.
+
+─── DEIN FALL: ZWEI GRUPPEN MIT VERSCHIEDENEN SOLLWERTEN ──
+
+  Beispiel: Wuchs (VPD 0.8–1.2) + Blüte (VPD 1.0–1.3)
+  Richtiger Modus: "Beliebige Gruppe (OR)"
+  → Wuchs VPD=1.25 → will EIN → Lüfter läuft ✓
+  → Blüte VPD=1.15 → will EIN → Lüfter läuft ✓
+  → Beide unter Sollwert → beide wollen AUS → Lüfter aus ✓
+  Jede Gruppe behält ihren eigenen Sollwert im Dashboard.`
                                 } style={{ cursor: 'help', fontSize: 13, color: '#1976d2', userSelect: 'none' }}>ⓘ</span>
                             </div>
                             {(edit.sharedParticipants ?? []).map((p, idx) => {
