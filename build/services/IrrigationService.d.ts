@@ -24,12 +24,25 @@ export interface IrrigationDecision {
     reason: string;
     blocked: boolean;
 }
+export interface IrrigationStopEvent {
+    groupId: string;
+    zoneId: string;
+    zoneName: string;
+    startTs: number;
+    durationSec: number;
+    startMoisture: number | null;
+    endMoisture: number | null;
+    trigger: string;
+    flowLiters: number;
+}
 export declare class IrrigationService {
     private readonly alarmService;
     private readonly log;
     private readonly zoneStates;
     private readonly zoneConfigs;
+    private onStopCallback?;
     constructor(alarmService: AlarmService, log: ILogger);
+    setOnStop(cb: (e: IrrigationStopEvent) => void): void;
     initZone(zone: IrrigationZoneConfig): void;
     /**
      * Haupt-Entscheidungslogik für eine Zone.

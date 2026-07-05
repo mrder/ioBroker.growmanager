@@ -50,11 +50,13 @@ class WebDashboardService {
         this.controlCallback = null;
         this.modeCallback = null;
         this.trendsCallback = null;
+        this.databaseCallback = null;
     }
     setPin(pin) { this.pin = pin; }
     setControlCallback(cb) { this.controlCallback = cb; }
     setModeCallback(cb) { this.modeCallback = cb; }
     setTrendsCallback(cb) { this.trendsCallback = cb; }
+    setDatabaseCallback(cb) { this.databaseCallback = cb; }
     start(port, bindAddress) {
         const htmlPath = path.join(this.adapterDir, 'admin', 'web', 'dashboard.html');
         try {
@@ -147,6 +149,14 @@ class WebDashboardService {
                 res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
                 res.end('[]');
             }
+            return;
+        }
+        const dbMatch = url.match(/^\/api\/database\/([^/]+)\/(stats|energy|irrigation)$/);
+        if (dbMatch) {
+            const cb = this.databaseCallback;
+            const data = cb ? cb(dbMatch[1], dbMatch[2]) : [];
+            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify(data));
             return;
         }
         res.writeHead(404, { 'Content-Type': 'text/plain' });

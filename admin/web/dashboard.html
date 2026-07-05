@@ -345,6 +345,29 @@
     background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
     width: min(520px, 94vw); padding: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
   }
+
+  /* Datenbank-Popup */
+  .db-popup {
+    display: none; position: fixed; inset: 0; z-index: 201;
+    background: rgba(0,0,0,0.6); align-items: center; justify-content: center;
+  }
+  .db-popup.visible { display: flex; }
+  .db-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    width: min(720px, 96vw); max-height: 85vh; display: flex; flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .db-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); font-weight: 600; }
+  .db-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); }
+  .db-tab { padding: 8px 18px; cursor: pointer; font-size: 13px; color: var(--text-dim); border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; }
+  .db-tab.active { color: var(--green-light); border-bottom-color: var(--green-light); }
+  .db-body { overflow-y: auto; padding: 12px 16px; flex: 1; }
+  .db-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .db-table th { text-align: left; color: var(--text-dim); font-weight: 500; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+  .db-table td { padding: 5px 8px; border-bottom: 1px solid #2a2a2a; }
+  .db-table tr:hover td { background: var(--surface2); }
+  .db-btn { font-size: 11px; padding: 4px 10px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; margin-left: 8px; }
+  .db-btn:hover { border-color: var(--green-light); color: var(--green-light); }
   .trend-header {
     display: flex; justify-content: space-between; align-items: center;
     margin-bottom: 12px; font-weight: 600; color: var(--text);
@@ -404,6 +427,26 @@
       <button class="trend-close" onclick="closeTrend()">✕</button>
     </div>
     <div id="trendChart"></div>
+  </div>
+</div>
+
+<div class="db-popup" id="dbPopup">
+  <div class="db-box">
+    <div class="db-header">
+      <span id="dbTitle">Verlaufsdaten</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="db-btn" id="dbExportBtn" onclick="dbExport()">⬇ Export CSV</button>
+        <button class="trend-close" onclick="closeDb()">✕</button>
+      </div>
+    </div>
+    <div class="db-tabs">
+      <button class="db-tab active" id="dbTabStats"   onclick="dbSwitchTab('stats')">📊 Tages-Statistik</button>
+      <button class="db-tab"        id="dbTabEnergy"  onclick="dbSwitchTab('energy')">⚡ Energie</button>
+      <button class="db-tab"        id="dbTabIrr"     onclick="dbSwitchTab('irrigation')">💧 Bewässerung</button>
+    </div>
+    <div class="db-body" id="dbBody">
+      <p style="color:var(--text-dim);padding:20px">Lade…</p>
+    </div>
   </div>
 </div>
 
@@ -633,7 +676,127 @@ function renderTrendChart(points, unit, setMin, setMax) {
     <text x="${W/2}" y="${H-4}" text-anchor="middle" font-size="9" fill="#666">${unit}</text>
   </svg>`;
 }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTrend(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeTrend(); closeDb(); } });
+
+// ---- Datenbank-Popup ----
+let dbCurrentGroup = null;
+let dbCurrentTab = 'stats';
+let dbCurrentData = [];
+
+async function showDb(groupId, groupName) {
+  dbCurrentGroup = groupId;
+  document.getElementById('dbTitle').textContent = `Verlaufsdaten – ${groupName}`;
+  document.getElementById('dbPopup').classList.add('visible');
+  await dbSwitchTab('stats');
+}
+function closeDb() {
+  document.getElementById('dbPopup').classList.remove('visible');
+  dbCurrentGroup = null;
+}
+
+async function dbSwitchTab(tab) {
+  dbCurrentTab = tab;
+  ['stats','energy','irrigation'].forEach(t => {
+    document.getElementById('dbTab' + t.charAt(0).toUpperCase() + t.slice(1).replace('igation',''))
+            ?.classList.toggle('active', t === tab);
+  });
+  // Tab-Button IDs: dbTabStats, dbTabEnergy, dbTabIrr
+  document.getElementById('dbTabStats')?.classList.toggle('active', tab === 'stats');
+  document.getElementById('dbTabEnergy')?.classList.toggle('active', tab === 'energy');
+  document.getElementById('dbTabIrr')?.classList.toggle('active', tab === 'irrigation');
+
+  const body = document.getElementById('dbBody');
+  body.innerHTML = '<p style="color:var(--text-dim);padding:20px">Lade…</p>';
+  try {
+    const res = await fetch(`/api/database/${dbCurrentGroup}/${tab}`);
+    dbCurrentData = await res.json();
+    body.innerHTML = tab === 'stats'      ? renderStatsTable(dbCurrentData)
+                   : tab === 'energy'     ? renderEnergyTable(dbCurrentData)
+                   :                        renderIrrigationTable(dbCurrentData);
+  } catch(e) {
+    body.innerHTML = '<p style="color:var(--warn);padding:20px">Fehler beim Laden</p>';
+  }
+}
+
+function renderStatsTable(data) {
+  if (!data || data.length === 0) return '<p style="color:var(--text-dim);padding:20px">Noch keine Tagesdaten vorhanden.</p>';
+  // Alle Sensor-IDs sammeln
+  const sensorIds = [...new Set(data.flatMap(d => Object.keys(d.sensors ?? {})))];
+  const sensorLabels = { temperature:'Temp °C', humidity:'Feuchte %', vpd:'VPD kPa' };
+  const cols = sensorIds.map(id => sensorLabels[id] ?? id);
+  let html = `<table class="db-table"><thead><tr><th>Datum</th>${cols.map(c=>`<th>${c} Min</th><th>${c} Avg</th><th>${c} Max</th>`).join('')}</tr></thead><tbody>`;
+  for (const row of data) {
+    html += `<tr><td>${row.date}</td>`;
+    for (const id of sensorIds) {
+      const s = row.sensors?.[id];
+      if (s) html += `<td>${s.min.toFixed(1)}</td><td style="font-weight:600">${s.avg.toFixed(1)}</td><td>${s.max.toFixed(1)}</td>`;
+      else   html += `<td colspan="3" style="color:var(--text-dim)">–</td>`;
+    }
+    html += '</tr>';
+  }
+  return html + '</tbody></table>';
+}
+
+function renderEnergyTable(data) {
+  if (!data || data.length === 0) return '<p style="color:var(--text-dim);padding:20px">Noch keine Energiedaten (Nennleistung oder kWh-State bei Aktoren konfigurieren).</p>';
+  const actIds = [...new Set(data.flatMap(d => Object.keys(d.actuators ?? {})))];
+  const names = {};
+  data.forEach(d => Object.entries(d.actuators ?? {}).forEach(([id,a]) => { names[id] = a.name; }));
+  let html = `<table class="db-table"><thead><tr><th>Datum</th>${actIds.map(id=>`<th>${names[id]??id} Wh</th><th>Laufzeit</th>`).join('')}</tr></thead><tbody>`;
+  for (const row of data) {
+    html += `<tr><td>${row.date}</td>`;
+    for (const id of actIds) {
+      const a = row.actuators?.[id];
+      if (a) {
+        const h = Math.floor(a.runtimeMin/60), m = Math.round(a.runtimeMin%60);
+        html += `<td>${a.wh.toFixed(0)} Wh</td><td>${h}h ${m}m</td>`;
+      } else html += `<td colspan="2" style="color:var(--text-dim)">–</td>`;
+    }
+    html += '</tr>';
+  }
+  return html + '</tbody></table>';
+}
+
+function renderIrrigationTable(data) {
+  if (!data || data.length === 0) return '<p style="color:var(--text-dim);padding:20px">Noch keine Bewässerungsereignisse aufgezeichnet.</p>';
+  let html = `<table class="db-table"><thead><tr><th>Zeitpunkt</th><th>Zone</th><th>Dauer</th><th>Start-Feuchte</th><th>End-Feuchte</th><th>Auslöser</th><th>Liter</th></tr></thead><tbody>`;
+  for (const ev of data) {
+    const d = new Date(ev.ts);
+    const ts = `${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}`;
+    const dur = ev.durationSec >= 60 ? `${Math.floor(ev.durationSec/60)}m ${ev.durationSec%60}s` : `${ev.durationSec}s`;
+    const sm = ev.startMoisture != null ? ev.startMoisture.toFixed(0)+'%' : '–';
+    const em = ev.endMoisture   != null ? ev.endMoisture.toFixed(0)+'%'   : '–';
+    html += `<tr><td>${ts}</td><td>${ev.zoneName}</td><td>${dur}</td><td>${sm}</td><td>${em}</td><td>${ev.trigger}</td><td>${ev.flowLiters>0?ev.flowLiters.toFixed(1):'–'}</td></tr>`;
+  }
+  return html + '</tbody></table>';
+}
+
+function dbExport() {
+  if (!dbCurrentData || dbCurrentData.length === 0) return;
+  let csv = '';
+  if (dbCurrentTab === 'irrigation') {
+    csv = 'Zeitpunkt;Zone;Dauer_s;Start_%%;End_%%;Auslöser;Liter\n';
+    csv += dbCurrentData.map(ev => `${new Date(ev.ts).toLocaleString('de-DE')};${ev.zoneName};${ev.durationSec};${ev.startMoisture??''};${ev.endMoisture??''};${ev.trigger};${ev.flowLiters}`).join('\n');
+  } else if (dbCurrentTab === 'energy') {
+    const actIds = [...new Set(dbCurrentData.flatMap(d => Object.keys(d.actuators ?? {})))];
+    csv = 'Datum;' + actIds.map(id => `${id}_Wh;${id}_min`).join(';') + '\n';
+    csv += dbCurrentData.map(row => row.date + ';' + actIds.map(id => {
+      const a = row.actuators?.[id]; return a ? `${a.wh.toFixed(0)};${a.runtimeMin.toFixed(0)}` : ';';
+    }).join(';')).join('\n');
+  } else {
+    const sids = [...new Set(dbCurrentData.flatMap(d => Object.keys(d.sensors ?? {})))];
+    csv = 'Datum;' + sids.map(id => `${id}_min;${id}_avg;${id}_max`).join(';') + '\n';
+    csv += dbCurrentData.map(row => row.date + ';' + sids.map(id => {
+      const s = row.sensors?.[id]; return s ? `${s.min};${s.avg};${s.max}` : ';;';
+    }).join(';')).join('\n');
+  }
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `growmanager-${dbCurrentTab}-${dbCurrentGroup}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 // ---- Aktive-Geräte-Zeile ----
 function actIconsHtml(actuators, groupId, manualOverrides) {
@@ -1043,6 +1206,9 @@ function groupCardHtml(g) {
     ${irrigBadge}
     ${actHtml}
     ${alarmHtml}
+    <div style="padding:6px 12px 10px;text-align:right">
+      <button class="db-btn" onclick="showDb('${gid}','${g.name.replace(/'/g,"\\'")}')">📊 Verlaufsdaten</button>
+    </div>
   </div>`;
 }
 

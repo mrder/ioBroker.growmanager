@@ -110,6 +110,7 @@ export declare class WebDashboardService {
     private controlCallback;
     private modeCallback;
     private trendsCallback;
+    private databaseCallback;
     constructor(log: {
         info: (m: string) => void;
         warn: (m: string) => void;
@@ -125,6 +126,7 @@ export declare class WebDashboardService {
         }>;
         hint?: string;
     }>): void;
+    setDatabaseCallback(cb: (groupId: string, type: 'stats' | 'energy' | 'irrigation') => unknown): void;
     start(port: number, bindAddress: string): void;
     stop(): void;
     updateState(state: DashboardState): void;

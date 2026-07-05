@@ -17,6 +17,9 @@ class IrrigationService {
         this.zoneStates = new Map();
         this.zoneConfigs = new Map();
     }
+    setOnStop(cb) {
+        this.onStopCallback = cb;
+    }
     initZone(zone) {
         this.zoneConfigs.set(zone.id, zone);
         if (this.zoneStates.has(zone.id))
@@ -187,12 +190,26 @@ class IrrigationService {
         state.cycleCount++;
         this.log.info(`Zone ${zone.id}: Bewässerung gestartet (Zyklus ${state.cycleCount})`);
     }
-    stopZone(zone, state, reason) {
+    stopZone(zone, state, reason, groupId, startMoisture) {
+        const durationSec = state.startTs > 0 ? Math.round((Date.now() - state.startTs) / 1000) : 0;
         state.running = false;
         state.lastEndTs = Date.now();
         state.startTs = 0;
         state.pauseUntil = Date.now() + zone.minPauseMinutes * 60000;
         this.log.info(`Zone ${state.zoneId}: Bewässerung gestoppt (${reason})`);
+        if (this.onStopCallback && groupId) {
+            this.onStopCallback({
+                groupId,
+                zoneId: state.zoneId,
+                zoneName: zone.name ?? state.zoneId,
+                startTs: state.lastEndTs - durationSec * 1000,
+                durationSec,
+                startMoisture: startMoisture ?? null,
+                endMoisture: state.currentMoisture,
+                trigger: reason,
+                flowLiters: state.totalFlowLiters,
+            });
+        }
     }
     aggregateMoisture(zone, sensorStates) {
         if (zone.moistureSensorIds.length === 0)

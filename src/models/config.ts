@@ -154,6 +154,10 @@ export interface ActuatorConfig {
     circulationMode?: 'windSimulator' | 'schedule' | 'alwaysOn';
     windSimulator?: WindSimulatorConfig;
     circulationSchedule?: CirculationScheduleWindow[];
+    // Energiemessung: optionaler State mit W oder kWh; ratedPowerW = Nennleistung als Fallback
+    energyStateId?: string;
+    energyStateUnit?: 'W' | 'kWh';
+    ratedPowerW?: number;
 }
 
 // ---- Umluft-Windsimulator ----------------------------------

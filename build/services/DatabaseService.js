@@ -1,0 +1,200 @@
+"use strict";
+// ============================================================
+// GrowManager – DatabaseService
+// Persistente Ablage von Tages-Statistiken, Energiedaten und
+// Bewässerungsprotokoll als JSON-States im ioBroker-Objektbaum.
+// Pfad: growmanager.0.database.{groupId}.{stats|energy|irrigation}
+// ============================================================
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DatabaseService = void 0;
+// Maximale Einträge pro Typ
+const MAX_DAYS = 30;
+const MAX_IRRIGATION = 200;
+class DatabaseService {
+    constructor(log, setState, getState) {
+        this.log = log;
+        this.setState = setState;
+        this.getState = getState;
+        // In-memory Caches; beim Start aus ioBroker-States befüllt
+        this.statsCache = new Map();
+        this.energyCache = new Map();
+        this.irrCache = new Map();
+        // Akkumulator für laufende Sensorwerte pro Gruppe/Sensor
+        this.sensorAcc = new Map();
+        // Akkumulator für laufende Energiewerte pro Gruppe/Aktor
+        this.energyAcc = new Map();
+        this.lastMidnightFlush = new Date().toDateString();
+    }
+    // ---- Initialisierung: Caches aus States laden -------------
+    async loadGroup(groupId) {
+        this.statsCache.set(groupId, await this.readJson(`database.${groupId}.stats`, []));
+        this.energyCache.set(groupId, await this.readJson(`database.${groupId}.energy`, []));
+        this.irrCache.set(groupId, await this.readJson(`database.${groupId}.irrigation`, []));
+        this.sensorAcc.set(groupId, new Map());
+        this.energyAcc.set(groupId, new Map());
+    }
+    // ---- Sensordaten akkumulieren -----------------------------
+    trackSensorValue(groupId, sensorId, value) {
+        const group = this.sensorAcc.get(groupId);
+        if (!group)
+            return;
+        const cur = group.get(sensorId);
+        if (!cur) {
+            group.set(sensorId, { sum: value, min: value, max: value, n: 1 });
+        }
+        else {
+            cur.sum += value;
+            cur.n++;
+            if (value < cur.min)
+                cur.min = value;
+            if (value > cur.max)
+                cur.max = value;
+        }
+    }
+    // ---- Energiedaten akkumulieren ----------------------------
+    trackActuatorOn(groupId, actuatorId, name) {
+        const group = this.energyAcc.get(groupId);
+        if (!group)
+            return;
+        const cur = group.get(actuatorId);
+        if (cur && cur.lastOnTs === 0) {
+            cur.lastOnTs = Date.now();
+            cur.name = name;
+        }
+        else if (!cur) {
+            group.set(actuatorId, { wh: 0, runtimeMin: 0, name, lastOnTs: Date.now() });
+        }
+    }
+    trackActuatorOff(groupId, actuatorId, ratedWatts) {
+        const group = this.energyAcc.get(groupId);
+        if (!group)
+            return;
+        const cur = group.get(actuatorId);
+        if (!cur || cur.lastOnTs === 0)
+            return;
+        const durationMin = (Date.now() - cur.lastOnTs) / 60000;
+        cur.runtimeMin += durationMin;
+        cur.wh += (ratedWatts * durationMin) / 60;
+        cur.lastOnTs = 0;
+    }
+    trackActuatorWh(groupId, actuatorId, name, deltaWh, durationMin) {
+        const group = this.energyAcc.get(groupId);
+        if (!group)
+            return;
+        const cur = group.get(actuatorId);
+        if (!cur) {
+            group.set(actuatorId, { wh: deltaWh, runtimeMin: durationMin, name, lastOnTs: 0 });
+        }
+        else {
+            cur.wh += deltaWh;
+            cur.runtimeMin += durationMin;
+            cur.name = name;
+        }
+    }
+    // ---- Bewässerungsereignis speichern ----------------------
+    async addIrrigationEvent(groupId, event) {
+        const list = this.irrCache.get(groupId) ?? [];
+        list.unshift(event);
+        if (list.length > MAX_IRRIGATION)
+            list.length = MAX_IRRIGATION;
+        this.irrCache.set(groupId, list);
+        await this.flush(`database.${groupId}.irrigation`, list);
+    }
+    // ---- Tagesabschluss: Acc → DB schreiben ------------------
+    async tickMidnight(groupId) {
+        const today = new Date().toDateString();
+        if (today === this.lastMidnightFlush)
+            return;
+        this.lastMidnightFlush = today;
+        await this.flushDay(groupId);
+    }
+    async flushDay(groupId) {
+        const dateStr = this.todayStr();
+        // Sensor-Stats
+        const sGroup = this.sensorAcc.get(groupId);
+        if (sGroup && sGroup.size > 0) {
+            const entry = { date: dateStr, sensors: {} };
+            for (const [sid, acc] of sGroup) {
+                entry.sensors[sid] = { min: +acc.min.toFixed(2), max: +acc.max.toFixed(2), avg: +(acc.sum / acc.n).toFixed(2), samples: acc.n };
+            }
+            const list = this.statsCache.get(groupId) ?? [];
+            const idx = list.findIndex(d => d.date === dateStr);
+            if (idx >= 0)
+                list[idx] = entry;
+            else
+                list.unshift(entry);
+            if (list.length > MAX_DAYS)
+                list.length = MAX_DAYS;
+            this.statsCache.set(groupId, list);
+            await this.flush(`database.${groupId}.stats`, list);
+            sGroup.clear();
+        }
+        // Energie-Stats
+        const eGroup = this.energyAcc.get(groupId);
+        if (eGroup && eGroup.size > 0) {
+            const entry = { date: dateStr, actuators: {} };
+            for (const [aid, acc] of eGroup) {
+                // Noch-laufende Aktoren: Laufzeit bis jetzt anrechnen
+                let extra = 0;
+                if (acc.lastOnTs > 0)
+                    extra = (Date.now() - acc.lastOnTs) / 60000;
+                entry.actuators[aid] = {
+                    name: acc.name,
+                    wh: +acc.wh.toFixed(1),
+                    runtimeMin: +(acc.runtimeMin + extra).toFixed(1),
+                };
+            }
+            const list = this.energyCache.get(groupId) ?? [];
+            const idx = list.findIndex(d => d.date === dateStr);
+            if (idx >= 0)
+                list[idx] = entry;
+            else
+                list.unshift(entry);
+            if (list.length > MAX_DAYS)
+                list.length = MAX_DAYS;
+            this.energyCache.set(groupId, list);
+            await this.flush(`database.${groupId}.energy`, list);
+            // Energie-Acc zurücksetzen (Laufzeiten/Wh von vorne)
+            for (const acc of eGroup.values()) {
+                acc.wh = 0;
+                acc.runtimeMin = 0;
+                if (acc.lastOnTs > 0)
+                    acc.lastOnTs = Date.now();
+            }
+        }
+    }
+    // ---- Getter für Dashboard-API ----------------------------
+    getStats(groupId) {
+        return this.statsCache.get(groupId) ?? [];
+    }
+    getEnergy(groupId) {
+        return this.energyCache.get(groupId) ?? [];
+    }
+    getIrrigation(groupId) {
+        return this.irrCache.get(groupId) ?? [];
+    }
+    // ---- Interne Helfer ---------------------------------------
+    async readJson(id, fallback) {
+        try {
+            const raw = await this.getState(id);
+            if (raw)
+                return JSON.parse(raw);
+        }
+        catch { /* leer oder ungültig */ }
+        return fallback;
+    }
+    async flush(id, data) {
+        try {
+            await this.setState(id, JSON.stringify(data));
+        }
+        catch (e) {
+            this.log.error(`DatabaseService: Schreibfehler ${id}: ${e}`);
+        }
+    }
+    todayStr() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+}
+exports.DatabaseService = DatabaseService;
+//# sourceMappingURL=DatabaseService.js.map

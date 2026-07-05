@@ -109,6 +109,7 @@ export class WebDashboardService {
     private controlCallback: ((cmd: ControlCommand) => Promise<void>) | null = null;
     private modeCallback: ((cmd: ModeCommand) => Promise<void>) | null = null;
     private trendsCallback: ((groupId: string, variable: string) => Promise<{ points: Array<{ ts: number; value: number }>; hint?: string }>) | null = null;
+    private databaseCallback: ((groupId: string, type: 'stats' | 'energy' | 'irrigation') => unknown) | null = null;
 
     constructor(
         private readonly log: {
@@ -123,6 +124,7 @@ export class WebDashboardService {
     setControlCallback(cb: (cmd: ControlCommand) => Promise<void>): void { this.controlCallback = cb; }
     setModeCallback(cb: (cmd: ModeCommand) => Promise<void>): void { this.modeCallback = cb; }
     setTrendsCallback(cb: (groupId: string, variable: string) => Promise<{ points: Array<{ ts: number; value: number }>; hint?: string }>): void { this.trendsCallback = cb; }
+    setDatabaseCallback(cb: (groupId: string, type: 'stats' | 'energy' | 'irrigation') => unknown): void { this.databaseCallback = cb; }
 
     start(port: number, bindAddress: string): void {
         const htmlPath = path.join(this.adapterDir, 'admin', 'web', 'dashboard.html');
@@ -221,6 +223,15 @@ export class WebDashboardService {
                 res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
                 res.end('[]');
             }
+            return;
+        }
+
+        const dbMatch = url.match(/^\/api\/database\/([^/]+)\/(stats|energy|irrigation)$/);
+        if (dbMatch) {
+            const cb = this.databaseCallback;
+            const data = cb ? cb(dbMatch[1], dbMatch[2] as 'stats' | 'energy' | 'irrigation') : [];
+            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify(data));
             return;
         }
 

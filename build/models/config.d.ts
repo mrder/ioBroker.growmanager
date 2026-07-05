@@ -81,6 +81,9 @@ export interface ActuatorConfig {
     circulationMode?: 'windSimulator' | 'schedule' | 'alwaysOn';
     windSimulator?: WindSimulatorConfig;
     circulationSchedule?: CirculationScheduleWindow[];
+    energyStateId?: string;
+    energyStateUnit?: 'W' | 'kWh';
+    ratedPowerW?: number;
 }
 export interface WindSimulatorConfig {
     minOnSeconds: number;

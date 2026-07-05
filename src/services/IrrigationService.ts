@@ -39,14 +39,31 @@ export interface IrrigationDecision {
     blocked: boolean;
 }
 
+export interface IrrigationStopEvent {
+    groupId: string;
+    zoneId: string;
+    zoneName: string;
+    startTs: number;
+    durationSec: number;
+    startMoisture: number | null;
+    endMoisture: number | null;
+    trigger: string;
+    flowLiters: number;
+}
+
 export class IrrigationService {
     private readonly zoneStates = new Map<string, ZoneState>();
     private readonly zoneConfigs = new Map<string, IrrigationZoneConfig>();
+    private onStopCallback?: (e: IrrigationStopEvent) => void;
 
     constructor(
         private readonly alarmService: AlarmService,
         private readonly log: ILogger
     ) {}
+
+    setOnStop(cb: (e: IrrigationStopEvent) => void): void {
+        this.onStopCallback = cb;
+    }
 
     initZone(zone: IrrigationZoneConfig): void {
         this.zoneConfigs.set(zone.id, zone);
@@ -260,12 +277,32 @@ export class IrrigationService {
         this.log.info(`Zone ${zone.id}: Bewässerung gestartet (Zyklus ${state.cycleCount})`);
     }
 
-    private stopZone(zone: Pick<IrrigationZoneConfig, 'minPauseMinutes'>, state: ZoneState, reason: string): void {
+    private stopZone(
+        zone: Pick<IrrigationZoneConfig, 'minPauseMinutes' | 'id' | 'name'>,
+        state: ZoneState,
+        reason: string,
+        groupId?: string,
+        startMoisture?: number | null,
+    ): void {
+        const durationSec = state.startTs > 0 ? Math.round((Date.now() - state.startTs) / 1000) : 0;
         state.running = false;
         state.lastEndTs = Date.now();
         state.startTs = 0;
         state.pauseUntil = Date.now() + zone.minPauseMinutes * 60000;
         this.log.info(`Zone ${state.zoneId}: Bewässerung gestoppt (${reason})`);
+        if (this.onStopCallback && groupId) {
+            this.onStopCallback({
+                groupId,
+                zoneId: state.zoneId,
+                zoneName: (zone as IrrigationZoneConfig).name ?? state.zoneId,
+                startTs: state.lastEndTs - durationSec * 1000,
+                durationSec,
+                startMoisture: startMoisture ?? null,
+                endMoisture: state.currentMoisture,
+                trigger: reason,
+                flowLiters: state.totalFlowLiters,
+            });
+        }
     }
 
     private aggregateMoisture(

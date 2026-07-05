@@ -20,6 +20,19 @@ declare function sendTo(
     callback?: (result: unknown) => void
 ): void;
 
+// ioBroker Admin 5+ hat kein globales sendTo mehr – socket.emit als primären Weg nutzen.
+function iobSendTo(target: string, cmd: string, data: unknown, cb: (r: unknown) => void): void {
+    const sock = (window as unknown as Record<string, unknown>).socket as { emit: (...a: unknown[]) => void } | undefined;
+    const legacy = (window as unknown as Record<string, unknown>).sendTo as ((t: string, c: string, d: unknown, cb: (r: unknown) => void) => void) | undefined;
+    if (sock?.emit) {
+        sock.emit('sendTo', target, cmd, data, cb);
+    } else if (legacy) {
+        legacy(target, cmd, data, cb);
+    } else {
+        cb(null);
+    }
+}
+
 // ---- InfoTip -----------------------------------------------
 const InfoTip: React.FC<{ text: string }> = ({ text }) => {
     const [visible, setVisible] = useState(false);
@@ -781,6 +794,37 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                     onChange={v => setEdit(prev => ({ ...prev, feedbackStateId: v || undefined }))}
                     placeholder="z.B. zigbee.0.device.state_l"
                 />
+
+                {/* Energie-Tracking */}
+                <div style={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 6, padding: 10, marginTop: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: '#f0b429' }}>⚡ Energie-Tracking (optional)</div>
+                    <StateIdInput
+                        label="Energie-State (W oder kWh)"
+                        tip="State der Watt oder kWh liefert (z.B. tasmota.0.ENERGY_Power). Ohne State wird die Nennleistung × Laufzeit gerechnet."
+                        value={edit.energyStateId ?? ''}
+                        onChange={v => setEdit(prev => ({ ...prev, energyStateId: v || undefined }))}
+                        placeholder="z.B. shelly.0.device.Power (optional)"
+                    />
+                    {edit.energyStateId && (
+                        <div style={{ marginTop: 6 }}>
+                            <label style={styles.fieldLabel}>Einheit des Energy-States</label>
+                            <select style={styles.select}
+                                value={edit.energyStateUnit ?? 'W'}
+                                onChange={e => setEdit(prev => ({ ...prev, energyStateUnit: e.target.value as 'W' | 'kWh' }))}>
+                                <option value="W">Watt (W) – Momentanleistung</option>
+                                <option value="kWh">Kilowattstunden (kWh) – Zählerwert</option>
+                            </select>
+                        </div>
+                    )}
+                    <div style={{ marginTop: 6 }}>
+                        <label style={styles.fieldLabel}>Nennleistung (W) – Fallback ohne State</label>
+                        <input style={styles.input} type="number" min={0} step={1}
+                            value={edit.ratedPowerW ?? ''}
+                            placeholder="z.B. 600"
+                            onChange={e => setEdit(prev => ({ ...prev, ratedPowerW: e.target.value ? +e.target.value : undefined }))} />
+                        <span style={{ fontSize: 11, color: '#888' }}>Laufzeit × Nennleistung → Wh/Tag (nur wenn kein Energy-State)</span>
+                    </div>
+                </div>
 
                 <label style={styles.fieldLabel}>Datentyp</label>
                 <select style={styles.select} {...f('dataType')}>
@@ -2256,22 +2300,20 @@ const SettingsView: React.FC<{
                     style={styles.btnSecondary}
                     type="button"
                     onClick={() => {
-                        if (typeof sendTo !== 'undefined') {
-                            sendTo('growmanager.0', 'exportConfig', {}, (result: unknown) => {
-                                const res = result as { json?: string };
-                                if (res?.json) {
-                                    const blob = new Blob([res.json], { type: 'application/json' });
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = 'growmanager-config.json';
-                                    a.click();
-                                    URL.revokeObjectURL(url);
-                                }
-                            });
-                        } else {
-                            alert('sendTo nicht verfügbar (nur in ioBroker Admin nutzbar)');
-                        }
+                        iobSendTo('growmanager.0', 'exportConfig', {}, (result: unknown) => {
+                            const res = result as { json?: string } | null;
+                            if (res?.json) {
+                                const blob = new Blob([res.json], { type: 'application/json' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = 'growmanager-config.json';
+                                a.click();
+                                URL.revokeObjectURL(url);
+                            } else {
+                                alert('Export fehlgeschlagen – Adapter läuft?');
+                            }
+                        });
                     }}
                 >
                     Konfiguration exportieren
@@ -2289,18 +2331,14 @@ const SettingsView: React.FC<{
                             const reader = new FileReader();
                             reader.onload = ev => {
                                 const json = ev.target?.result as string;
-                                if (typeof sendTo !== 'undefined') {
-                                    sendTo('growmanager.0', 'importConfig', { json }, (result: unknown) => {
-                                        const res = result as { valid?: boolean; errors?: string[] };
-                                        if (res?.valid) {
-                                            alert('Konfiguration erfolgreich importiert. Seite neu laden.');
-                                        } else {
-                                            alert(`Import fehlgeschlagen:\n${(res?.errors ?? []).join('\n')}`);
-                                        }
-                                    });
-                                } else {
-                                    alert('sendTo nicht verfügbar (nur in ioBroker Admin nutzbar)');
-                                }
+                                iobSendTo('growmanager.0', 'importConfig', { json }, (result: unknown) => {
+                                    const res = result as { valid?: boolean; errors?: string[] } | null;
+                                    if (res?.valid) {
+                                        alert('Konfiguration erfolgreich importiert. Seite neu laden.');
+                                    } else {
+                                        alert(`Import fehlgeschlagen:\n${(res?.errors ?? ['Adapter läuft?']).join('\n')}`);
+                                    }
+                                });
                             };
                             reader.readAsText(file);
                             // Input zurücksetzen damit dieselbe Datei nochmals gewählt werden kann
@@ -2349,20 +2387,6 @@ const NotificationSettings: React.FC<{
     const [editingChannel, setEditingChannel] = useState<NotificationChannel | null>(null);
 
     const setChannels = (channels: NotificationChannel[]) => onChange({ ...value, channels });
-
-    // ioBroker Admin 5+ stellt sendTo nicht mehr als globale Funktion bereit,
-    // sondern über socket.emit. Wir unterstützen beide Varianten.
-    const iobSendTo = (target: string, cmd: string, data: unknown, cb: (r: unknown) => void) => {
-        const sock = (window as unknown as Record<string, unknown>).socket as { emit: (...a: unknown[]) => void } | undefined;
-        const legacy = (window as unknown as Record<string, unknown>).sendTo as ((t: string, c: string, d: unknown, cb: (r: unknown) => void) => void) | undefined;
-        if (sock?.emit) {
-            sock.emit('sendTo', target, cmd, data, cb);
-        } else if (legacy) {
-            legacy(target, cmd, data, cb);
-        } else {
-            cb(null);
-        }
-    };
 
     const detectAdapters = () => {
         iobSendTo('growmanager.0', 'detectAdapters', {}, (result: unknown) => {

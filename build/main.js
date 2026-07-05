@@ -43,6 +43,7 @@ const ConfigurationService_1 = require("./services/ConfigurationService");
 const SharedActorManager_1 = require("./services/SharedActorManager");
 const WebDashboardService_1 = require("./services/WebDashboardService");
 const NotificationService_1 = require("./services/NotificationService");
+const DatabaseService_1 = require("./services/DatabaseService");
 const path = __importStar(require("path"));
 const calculations_1 = require("./utils/calculations");
 class GrowManagerAdapter extends utils.Adapter {
@@ -89,6 +90,10 @@ class GrowManagerAdapter extends utils.Adapter {
         this.notificationService = new NotificationService_1.NotificationService(log, (adapter, command, data) => {
             this.sendTo(adapter, command, data);
         });
+        this.databaseService = new DatabaseService_1.DatabaseService(log, async (id, val) => { await this.setStateAsync(id, { val, ack: true }); }, async (id) => {
+            const s = await this.getStateAsync(id);
+            return typeof s?.val === 'string' ? s.val : null;
+        });
         this.on('ready', this.onReady.bind(this));
         this.on('stateChange', this.onStateChange.bind(this));
         this.on('message', this.onMessage.bind(this));
@@ -110,6 +115,19 @@ class GrowManagerAdapter extends utils.Adapter {
             this.growConfig.notifications = { enabled: false, channels: [], cooldownMinutes: 30 };
         }
         this.alarmService.setRetentionDays(this.growConfig.eventRetentionDays ?? 30);
+        // Bewässerungsprotokoll
+        this.irrigationService.setOnStop(event => {
+            this.databaseService.addIrrigationEvent(event.groupId, {
+                ts: event.startTs,
+                zoneId: event.zoneId,
+                zoneName: event.zoneName,
+                durationSec: event.durationSec,
+                startMoisture: event.startMoisture,
+                endMoisture: event.endMoisture,
+                trigger: event.trigger,
+                flowLiters: event.flowLiters,
+            }).catch(e => this.log.error(`IrrigationLog: ${e}`));
+        });
         // Push-Benachrichtigungen: bei neuem Alarm benachrichtigen
         this.alarmService.addListener(({ alarm, isNew }) => {
             const notifCfg = this.growConfig.notifications;
@@ -211,6 +229,13 @@ class GrowManagerAdapter extends utils.Adapter {
             await this.setForeignStateAsync(actuator.commandStateId, { val: val, ack: false });
             this.log.info(`Dashboard: ${actuator.name} → ${command ? 'EIN' : 'AUS'} (${durationMinutes} min)`);
         });
+        this.webDashboard.setDatabaseCallback((groupId, type) => {
+            switch (type) {
+                case 'stats': return this.databaseService.getStats(groupId);
+                case 'energy': return this.databaseService.getEnergy(groupId);
+                case 'irrigation': return this.databaseService.getIrrigation(groupId);
+            }
+        });
         this.webDashboard.start(webPort, webBind);
         // Regelzyklus starten
         this.scheduleNextCycle();
@@ -218,6 +243,10 @@ class GrowManagerAdapter extends utils.Adapter {
         this.watchdogTimer = this.setInterval(() => {
             this.actuatorService.tickOverrides();
             this.alarmService.cleanup();
+            // Tagesabschluss kurz nach Mitternacht
+            for (const group of this.growConfig.groups) {
+                this.databaseService.tickMidnight(group.id).catch(e => this.log.error(`DB Midnight: ${e}`));
+            }
         }, 60000);
         this.log.info('GrowManager bereit');
     }
@@ -263,6 +292,8 @@ class GrowManagerAdapter extends utils.Adapter {
         this.groupStates.set(group.id, groupState);
         // ioBroker-States für Gruppe anlegen
         await this.createGroupObjects(group);
+        await this.createDatabaseObjects(group.id);
+        await this.databaseService.loadGroup(group.id);
         // Sensor-States abonnieren + aktuelle Werte sofort einlesen
         for (const sensor of group.sensors) {
             if (!this.subscribedStateIds.has(sensor.stateId)) {
@@ -315,6 +346,10 @@ class GrowManagerAdapter extends utils.Adapter {
             if (actuator.powerStateId && !this.subscribedStateIds.has(actuator.powerStateId)) {
                 await this.subscribeForeignStatesAsync(actuator.powerStateId);
                 this.subscribedStateIds.add(actuator.powerStateId);
+            }
+            if (actuator.energyStateId && !this.subscribedStateIds.has(actuator.energyStateId)) {
+                await this.subscribeForeignStatesAsync(actuator.energyStateId);
+                this.subscribedStateIds.add(actuator.energyStateId);
             }
             if (actuator.healthStateId && !this.subscribedStateIds.has(actuator.healthStateId)) {
                 await this.subscribeForeignStatesAsync(actuator.healthStateId);
@@ -439,6 +474,14 @@ class GrowManagerAdapter extends utils.Adapter {
                     const actState = this.actuatorService.getState(actuator.id);
                     if (actState) {
                         this.actuatorService.processFeedback(actuator, actState.feedback, state.val);
+                    }
+                }
+                // Energie-Tracking: kWh-State
+                if (actuator.energyStateId === id && typeof state.val === 'number' && actuator.energyStateUnit === 'kWh') {
+                    const actState = this.actuatorService.getState(actuator.id);
+                    const isOn = actState?.effectiveState === true || (typeof actState?.effectiveState === 'number' && actState.effectiveState > 0);
+                    if (isOn) {
+                        this.databaseService.trackActuatorWh(group.id, actuator.id, actuator.name, 0, 0);
                     }
                 }
             }
@@ -887,6 +930,13 @@ class GrowManagerAdapter extends utils.Adapter {
                 if (typeof action.requested === 'boolean') {
                     this.setActuatorStateWithVerify(actuatorConfig, config.id, action.requested);
                 }
+                // Energie-Tracking: ratedPowerW-Fallback (kein kWh-Sensor)
+                if (action.requested && typeof action.requested !== 'number') {
+                    this.databaseService.trackActuatorOn(config.id, actuatorConfig.id, actuatorConfig.name);
+                }
+                else if (!action.requested && actuatorConfig.ratedPowerW) {
+                    this.databaseService.trackActuatorOff(config.id, actuatorConfig.id, actuatorConfig.ratedPowerW);
+                }
                 this.log.info(`Gruppe ${config.name}: ${actuatorConfig.name} → ${action.requested} (${action.reason})`);
                 // Wirkungsprüfung registrieren
                 if (actuatorConfig.type === 'heating' && action.requested) {
@@ -1263,6 +1313,24 @@ class GrowManagerAdapter extends utils.Adapter {
         for (const [key, val] of updates) {
             await this.setStateAsync(key, { val, ack: true });
         }
+        // Sensor-Tagesstatistik akkumulieren
+        const sensors = [
+            ['temperature', state.temperature],
+            ['humidity', state.humidity],
+            ['vpd', state.vpd],
+        ];
+        for (const [sid, val] of sensors) {
+            if (val !== null)
+                this.databaseService.trackSensorValue(config.id, sid, val);
+        }
+        for (const [, ss] of state.sensors) {
+            const sVal = typeof ss.processedValue === 'number' ? ss.processedValue : null;
+            if (sVal !== null) {
+                const sConf = config.sensors.find(s => s.id === ss.id);
+                if (sConf && sConf.type !== 'door')
+                    this.databaseService.trackSensorValue(config.id, ss.id, sVal);
+            }
+        }
         // Soil-States schreiben (immer, auch wenn keine Zones konfiguriert)
         let soilMoisture = null;
         let irrigationRequired = false;
@@ -1357,6 +1425,21 @@ class GrowManagerAdapter extends utils.Adapter {
             await this.createStateDef(`${aBase}.effectiveState`, 'mixed', 'indicator', actuator.offValue);
             await this.createStateDef(`${aBase}.override`, 'boolean', 'switch', false, undefined, true);
             await this.createStateDef(`${aBase}.health`, 'string', 'text', 'unknown');
+        }
+    }
+    async createDatabaseObjects(groupId) {
+        const base = `database.${groupId}`;
+        await this.setObjectNotExistsAsync('database', { type: 'folder', common: { name: 'Datenbank' }, native: {} });
+        await this.setObjectNotExistsAsync(base, { type: 'folder', common: { name: `DB Gruppe ${groupId}` }, native: {} });
+        for (const key of ['stats', 'energy', 'irrigation']) {
+            await this.setObjectNotExistsAsync(`${base}.${key}`, {
+                type: 'state',
+                common: { name: key, type: 'string', role: 'json', read: true, write: false, def: '[]' },
+                native: {},
+            });
+            const s = await this.getStateAsync(`${base}.${key}`);
+            if (!s)
+                await this.setStateAsync(`${base}.${key}`, { val: '[]', ack: true });
         }
     }
     async createStateDef(id, type, role, def, unit, write = false) {
