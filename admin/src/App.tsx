@@ -728,6 +728,40 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                     </label>
                 )}
 
+                {/* Stufenregelung: nur für Aktoren die Klima beeinflussen (nicht Licht/Umluft/CO₂) */}
+                {!['light', 'circulationFan', 'co2Valve', 'irrigation', 'custom'].includes(edit.type) && (
+                    <div style={{ background: '#f5f8ff', border: '1px solid #d0daf0', borderRadius: 8, padding: '12px 14px', marginTop: 14 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
+                            Stufenregelung
+                            <InfoTip text={'Ermöglicht gestaffelte Regelung:\n• Stufe 1 (Primär) = Lüftung schaltet zuerst\n• Stufe 2 (Eskalation) = Klimagerät/Heizung schaltet erst wenn Stufe 1 seit X Minuten läuft und das Ziel noch nicht erreicht ist\n• Kein Limit = kein Stufensystem (Standard)'} />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                            <div>
+                                <label style={styles.fieldLabel}>Stufe dieses Aktors</label>
+                                <select style={styles.select}
+                                    value={edit.escalationStage ?? ''}
+                                    onChange={e => setEdit(prev => ({
+                                        ...prev,
+                                        escalationStage: e.target.value ? +e.target.value as 1 | 2 : undefined,
+                                    }))}>
+                                    <option value="">– Kein Stufensystem –</option>
+                                    <option value="1">Stufe 1 – Primär (Lüftung zuerst)</option>
+                                    <option value="2">Stufe 2 – Eskalation (Klimagerät / Heizung)</option>
+                                </select>
+                            </div>
+                            {edit.escalationStage === 2 && (
+                                <div>
+                                    <label style={styles.fieldLabel}>Eskalations-Verzögerung (min)</label>
+                                    <input style={styles.input} type="number" min={1} max={120}
+                                        value={edit.escalationDelayMinutes ?? 10}
+                                        onChange={e => setEdit(prev => ({ ...prev, escalationDelayMinutes: +e.target.value }))} />
+                                    <span style={{ fontSize: 11, color: '#888' }}>Stufe 2 schaltet erst nach dieser Zeit</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {edit.type === 'circulationFan' && (
                     <CirculationFanSettings edit={edit} setEdit={setEdit} />
                 )}

@@ -6,6 +6,7 @@ export declare class ClimateController {
     private readonly log;
     private readonly hystStates;
     private readonly actuatorHystStates;
+    private readonly stage1ActiveSince;
     constructor(alarmService: AlarmService, log: ILogger);
     /**
      * Hauptregel-Funktion. Erzeugt eine ControlDecision für eine Gruppe.
@@ -20,6 +21,11 @@ export declare class ClimateController {
     private requestByTarget;
     private pushAction;
     private buildDecision;
+    /**
+     * Stufenregelung: Stufe-2-Aktoren werden gesperrt bis Stufe-1 lange genug läuft.
+     * Stufe 1 = Lüftung (primär), Stufe 2 = Klimagerät / Heizung (Eskalation).
+     */
+    private applyEscalationBlocking;
     private getHystStates;
 }
 //# sourceMappingURL=ClimateController.d.ts.map

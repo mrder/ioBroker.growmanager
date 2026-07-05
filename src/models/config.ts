@@ -146,6 +146,10 @@ export interface ActuatorConfig {
     // Per-Aktor Schaltschwelle: Mindestabweichung vom Sollwert vor EIN-/AUS-Schaltung
     // (°C für Temp-Aktoren, % für Feuchte-Aktoren, kPa für VPD-Aktoren; 0 = Profil-Toleranz)
     actuatorHysteresis?: number;
+    // Stufenregelung: 1 = primär (Lüftung), 2 = Eskalation (Klimagerät/Heizung)
+    // Stufe 2 schaltet erst wenn Stufe 1 seit escalationDelayMinutes läuft und Ziel noch nicht erreicht.
+    escalationStage?: 1 | 2;
+    escalationDelayMinutes?: number; // Standard: 10 min
     // Umluft-Betriebsart (nur für circulationFan)
     circulationMode?: 'windSimulator' | 'schedule' | 'alwaysOn';
     windSimulator?: WindSimulatorConfig;

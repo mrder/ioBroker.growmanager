@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "news": {
+      "0.2.2": {
+        "en": "feat: Staged climate control (escalationStage 1/2) — fans first, HVAC/heating only after configurable delay",
+        "de": "feat: Stufenregelung (escalationStage 1/2) — Lüftung zuerst, Klimagerät/Heizung erst nach konfigurierbarer Wartezeit"
+      },
       "0.2.1": {
         "en": "feat: Wind simulator and schedule mode for circulation fans (circulationMode: windSimulator / schedule / alwaysOn)",
         "de": "feat: Windsimulator und Zeitfenster-Modus für Umluftlüfter (circulationMode: windSimulator / schedule / alwaysOn)"

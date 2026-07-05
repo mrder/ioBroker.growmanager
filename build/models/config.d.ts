@@ -76,6 +76,8 @@ export interface ActuatorConfig {
     controlDirection?: ControlDirection;
     outdoorGuardEnabled?: boolean;
     actuatorHysteresis?: number;
+    escalationStage?: 1 | 2;
+    escalationDelayMinutes?: number;
     circulationMode?: 'windSimulator' | 'schedule' | 'alwaysOn';
     windSimulator?: WindSimulatorConfig;
     circulationSchedule?: CirculationScheduleWindow[];

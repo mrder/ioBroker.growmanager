@@ -65,8 +65,10 @@ function inferControlDirection(act: ActuatorConfig): ControlDirection {
 
 export class ClimateController {
     private readonly hystStates = new Map<string, GroupHystStates>();
-    // Per-Aktor Hysterese-State (wenn actuatorHysteresis konfiguriert)
     private readonly actuatorHystStates = new Map<string, HystState>();
+    // Stufenregelung: merkt sich seit wann Stufe-1 für ein Ziel aktiv ist.
+    // Key: `${groupId}:${controlTarget}:${direction}`
+    private readonly stage1ActiveSince = new Map<string, number>();
 
     constructor(
         private readonly alarmService: AlarmService,
@@ -198,6 +200,9 @@ export class ClimateController {
         }
 
         primaryReason = reasons.length > 0 ? reasons.join('; ') : 'Alle Aktoren im Zielbereich';
+
+        // Stufenregelung: Stufe-2-Aktoren sperren bis Stufe-1 lang genug aktiv ist
+        this.applyEscalationBlocking(config, actions);
 
         return this.buildDecision(config, state, primaryReason, actions, shadowMode);
     }
@@ -489,6 +494,85 @@ export class ClimateController {
                 : actions,
             degradation: state.degradation,
         };
+    }
+
+    /**
+     * Stufenregelung: Stufe-2-Aktoren werden gesperrt bis Stufe-1 lange genug läuft.
+     * Stufe 1 = Lüftung (primär), Stufe 2 = Klimagerät / Heizung (Eskalation).
+     */
+    private applyEscalationBlocking(config: GroupConfig, actions: ControlAction[]): void {
+        const now = Date.now();
+
+        // Stage-1-Tracking aktualisieren: für jede (target, dir)-Kombination prüfen ob Stufe-1 EIN
+        const targets = new Set(
+            config.actuators
+                .filter(a => a.enabled && a.escalationStage === 1)
+                .map(a => `${inferControlTarget(a, config.mode)}:${inferControlDirection(a)}`)
+        );
+
+        for (const key of targets) {
+            const [target, dir] = key.split(':') as [ControlTarget, ControlDirection];
+            const stage1Acts = config.actuators.filter(
+                a => a.enabled && a.escalationStage === 1
+                    && inferControlTarget(a, config.mode) === target
+                    && inferControlDirection(a) === dir
+            );
+            const stage1IsOn = stage1Acts.some(a => {
+                const action = actions.find(x => x.actuatorId === a.id);
+                if (!action) return false;
+                return typeof action.requested === 'boolean' ? action.requested : action.requested > 0;
+            });
+
+            const mapKey = `${config.id}:${target}:${dir}`;
+            if (stage1IsOn) {
+                if (!this.stage1ActiveSince.has(mapKey)) {
+                    this.stage1ActiveSince.set(mapKey, now);
+                }
+            } else {
+                this.stage1ActiveSince.delete(mapKey);
+            }
+        }
+
+        // Stufe-2-Aktoren prüfen
+        for (const act of config.actuators) {
+            if (!act.enabled || act.escalationStage !== 2) continue;
+            const action = actions.find(x => x.actuatorId === act.id);
+            if (!action) continue;
+            const wantsOn = typeof action.requested === 'boolean' ? action.requested : action.requested > 0;
+            if (!wantsOn) continue; // will AUS → kein Blocking nötig
+
+            const target = inferControlTarget(act, config.mode);
+            const dir = inferControlDirection(act);
+            const mapKey = `${config.id}:${target}:${dir}`;
+
+            // Gibt es überhaupt Stufe-1-Aktoren für dieses Ziel?
+            const hasStage1 = config.actuators.some(
+                a => a.enabled && a.escalationStage === 1
+                    && inferControlTarget(a, config.mode) === target
+                    && inferControlDirection(a) === dir
+            );
+            if (!hasStage1) continue; // kein Stufe-1 konfiguriert → direkt freigeben
+
+            const activeSince = this.stage1ActiveSince.get(mapKey);
+            if (!activeSince) {
+                // Stufe-1 läuft nicht → Stufe-2 sperren
+                action.blocked = true;
+                action.blockedReason = `Stufenregelung: Stufe 1 noch nicht aktiv`;
+                continue;
+            }
+
+            const runningMinutes = (now - activeSince) / 60000;
+            const delayMinutes = act.escalationDelayMinutes ?? 10;
+            if (runningMinutes < delayMinutes) {
+                const remaining = Math.ceil(delayMinutes - runningMinutes);
+                action.blocked = true;
+                action.blockedReason = `Stufenregelung: warte auf Stufe 1 (${Math.floor(runningMinutes)}/${delayMinutes} min, noch ${remaining} min)`;
+                this.log.debug(
+                    `${config.name}: ${act.name} (Stufe 2) gesperrt – Stufe 1 läuft seit ${Math.floor(runningMinutes)} min, braucht ${delayMinutes} min`
+                );
+            }
+            // else: Stufe-1 läuft lang genug → Stufe-2 darf schalten
+        }
     }
 
     private getHystStates(groupId: string): GroupHystStates {
