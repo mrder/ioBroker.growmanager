@@ -59,9 +59,9 @@ class NotificationService {
         const lastTs = this.lastSent.get(alarm.id) ?? 0;
         if (Date.now() - lastTs < cooldownMs)
             return;
-        this.lastSent.set(alarm.id, Date.now());
         const text = this.formatText(alarm, groupName);
         const embed = this.buildDiscordEmbed(alarm, groupName);
+        let sentAtLeastOne = false;
         for (const ch of config.channels) {
             if (!ch.enabled)
                 continue;
@@ -71,11 +71,15 @@ class NotificationService {
                 continue;
             try {
                 await this.sendToChannel(ch, text, embed);
+                sentAtLeastOne = true;
             }
             catch (err) {
                 this.log.error(`NotificationService: Kanal ${ch.id} Fehler: ${err}`);
             }
         }
+        // Cooldown erst nach erfolgreichem Versand setzen — bei Netzfehler erneuter Versuch möglich
+        if (sentAtLeastOne)
+            this.lastSent.set(alarm.id, Date.now());
     }
     async sendTest(channel) {
         const fakeAlarm = {

@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.55",
+    "version": "0.1.56",
     "news": {
+      "0.1.56": {
+        "en": "Bugfix batch 5: ScheduleService transition detection for transitionMinutes>60, NotificationService cooldown after successful send, History adapter fallback chain, lightChangeTimes dashboard fallback",
+        "de": "Bugfix-Batch 5: ScheduleService Übergangs-Erkennung für transitionMinutes>60 korrigiert, NotificationService Cooldown erst nach erfolgreichem Versand, History-Adapter Fallback-Kette, lightChangeTimes Dashboard-Fallback"
+      },
       "0.1.55": {
         "en": "Bugfix batch 4: dewPoint NaN guard, curveInterpolate dx=0, transitionProgress guard, SharedActorManager ON/OFF priority + max value, CameraService interval min 1, setOverride error callback, redundant setpoint calls",
         "de": "Bugfix-Batch 4: dewPoint NaN-Guard, curveInterpolate dx=0, transitionProgress Guard, SharedActorManager ON/OFF-Priorität + Max-Wert, CameraService Intervall Min 1, setOverride Fehler-Callback, redundante Setpoint-Aufrufe"

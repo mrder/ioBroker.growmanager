@@ -168,19 +168,25 @@ class GrowManagerAdapter extends utils.Adapter {
             const stateId = `${this.namespace}.groups.${groupId}.climate.${variable}`;
             const start = Date.now() - 48 * 3600 * 1000;
             const historyAdapters = ['history.0', 'influxdb.0', 'sql.0'];
+            let foundAdapter = null;
             for (const adapter of historyAdapters) {
                 try {
                     const pts = await this.queryHistory(adapter, stateId, start, Date.now());
                     if (pts.length > 0)
                         return { points: pts };
-                    // Adapter antwortet, aber keine Daten → State-Aufzeichnung nicht aktiviert
-                    return {
-                        points: [],
-                        hint: `History-Adapter (${adapter}) gefunden, aber keine Daten für diesen State.\n` +
-                            `Bitte in ioBroker unter Objekte → ${stateId} → History-Tab die Aufzeichnung aktivieren.`,
-                    };
+                    // Adapter antwortet, aber keine Daten → alle probieren, ersten als Hint merken
+                    if (!foundAdapter)
+                        foundAdapter = adapter;
+                    this.log.debug(`History: ${adapter} hat keine Daten für ${stateId}`);
                 }
                 catch { /* Adapter nicht installiert, nächsten probieren */ }
+            }
+            if (foundAdapter) {
+                return {
+                    points: [],
+                    hint: `History-Adapter (${foundAdapter}) gefunden, aber keine Daten für diesen State.\n` +
+                        `Bitte in ioBroker unter Objekte → ${stateId} → History-Tab die Aufzeichnung aktivieren.`,
+                };
             }
             // Kein History-Adapter → eigener Puffer als Fallback
             const pts = this.diagnosticsEngine.getHourlyHistory(groupId, variable);
@@ -1082,7 +1088,7 @@ class GrowManagerAdapter extends utils.Adapter {
             let setpointCo2Target = null;
             let setpointCo2Tolerance = null;
             if (state?.activeProfile) {
-                const sp = this.scheduleService.getActiveSetpoint(state.activeProfile, state.dayNight ?? 'day', this.lightChangeTimes.get(g.id) ?? 0);
+                const sp = this.scheduleService.getActiveSetpoint(state.activeProfile, state.dayNight ?? 'day', this.lightChangeTimes.get(g.id) ?? Date.now());
                 setpointTemp = sp.temperature;
                 setpointHumidity = sp.humidity;
                 setpointVpdMin = sp.vpdMin;

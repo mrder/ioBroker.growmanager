@@ -15,10 +15,9 @@ class ScheduleService {
         const { lightOn, transitionMinutes } = schedule;
         if ((0, time_1.isInTimeWindow)(now, lightOn.startHH, lightOn.startMM, lightOn.endHH, lightOn.endMM)) {
             // Prüfen ob wir noch im Übergang sind (nach Licht-AN)
-            const sinceStartMin = (0, time_1.minutesUntil)(now, lightOn.startHH, lightOn.startMM);
-            // minutesUntil gibt Minuten BIS ZUM nächsten Start – wenn fast 24h, sind wir kurz nach Start
-            const minutesSinceStart = sinceStartMin < 23 * 60 ? 1440 - sinceStartMin : sinceStartMin;
-            if (1440 - minutesSinceStart < transitionMinutes) {
+            // minutesUntil gibt Minuten BIS ZUM nächsten Start → 1440 minus das = tatsächliche Minuten seit Start
+            const minutesSinceStart = 1440 - (0, time_1.minutesUntil)(now, lightOn.startHH, lightOn.startMM);
+            if (minutesSinceStart < transitionMinutes) {
                 return 'transition';
             }
             return 'day';
