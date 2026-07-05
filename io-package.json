@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.56",
+    "version": "0.2.0",
     "news": {
+      "0.2.0": {
+        "en": "Stable release: 6 audit rounds completed, all bugs fixed. Features: shared actuators, command verification with retry and alarm, VPD control mode, air system management, irrigation service, camera service, diagnostics engine, notification service, safety service, shadow/maintenance mode, multi-group scheduling, dashboard SSE, admin SPA",
+        "de": "Stabiles Release: 6 Audit-Durchläufe abgeschlossen, alle Bugs behoben. Features: geteilte Aktoren, Befehlsverifizierung mit Retry und Alarm, VPD-Regelungsmodus, Luftstrommanagement, Bewässerungsservice, Kameraservice, Diagnostik-Engine, Benachrichtigungsservice, Sicherheitsservice, Shadow-/Wartungsmodus, Gruppen-Zeitpläne, Dashboard-SSE, Admin-SPA"
+      },
       "0.1.56": {
         "en": "Bugfix batch 5: ScheduleService transition detection for transitionMinutes>60, NotificationService cooldown after successful send, History adapter fallback chain, lightChangeTimes dashboard fallback",
         "de": "Bugfix-Batch 5: ScheduleService Übergangs-Erkennung für transitionMinutes>60 korrigiert, NotificationService Cooldown erst nach erfolgreichem Versand, History-Adapter Fallback-Kette, lightChangeTimes Dashboard-Fallback"

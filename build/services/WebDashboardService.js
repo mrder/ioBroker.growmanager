@@ -156,6 +156,7 @@ class WebDashboardService {
         let body = '';
         req.on('data', chunk => { body += chunk; if (body.length > 65536)
             req.destroy(); });
+        req.on('error', () => { });
         req.on('end', async () => {
             try {
                 const payload = JSON.parse(body);
@@ -184,6 +185,7 @@ class WebDashboardService {
         let body = '';
         req.on('data', chunk => { body += chunk; if (body.length > 65536)
             req.destroy(); });
+        req.on('error', () => { });
         req.on('end', async () => {
             try {
                 const payload = JSON.parse(body);

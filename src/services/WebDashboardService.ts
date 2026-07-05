@@ -231,6 +231,7 @@ export class WebDashboardService {
     private handleMode(req: http.IncomingMessage, res: http.ServerResponse): void {
         let body = '';
         req.on('data', chunk => { body += chunk; if (body.length > 65536) req.destroy(); });
+        req.on('error', () => { /* intentional destroy on oversized body */ });
         req.on('end', async () => {
             try {
                 const payload = JSON.parse(body) as { groupId: string; mode: string; pin?: string };
@@ -262,6 +263,7 @@ export class WebDashboardService {
     private handleControl(req: http.IncomingMessage, res: http.ServerResponse): void {
         let body = '';
         req.on('data', chunk => { body += chunk; if (body.length > 65536) req.destroy(); });
+        req.on('error', () => { /* intentional destroy on oversized body */ });
         req.on('end', async () => {
             try {
                 const payload = JSON.parse(body) as {
