@@ -331,6 +331,13 @@ class GrowManagerAdapter extends utils.Adapter {
                 await this.subscribeForeignStatesAsync(actuator.feedbackStateId);
                 this.subscribedStateIds.add(actuator.feedbackStateId);
             }
+            // Kein separates Feedback: stateId selbst subscriben → ack:true = Gerätebestätigung
+            if (!actuator.feedbackStateId && !this.subscribedStateIds.has(actuator.commandStateId)) {
+                await this.subscribeForeignStatesAsync(actuator.commandStateId);
+                this.subscribedStateIds.add(actuator.commandStateId);
+                const current = await this.getForeignStateAsync(actuator.commandStateId);
+                if (current?.ack) this.actuatorService.processFeedback(actuator, current.val);
+            }
             if (actuator.powerStateId && !this.subscribedStateIds.has(actuator.powerStateId)) {
                 await this.subscribeForeignStatesAsync(actuator.powerStateId);
                 this.subscribedStateIds.add(actuator.powerStateId);
@@ -448,6 +455,9 @@ class GrowManagerAdapter extends utils.Adapter {
             // Feedback/Leistung verarbeiten
             for (const actuator of group.actuators) {
                 if (actuator.feedbackStateId === id) {
+                    this.actuatorService.processFeedback(actuator, state.val);
+                } else if (!actuator.feedbackStateId && actuator.commandStateId === id && state.ack) {
+                    // Zigbee/Z-Wave schreibt ack:true wenn Gerät den Zustand bestätigt hat
                     this.actuatorService.processFeedback(actuator, state.val);
                 }
                 if (actuator.powerStateId === id) {

@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.49",
+    "version": "0.1.50",
     "news": {
+      "0.1.50": {
+        "en": "Bugfix: Dashboard now shows actual device state (ack feedback) instead of last commanded value",
+        "de": "Bugfix: Dashboard zeigt jetzt den echten Gerätezustand (ack-Feedback) statt den zuletzt gesendeten Befehl"
+      },
       "0.1.49": {
         "en": "Bugfix: Light actuators now always follow their schedule, even in monitorOnly/maintenance mode or shadow mode",
         "de": "Bugfix: Licht-Aktoren folgen jetzt immer dem Zeitplan, auch im monitorOnly/Wartungsmodus oder Shadow Mode"
