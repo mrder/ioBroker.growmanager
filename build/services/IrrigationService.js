@@ -29,6 +29,7 @@ class IrrigationService {
             pauseUntil: 0,
             currentMoisture: null,
             flowRate: null,
+            lastFlowTs: 0,
             totalFlowLiters: 0,
             cycleCount: 0,
             faultCount: 0,
@@ -139,11 +140,13 @@ class IrrigationService {
         const state = this.zoneStates.get(zoneId);
         if (!state)
             return;
-        state.flowRate = flowLpm;
-        if (flowLpm !== null && state.running && state.startTs > 0) {
-            const dt = (Date.now() - state.startTs) / 3600000; // Stunden
+        const now = Date.now();
+        if (flowLpm !== null && state.running && state.startTs > 0 && state.lastFlowTs > 0) {
+            const dt = (now - state.lastFlowTs) / 3600000; // Delta seit letztem Update in Stunden
             state.totalFlowLiters += flowLpm * dt;
         }
+        state.lastFlowTs = now;
+        state.flowRate = flowLpm;
     }
     /**
      * Pumpe sofort stoppen (Notfall / manuell).

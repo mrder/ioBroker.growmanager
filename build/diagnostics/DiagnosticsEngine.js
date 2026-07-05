@@ -74,6 +74,13 @@ class DiagnosticsEngine {
      */
     evaluateEffectChecks(groupStates) {
         const now = Date.now();
+        // Abgelaufene Checks entfernen (windowSeconds nach Beginn der Auswertungsphase)
+        const toRemove = this.effectChecks.filter(c => (now - c.startTs) / 1000 > c.waitSeconds + c.windowSeconds * 3);
+        for (const c of toRemove) {
+            const idx = this.effectChecks.indexOf(c);
+            if (idx >= 0)
+                this.effectChecks.splice(idx, 1);
+        }
         for (const check of this.effectChecks) {
             const state = groupStates.get(check.groupId);
             if (!state)

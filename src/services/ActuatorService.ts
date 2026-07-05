@@ -107,7 +107,8 @@ export class ActuatorService {
 
         // Maximale Schaltspiele pro Stunde
         if (config.maxSwitchesPerHour > 0) {
-            const rt = this.runTime.get(config.id)!;
+            const rt = this.runTime.get(config.id);
+            if (!rt) return { allowed: true }; // nicht initialisiert → kein Limit
             const oneHourAgo = now - 3600000;
             const recentSwitches = rt.lastHourSwitches.filter(ts => ts > oneHourAgo).length;
             if (recentSwitches >= config.maxSwitchesPerHour) {
@@ -281,6 +282,7 @@ export class ActuatorService {
                 if (state) {
                     state.overrideActive = false;
                     state.overrideUntil = undefined;
+                    state.manualLock = false; // Dashboard-Lock läuft zusammen mit Override ab
                     this.log.info(`Override für ${id} abgelaufen`);
                 }
                 this.overrideUntil.delete(id);

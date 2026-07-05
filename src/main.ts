@@ -534,22 +534,23 @@ class GrowManagerAdapter extends utils.Adapter {
         if (state.ack) return; // Nur ack=false verarbeiten (Bedienbefehl)
 
         const key = id.split('.').pop();
+        const ack = (v = state.val) => this.setStateAsync(id, { val: v, ack: true }).catch(e => this.log.warn(`ack ${id}: ${e}`));
         switch (key) {
             case 'emergencyStop':
                 this.safetyService.setEmergencyStop(!!state.val);
-                this.setStateAsync(id, { val: state.val, ack: true });
+                ack();
                 break;
             case 'maintenance':
                 this.safetyService.setGlobalMaintenance(!!state.val);
-                this.setStateAsync(id, { val: state.val, ack: true });
+                ack();
                 break;
             case 'enabled':
-                this.setStateAsync(id, { val: state.val, ack: true });
+                ack();
                 break;
             case 'acknowledgeAll':
                 if (state.val) {
                     this.alarmService.acknowledgeAll();
-                    this.setStateAsync(id, { val: false, ack: true });
+                    ack(false);
                 }
                 break;
         }
@@ -1639,10 +1640,11 @@ class GrowManagerAdapter extends utils.Adapter {
             case 'setOverride':
                 if (obj.message && typeof obj.message === 'object') {
                     const msg = obj.message as { groupId: string; actuatorId: string; value: boolean | number; durationMinutes: number };
+                    const durationMin = typeof msg.durationMinutes === 'number' && msg.durationMinutes > 0 ? msg.durationMinutes : 60;
                     const group = this.growConfig.groups.find(g => g.id === msg.groupId);
                     const actuator = group?.actuators.find(a => a.id === msg.actuatorId);
                     if (actuator) {
-                        this.actuatorService.setOverride(actuator, msg.value, msg.durationMinutes);
+                        this.actuatorService.setOverride(actuator, msg.value, durationMin);
                     }
                     if (obj.callback) this.sendTo(obj.from, obj.command, { ok: true }, obj.callback);
                 }

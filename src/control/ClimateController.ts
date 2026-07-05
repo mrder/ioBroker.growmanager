@@ -340,13 +340,16 @@ export class ClimateController {
     ): string | null {
         if (vpd === null || temp === null || hum === null) return null;
 
+        if (sp.vpdMin == null || sp.vpdMax == null) return null; // kein VPD-Sollwert konfiguriert
+        const vpdMid = (sp.vpdMin + sp.vpdMax) / 2;
         let vpdState: HystState;
         if (act.actuatorHysteresis !== undefined && act.actuatorHysteresis > 0) {
             const prevAct = this.actuatorHystStates.get(act.id) ?? 0;
-            vpdState = hysteresisCheck(vpd, (sp.vpdMin + sp.vpdMax) / 2, act.actuatorHysteresis * 2, prevAct);
+            vpdState = hysteresisCheck(vpd, vpdMid, act.actuatorHysteresis * 2, prevAct);
             this.actuatorHystStates.set(act.id, vpdState);
         } else {
-            vpdState = hysteresisCheck(vpd, (sp.vpdMin + sp.vpdMax) / 2, sp.vpdMax - sp.vpdMin, hyst.vpd);
+            const band = Math.max(0.05, sp.vpdMax - sp.vpdMin); // Mindestband 0.05 kPa gegen Bang-Bang
+            vpdState = hysteresisCheck(vpd, vpdMid, band, hyst.vpd);
             hyst.vpd = vpdState;
         }
 

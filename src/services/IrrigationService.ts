@@ -22,6 +22,7 @@ export interface ZoneState {
     pauseUntil: number;        // nicht vor diesem Zeitstempel starten
     currentMoisture: number | null;
     flowRate: number | null;   // L/min (optional)
+    lastFlowTs: number;        // Timestamp des letzten updateFlow()-Aufrufs
     totalFlowLiters: number;   // Lauf-gesamt
     cycleCount: number;
     faultCount: number;
@@ -58,6 +59,7 @@ export class IrrigationService {
             pauseUntil: 0,
             currentMoisture: null,
             flowRate: null,
+            lastFlowTs: 0,
             totalFlowLiters: 0,
             cycleCount: 0,
             faultCount: 0,
@@ -207,11 +209,13 @@ export class IrrigationService {
     updateFlow(zoneId: string, flowLpm: number | null): void {
         const state = this.zoneStates.get(zoneId);
         if (!state) return;
-        state.flowRate = flowLpm;
-        if (flowLpm !== null && state.running && state.startTs > 0) {
-            const dt = (Date.now() - state.startTs) / 3600000; // Stunden
+        const now = Date.now();
+        if (flowLpm !== null && state.running && state.startTs > 0 && state.lastFlowTs > 0) {
+            const dt = (now - state.lastFlowTs) / 3600000; // Delta seit letztem Update in Stunden
             state.totalFlowLiters += flowLpm * dt;
         }
+        state.lastFlowTs = now;
+        state.flowRate = flowLpm;
     }
 
     /**

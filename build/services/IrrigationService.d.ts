@@ -10,6 +10,7 @@ export interface ZoneState {
     pauseUntil: number;
     currentMoisture: number | null;
     flowRate: number | null;
+    lastFlowTs: number;
     totalFlowLiters: number;
     cycleCount: number;
     faultCount: number;

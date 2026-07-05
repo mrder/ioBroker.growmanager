@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.52",
+    "version": "0.1.53",
     "news": {
+      "0.1.53": {
+        "en": "Bugfix batch 2: Flow accumulation delta fix, override duration validation, VPD band minimum, ratioPoints null guard, manualLock expiry, effectChecks cleanup",
+        "de": "Bugfix-Batch 2: Flow-Akkumulation Delta-Fix, Override-Dauer Validierung, VPD-Mindestband, ratioPoints Null-Guard, manualLock Ablauf, effectChecks Cleanup"
+      },
       "0.1.52": {
         "en": "Bugfix batch: NaN VPD target, stuckOn false positive on restart, double cycle lock, memory leak, async alarm listeners, safe onUnload",
         "de": "Bugfix-Batch: NaN VPD-Sollwert, stuckOn Fehlalarm nach Neustart, Doppelzyklus-Lock, Memory Leak, async Alarm-Listener, sicheres onUnload"

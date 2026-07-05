@@ -174,7 +174,9 @@ export class AirSystemService {
                     supplyPercent = effectiveExhaust * airSystem.supplyToExhaustRatio;
                     break;
                 case 'curveCoupled':
-                    supplyPercent = curveInterpolate(effectiveExhaust, airSystem.ratioPoints.map(p => ({ x: p.exhaust, y: p.supply })));
+                    supplyPercent = airSystem.ratioPoints?.length
+                        ? curveInterpolate(effectiveExhaust, airSystem.ratioPoints.map(p => ({ x: p.exhaust, y: p.supply })))
+                        : effectiveExhaust; // Fallback: 1:1 wenn keine Kurve konfiguriert
                     break;
                 case 'exhaustOnly':
                 default:
