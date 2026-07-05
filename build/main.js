@@ -945,6 +945,10 @@ class GrowManagerAdapter extends utils.Adapter {
             const actuatorConfig = config.actuators.find(a => a.id === action.actuatorId);
             if (!actuatorConfig)
                 continue;
+            // Umluft-Aktoren mit eigenem Modus werden ausschließlich von tickCirculationActuators gesteuert
+            if (actuatorConfig.type === 'circulationFan' &&
+                actuatorConfig.circulationMode && actuatorConfig.circulationMode !== 'alwaysOn')
+                continue;
             // Gemeinsam genutzte Aktoren werden über SharedActorManager aufgelöst
             if (actuatorConfig.shared) {
                 this.sharedActorManager.submitRequest({

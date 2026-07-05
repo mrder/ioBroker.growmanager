@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.8",
+    "version": "0.2.9",
     "news": {
+      "0.2.9": {
+        "en": "Fix: climate controller no longer overrides wind-sim/schedule circulation fans via executeDecision",
+        "de": "Fix: Klimaregler überschreibt Umluft-Aktoren im Windsimulator-/Zeitfenster-Modus nicht mehr über executeDecision"
+      },
       "0.2.8": {
         "en": "Fix wind-sim countdown: show correct time immediately on render, no '...' placeholder",
         "de": "Windsimulator-Countdown zeigt sofort beim Render die korrekte Zeit — kein '...' Platzhalter mehr"
