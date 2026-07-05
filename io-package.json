@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.6",
+    "version": "0.2.7",
     "news": {
+      "0.2.7": {
+        "en": "Dashboard: wind simulator countdown ticks live every second (no SSE dependency)",
+        "de": "Dashboard: Windsimulator-Countdown tickt sekündlich im Browser — unabhängig vom SSE-Zyklus"
+      },
       "0.2.6": {
         "en": "Wind simulator: bypass minimumOn/OffSeconds, phase countdown in dashboard, hide irrelevant timing fields in admin",
         "de": "Windsimulator: minimumOn/OffSeconds werden übersprungen, Phasen-Countdown im Dashboard, irrelevante Zeitfelder im Admin ausgeblendet"

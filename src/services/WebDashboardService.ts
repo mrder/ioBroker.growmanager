@@ -27,7 +27,7 @@ export interface DashboardActuatorState {
     blockReason?: string;
     blockSecondsLeft?: number;
     windSimIsOn?: boolean;
-    windSimSecondsLeft?: number;
+    windSimNextChangeAt?: number;
 }
 
 export interface DashboardAlarm {

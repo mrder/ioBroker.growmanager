@@ -1303,9 +1303,7 @@ class GrowManagerAdapter extends utils.Adapter {
                             blockReason: as?.blockedReason,
                             blockSecondsLeft: blockSecondsLeft && blockSecondsLeft > 0 ? blockSecondsLeft : undefined,
                             windSimIsOn: wsInfo?.isOn,
-                            windSimSecondsLeft: wsInfo
-                                ? Math.max(0, Math.round((wsInfo.nextChangeAt - now2) / 1000))
-                                : undefined,
+                            windSimNextChangeAt: wsInfo?.nextChangeAt,
                         };
                     });
 

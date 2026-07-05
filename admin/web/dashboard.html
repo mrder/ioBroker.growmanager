@@ -1095,14 +1095,10 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
     const secs = a.blockSecondsLeft % 60;
     const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
     countdownHtml = `<span class="act-countdown" title="${a.blockReason ?? 'Sperrzeit läuft'}">⏱ ${timeStr}</span>`;
-  } else if (a.windSimSecondsLeft !== undefined) {
+  } else if (a.windSimNextChangeAt !== undefined) {
     const wsOn = a.windSimIsOn;
-    const wsSec = a.windSimSecondsLeft;
-    const wsM = Math.floor(wsSec / 60), wsS = wsSec % 60;
-    const wsTime = wsM > 0 ? `${wsM}m ${wsS}s` : `${wsS}s`;
-    const wsLabel = wsOn ? 'EIN' : 'AUS';
     const wsColor = wsOn ? 'var(--accent)' : 'var(--muted)';
-    countdownHtml = `<span class="act-countdown" title="Windsimulator: ${wsLabel}-Phase endet in ${wsTime}" style="color:${wsColor}">🌀 ${wsLabel} noch ${wsTime}</span>`;
+    countdownHtml = `<span class="act-countdown ws-cd" id="ws-cd-${a.id}" data-until="${a.windSimNextChangeAt}" data-on="${wsOn}" style="color:${wsColor}">🌀 ${wsOn?'EIN':'AUS'} ...</span>`;
   } else if (a.manualLock) {
     countdownHtml = `<span class="act-manual-lock" title="Manuell gesperrt – Auto-Zyklus pausiert">🔒 MANUELL</span>`;
   }
@@ -1458,6 +1454,20 @@ connect();
 setInterval(() => {
   if (!connected) fetch('/api/state').then(r=>r.json()).then(s=>{render(s);updateTimestamp();setConnected(true);}).catch(()=>{});
 }, 15000);
+
+// Wind-Sim Countdown: tickt sekündlich im Browser — unabhängig vom SSE-Zyklus
+setInterval(() => {
+  const now = Date.now();
+  document.querySelectorAll('.ws-cd').forEach(el => {
+    const until = +el.dataset.until;
+    const isOn = el.dataset.on === 'true';
+    const rem = Math.max(0, Math.round((until - now) / 1000));
+    const m = Math.floor(rem / 60), s = rem % 60;
+    const timeStr = m > 0 ? `${m}m ${s.toString().padStart(2,'0')}s` : `${s}s`;
+    el.textContent = `🌀 ${isOn ? 'EIN' : 'AUS'} noch ${timeStr}`;
+    el.style.color = isOn ? 'var(--accent)' : 'var(--muted)';
+  });
+}, 1000);
 </script>
 </body>
 </html>
