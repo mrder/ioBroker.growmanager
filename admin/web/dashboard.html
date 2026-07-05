@@ -624,12 +624,13 @@ function renderTrendChart(points, unit, setMin, setMax) {
   }).join('');
 
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg">
+    <rect x="${PL}" y="${PT}" width="${W-PL-PR}" height="${H-PT-PB}" fill="#ffffff" fill-opacity="0.03" rx="2"/>
     ${yLabels}
     ${setpointLines}
-    <polygon points="${area}" fill="var(--accent)" fill-opacity="0.15"/>
-    <polyline points="${polyline}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+    <polygon points="${area}" fill="#42a5f5" fill-opacity="0.18"/>
+    <polyline points="${polyline}" fill="none" stroke="#42a5f5" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
     ${xLabels}
-    <text x="${W/2}" y="${H-4}" text-anchor="middle" font-size="9" fill="var(--text-dim)">${unit}</text>
+    <text x="${W/2}" y="${H-4}" text-anchor="middle" font-size="9" fill="#666">${unit}</text>
   </svg>`;
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTrend(); });
