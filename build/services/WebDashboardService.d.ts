@@ -111,6 +111,8 @@ export declare class WebDashboardService {
     private modeCallback;
     private trendsCallback;
     private databaseCallback;
+    private lifestyleGetCallback;
+    private lifestyleSetCallback;
     constructor(log: {
         info: (m: string) => void;
         warn: (m: string) => void;
@@ -127,6 +129,7 @@ export declare class WebDashboardService {
         hint?: string;
     }>): void;
     setDatabaseCallback(cb: (groupId: string, type: 'stats' | 'energy' | 'irrigation') => unknown): void;
+    setLifestyleCallbacks(get: (groupId: string) => Promise<unknown>, set: (groupId: string, data: unknown) => Promise<void>): void;
     start(port: number, bindAddress: string): void;
     stop(): void;
     updateState(state: DashboardState): void;

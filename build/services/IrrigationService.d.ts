@@ -62,7 +62,7 @@ export declare class IrrigationService {
     /**
      * Pumpe sofort stoppen (Notfall / manuell).
      */
-    stopNow(zoneId: string, reason: string): void;
+    stopNow(zoneId: string, reason: string, groupId?: string): void;
     /**
      * Sperre aufheben (nach manuellem Eingriff).
      */

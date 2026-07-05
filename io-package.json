@@ -1,8 +1,16 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.2",
+    "version": "0.2.4",
     "news": {
+      "0.2.4": {
+        "en": "Database: daily sensor stats, energy tracking (kWh/ratedPower), irrigation log with CSV export; Grow calendar with phase countdown in dashboard; soilMoisture/CO2 trend fix; energy tracking bugs fixed",
+        "de": "Datenbank: Tages-Sensorstatistiken, Energie-Tracking (kWh/Nennleistung), Bewässerungsprotokoll mit CSV-Export; Grow-Kalender mit Phasen-Countdown im Dashboard; Bodenfeuchte/CO₂-Trend-Fix; Energie-Tracking-Bugs behoben"
+      },
+      "0.2.3": {
+        "en": "Fix trend chart for soilMoisture and CO2: correct state paths, server route extended, CO2 now written as ioBroker state; energy double-counting guard for kWh actuators",
+        "de": "Trend-Chart für Bodenfeuchte und CO₂ behoben: korrekte State-Pfade, Server-Route erweitert, CO₂ wird jetzt als ioBroker-State geschrieben; Doppelzählung bei kWh-Aktoren verhindert"
+      },
       "0.2.2": {
         "en": "feat: Staged climate control (escalationStage 1/2) — fans first, HVAC/heating only after configurable delay",
         "de": "feat: Stufenregelung (escalationStage 1/2) — Lüftung zuerst, Klimagerät/Heizung erst nach konfigurierbarer Wartezeit"

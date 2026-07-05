@@ -82,7 +82,7 @@ class IrrigationService {
         const elapsed = (Date.now() - state.startTs) / 1000;
         // Maximale Laufzeit
         if (elapsed > zone.maxRunSeconds) {
-            this.stopZone(zone, state, 'Maximale Laufzeit erreicht');
+            this.stopZone(zone, state, 'Maximale Laufzeit erreicht', groupId);
             if (zone.dryRunProtection && (state.flowRate === null || state.flowRate < 0.1)) {
                 this.alarmService.raise(AlarmService_1.ALARM_CODES.IRRIGATION_DRY_RUN, groupId, `zone:${zone.id}`, 'fault', `Zone ${zone.name}: Kein Durchfluss erkannt (Trockenläuferschutz)`);
                 state.blocked = true;
@@ -93,14 +93,14 @@ class IrrigationService {
         }
         // Sollfeuchte erreicht (wenn Sensor vorhanden)
         if (state.currentMoisture !== null && state.currentMoisture >= zone.targetMoisture) {
-            this.stopZone(zone, state, `Zielfeuchte erreicht (${state.currentMoisture.toFixed(0)}%)`);
+            this.stopZone(zone, state, `Zielfeuchte erreicht (${state.currentMoisture.toFixed(0)}%)`, groupId);
             return { zoneId: zone.id, command: false, reason: `Zielfeuchte ${zone.targetMoisture}% erreicht`, blocked: false };
         }
         // Leckage prüfen (wenn Flow-Sensor vorhanden UND Pumpe schon lange läuft)
         if (zone.leakageAlarmSeconds > 0 && elapsed > zone.leakageAlarmSeconds) {
             if (state.flowRate !== null && state.flowRate > 5.0) {
                 this.alarmService.raise(AlarmService_1.ALARM_CODES.IRRIGATION_LEAK, groupId, `zone:${zone.id}`, 'critical', `Zone ${zone.name}: Verdacht auf Leckage (${state.flowRate.toFixed(1)} L/min nach ${elapsed.toFixed(0)}s)`);
-                this.stopZone(zone, state, 'Leckage-Schutz');
+                this.stopZone(zone, state, 'Leckage-Schutz', groupId);
                 state.blocked = true;
                 state.blockedReason = 'Leckage erkannt – manuelle Prüfung erforderlich';
                 state.health = 'leak';
@@ -154,13 +154,13 @@ class IrrigationService {
     /**
      * Pumpe sofort stoppen (Notfall / manuell).
      */
-    stopNow(zoneId, reason) {
+    stopNow(zoneId, reason, groupId) {
         const state = this.zoneStates.get(zoneId);
         const zone = this.zoneConfigs.get(zoneId);
         if (state && zone)
-            this.stopZone(zone, state, reason);
+            this.stopZone(zone, state, reason, groupId);
         else if (state)
-            this.stopZone({ minPauseMinutes: 0 }, state, reason);
+            this.stopZone({ minPauseMinutes: 0 }, state, reason, groupId);
     }
     /**
      * Sperre aufheben (nach manuellem Eingriff).

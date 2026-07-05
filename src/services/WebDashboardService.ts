@@ -110,6 +110,8 @@ export class WebDashboardService {
     private modeCallback: ((cmd: ModeCommand) => Promise<void>) | null = null;
     private trendsCallback: ((groupId: string, variable: string) => Promise<{ points: Array<{ ts: number; value: number }>; hint?: string }>) | null = null;
     private databaseCallback: ((groupId: string, type: 'stats' | 'energy' | 'irrigation') => unknown) | null = null;
+    private lifestyleGetCallback: ((groupId: string) => Promise<unknown>) | null = null;
+    private lifestyleSetCallback: ((groupId: string, data: unknown) => Promise<void>) | null = null;
 
     constructor(
         private readonly log: {
@@ -125,6 +127,10 @@ export class WebDashboardService {
     setModeCallback(cb: (cmd: ModeCommand) => Promise<void>): void { this.modeCallback = cb; }
     setTrendsCallback(cb: (groupId: string, variable: string) => Promise<{ points: Array<{ ts: number; value: number }>; hint?: string }>): void { this.trendsCallback = cb; }
     setDatabaseCallback(cb: (groupId: string, type: 'stats' | 'energy' | 'irrigation') => unknown): void { this.databaseCallback = cb; }
+    setLifestyleCallbacks(
+        get: (groupId: string) => Promise<unknown>,
+        set: (groupId: string, data: unknown) => Promise<void>,
+    ): void { this.lifestyleGetCallback = get; this.lifestyleSetCallback = set; }
 
     start(port: number, bindAddress: string): void {
         const htmlPath = path.join(this.adapterDir, 'admin', 'web', 'dashboard.html');
@@ -205,7 +211,7 @@ export class WebDashboardService {
             return;
         }
 
-        const trendMatch = url.match(/^\/api\/trends\/([^/]+)\/(temperature|humidity|vpd)$/);
+        const trendMatch = url.match(/^\/api\/trends\/([^/]+)\/(temperature|humidity|vpd|soilMoisture|co2)$/);
         if (trendMatch) {
             const cb = this.trendsCallback;
             if (cb) {
@@ -233,6 +239,46 @@ export class WebDashboardService {
             res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
             res.end(JSON.stringify(data));
             return;
+        }
+
+        const lsMatch = url.match(/^\/api\/lifestyle\/([^/]+)$/);
+        if (lsMatch) {
+            if (req.method === 'GET') {
+                const cb = this.lifestyleGetCallback;
+                if (cb) {
+                    cb(lsMatch[1])
+                        .then(data => {
+                            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                            res.end(JSON.stringify(data ?? {}));
+                        })
+                        .catch(() => {
+                            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                            res.end('{}');
+                        });
+                } else {
+                    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                    res.end('{}');
+                }
+                return;
+            }
+            if (req.method === 'POST') {
+                let body = '';
+                req.on('data', chunk => { body += chunk; if (body.length > 4096) req.destroy(); });
+                req.on('error', () => { /* ignore */ });
+                req.on('end', async () => {
+                    try {
+                        const data = JSON.parse(body);
+                        const cb = this.lifestyleSetCallback;
+                        if (cb) await cb(lsMatch[1], data);
+                        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                        res.end('{"ok":true}');
+                    } catch (e) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: String(e) }));
+                    }
+                });
+                return;
+            }
         }
 
         res.writeHead(404, { 'Content-Type': 'text/plain' });

@@ -388,6 +388,43 @@
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* Lifestyle-Popup */
+  .ls-popup {
+    display: none; position: fixed; inset: 0; z-index: 202;
+    background: rgba(0,0,0,0.6); align-items: center; justify-content: center;
+  }
+  .ls-popup.visible { display: flex; }
+  .ls-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    width: min(440px, 95vw); padding: 20px 22px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .ls-title { font-weight: 600; font-size: 15px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .ls-section { font-size: 12px; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin: 14px 0 6px; }
+  .ls-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 6px; }
+  .ls-field label { display: block; font-size: 11px; color: var(--text-dim); margin-bottom: 3px; }
+  .ls-field input {
+    width: 100%; box-sizing: border-box;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-size: 13px; padding: 6px 8px;
+  }
+  .ls-field input:focus { outline: none; border-color: var(--green-light); }
+  .ls-field input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.8); cursor: pointer; }
+  .ls-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  .ls-save { background: var(--green-light); color: #000; border: none; border-radius: 6px; padding: 7px 18px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .ls-save:hover { opacity: 0.88; }
+  .ls-cancel { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--text-dim); padding: 7px 14px; font-size: 13px; cursor: pointer; }
+  .ls-cancel:hover { border-color: var(--text); color: var(--text); }
+
+  /* Lifestyle-Zeile in Gruppenkarte */
+  .ls-bar { padding: 6px 12px 2px; }
+  .ls-phase { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 12px; }
+  .ls-phase-label { width: 50px; color: var(--text-dim); flex-shrink: 0; }
+  .ls-progress-track { flex: 1; height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .ls-progress-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+  .ls-phase-info { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+  .ls-harvest { font-size: 11px; color: var(--text-dim); padding: 0 12px 4px; }
 </style>
 </head>
 <body>
@@ -446,6 +483,29 @@
     </div>
     <div class="db-body" id="dbBody">
       <p style="color:var(--text-dim);padding:20px">Lade…</p>
+    </div>
+  </div>
+</div>
+
+<div class="ls-popup" id="lsPopup">
+  <div class="ls-box">
+    <div class="ls-title">
+      <span>🗓 Grow-Kalender</span>
+      <button class="trend-close" onclick="closeLs()">✕</button>
+    </div>
+    <div class="ls-section">🌱 Wachstumsphase</div>
+    <div class="ls-row">
+      <div class="ls-field"><label>Start</label><input type="date" id="lsVegStart"></div>
+      <div class="ls-field"><label>Geplante Dauer (Tage)</label><input type="number" id="lsVegDays" min="1" max="365" placeholder="28"></div>
+    </div>
+    <div class="ls-section">🌸 Blütephase</div>
+    <div class="ls-row">
+      <div class="ls-field"><label>Start</label><input type="date" id="lsFlowerStart"></div>
+      <div class="ls-field"><label>Geplante Dauer (Tage)</label><input type="number" id="lsFlowerDays" min="1" max="365" placeholder="56"></div>
+    </div>
+    <div class="ls-actions">
+      <button class="ls-cancel" onclick="closeLs()">Abbrechen</button>
+      <button class="ls-save" onclick="saveLs()">Speichern</button>
     </div>
   </div>
 </div>
@@ -676,7 +736,123 @@ function renderTrendChart(points, unit, setMin, setMax) {
     <text x="${W/2}" y="${H-4}" text-anchor="middle" font-size="9" fill="#666">${unit}</text>
   </svg>`;
 }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeTrend(); closeDb(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeTrend(); closeDb(); closeLs(); } });
+
+// ---- Lifestyle-Kalender ----
+let lsCurrentGroup = null;
+const lsCache = {};  // groupId → {vegStart, vegDays, flowerStart, flowerDays}
+
+async function showLs(groupId, groupName) {
+  lsCurrentGroup = groupId;
+  document.querySelector('#lsPopup .ls-title span').textContent = `🗓 Grow-Kalender – ${groupName}`;
+  // Felder leeren
+  ['lsVegStart','lsFlowerStart'].forEach(id => document.getElementById(id).value = '');
+  ['lsVegDays','lsFlowerDays'].forEach(id => document.getElementById(id).value = '');
+  try {
+    const res = await fetch(`/api/lifestyle/${groupId}`);
+    const d = await res.json();
+    if (d.vegStart)    document.getElementById('lsVegStart').value    = d.vegStart;
+    if (d.vegDays)     document.getElementById('lsVegDays').value     = d.vegDays;
+    if (d.flowerStart) document.getElementById('lsFlowerStart').value = d.flowerStart;
+    if (d.flowerDays)  document.getElementById('lsFlowerDays').value  = d.flowerDays;
+  } catch { /* ignore */ }
+  document.getElementById('lsPopup').classList.add('visible');
+}
+function closeLs() {
+  document.getElementById('lsPopup').classList.remove('visible');
+  lsCurrentGroup = null;
+}
+async function saveLs() {
+  if (!lsCurrentGroup) return;
+  const data = {
+    vegStart:    document.getElementById('lsVegStart').value    || null,
+    vegDays:     parseInt(document.getElementById('lsVegDays').value)    || null,
+    flowerStart: document.getElementById('lsFlowerStart').value || null,
+    flowerDays:  parseInt(document.getElementById('lsFlowerDays').value) || null,
+  };
+  try {
+    await fetch(`/api/lifestyle/${lsCurrentGroup}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    lsCache[lsCurrentGroup] = data;
+    closeLs();
+    renderLsBars();
+  } catch(e) { alert('Fehler beim Speichern: ' + e); }
+}
+
+function lsDaysSince(dateStr) {
+  if (!dateStr) return null;
+  const diff = Date.now() - new Date(dateStr).getTime();
+  return Math.floor(diff / 86400000);
+}
+
+function lsBarHtml(groupId) {
+  const d = lsCache[groupId];
+  if (!d || (!d.vegStart && !d.flowerStart)) return '';
+  const lines = [];
+
+  const vegDay  = lsDaysSince(d.vegStart);
+  const florDay = lsDaysSince(d.flowerStart);
+
+  if (d.vegStart && d.vegDays) {
+    const pct = Math.min(100, Math.max(0, Math.round((vegDay / d.vegDays) * 100)));
+    const done = vegDay >= d.vegDays;
+    const color = done ? 'var(--text-dim)' : '#66bb6a';
+    lines.push(`<div class="ls-phase">
+      <span class="ls-phase-label">🌱 Wuchs</span>
+      <div class="ls-progress-track"><div class="ls-progress-fill" style="width:${pct}%;background:${color}"></div></div>
+      <span class="ls-phase-info">Tag ${Math.max(0,vegDay)} / ${d.vegDays}</span>
+    </div>`);
+  } else if (d.vegStart) {
+    lines.push(`<div class="ls-phase"><span class="ls-phase-label">🌱 Wuchs</span><span class="ls-phase-info">Tag ${Math.max(0,vegDay)}</span></div>`);
+  }
+
+  if (d.flowerStart && d.flowerDays) {
+    const pct = Math.min(100, Math.max(0, Math.round((florDay / d.flowerDays) * 100)));
+    const done = florDay >= d.flowerDays;
+    const color = done ? 'var(--text-dim)' : '#ce93d8';
+    lines.push(`<div class="ls-phase">
+      <span class="ls-phase-label">🌸 Blüte</span>
+      <div class="ls-progress-track"><div class="ls-progress-fill" style="width:${pct}%;background:${color}"></div></div>
+      <span class="ls-phase-info">Tag ${Math.max(0,florDay)} / ${d.flowerDays}</span>
+    </div>`);
+  } else if (d.flowerStart) {
+    lines.push(`<div class="ls-phase"><span class="ls-phase-label">🌸 Blüte</span><span class="ls-phase-info">Tag ${Math.max(0,florDay)}</span></div>`);
+  }
+
+  // Erntedatum berechnen
+  let harvestHtml = '';
+  const baseDate = d.flowerStart && d.flowerDays ? d.flowerStart
+                 : d.vegStart    && d.vegDays    ? d.vegStart    : null;
+  const baseDays = d.flowerStart && d.flowerDays ? d.flowerDays
+                 : d.vegDays ?? null;
+  if (baseDate && baseDays) {
+    const harvest = new Date(new Date(baseDate).getTime() + baseDays * 86400000);
+    const daysLeft = Math.ceil((harvest.getTime() - Date.now()) / 86400000);
+    const harvestStr = harvest.toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
+    harvestHtml = `<div class="ls-harvest">📅 Ernte ~${harvestStr}${daysLeft > 0 ? ` (noch ${daysLeft} Tage)` : ' (Termin erreicht)'}</div>`;
+  }
+
+  return `<div class="ls-bar">${lines.join('')}</div>${harvestHtml}`;
+}
+
+async function loadAllLifestyle(groups) {
+  await Promise.all(groups.map(async g => {
+    if (lsCache[g.id] !== undefined) return;
+    try {
+      const res = await fetch(`/api/lifestyle/${g.id}`);
+      lsCache[g.id] = await res.json();
+    } catch { lsCache[g.id] = {}; }
+  }));
+}
+
+function renderLsBars() {
+  document.querySelectorAll('[data-ls-bar]').forEach(el => {
+    el.innerHTML = lsBarHtml(el.dataset.lsBar);
+  });
+}
 
 // ---- Datenbank-Popup ----
 let dbCurrentGroup = null;
@@ -696,11 +872,6 @@ function closeDb() {
 
 async function dbSwitchTab(tab) {
   dbCurrentTab = tab;
-  ['stats','energy','irrigation'].forEach(t => {
-    document.getElementById('dbTab' + t.charAt(0).toUpperCase() + t.slice(1).replace('igation',''))
-            ?.classList.toggle('active', t === tab);
-  });
-  // Tab-Button IDs: dbTabStats, dbTabEnergy, dbTabIrr
   document.getElementById('dbTabStats')?.classList.toggle('active', tab === 'stats');
   document.getElementById('dbTabEnergy')?.classList.toggle('active', tab === 'energy');
   document.getElementById('dbTabIrr')?.classList.toggle('active', tab === 'irrigation');
@@ -1206,7 +1377,9 @@ function groupCardHtml(g) {
     ${irrigBadge}
     ${actHtml}
     ${alarmHtml}
-    <div style="padding:6px 12px 10px;text-align:right">
+    <div data-ls-bar="${g.id}">${lsBarHtml(g.id)}</div>
+    <div style="padding:6px 12px 10px;display:flex;justify-content:flex-end;gap:6px">
+      <button class="db-btn" onclick="showLs('${gid}','${g.name.replace(/'/g,"\\'")}')">🗓 Kalender</button>
       <button class="db-btn" onclick="showDb('${gid}','${g.name.replace(/'/g,"\\'")}')">📊 Verlaufsdaten</button>
     </div>
   </div>`;
@@ -1242,7 +1415,10 @@ function render(state) {
       <p>Lege Gruppen in der ioBroker Admin-Oberfläche an.</p></div>`;
     return;
   }
-  grid.innerHTML = state.groups.map(groupCardHtml).join('');
+  // Lifestyle-Daten laden (nur beim ersten Mal pro Gruppe), dann rendern
+  loadAllLifestyle(state.groups).then(() => {
+    grid.innerHTML = state.groups.map(groupCardHtml).join('');
+  });
 }
 
 function setConnected(val) {

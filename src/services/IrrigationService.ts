@@ -145,7 +145,7 @@ export class IrrigationService {
 
         // Maximale Laufzeit
         if (elapsed > zone.maxRunSeconds) {
-            this.stopZone(zone, state, 'Maximale Laufzeit erreicht');
+            this.stopZone(zone, state, 'Maximale Laufzeit erreicht', groupId);
             if (zone.dryRunProtection && (state.flowRate === null || state.flowRate < 0.1)) {
                 this.alarmService.raise(
                     ALARM_CODES.IRRIGATION_DRY_RUN,
@@ -163,7 +163,7 @@ export class IrrigationService {
 
         // Sollfeuchte erreicht (wenn Sensor vorhanden)
         if (state.currentMoisture !== null && state.currentMoisture >= zone.targetMoisture) {
-            this.stopZone(zone, state, `Zielfeuchte erreicht (${state.currentMoisture.toFixed(0)}%)`);
+            this.stopZone(zone, state, `Zielfeuchte erreicht (${state.currentMoisture.toFixed(0)}%)`, groupId);
             return { zoneId: zone.id, command: false, reason: `Zielfeuchte ${zone.targetMoisture}% erreicht`, blocked: false };
         }
 
@@ -177,7 +177,7 @@ export class IrrigationService {
                     'critical',
                     `Zone ${zone.name}: Verdacht auf Leckage (${state.flowRate.toFixed(1)} L/min nach ${elapsed.toFixed(0)}s)`
                 );
-                this.stopZone(zone, state, 'Leckage-Schutz');
+                this.stopZone(zone, state, 'Leckage-Schutz', groupId);
                 state.blocked = true;
                 state.blockedReason = 'Leckage erkannt – manuelle Prüfung erforderlich';
                 state.health = 'leak';
@@ -238,11 +238,11 @@ export class IrrigationService {
     /**
      * Pumpe sofort stoppen (Notfall / manuell).
      */
-    stopNow(zoneId: string, reason: string): void {
+    stopNow(zoneId: string, reason: string, groupId?: string): void {
         const state = this.zoneStates.get(zoneId);
         const zone = this.zoneConfigs.get(zoneId);
-        if (state && zone) this.stopZone(zone, state, reason);
-        else if (state) this.stopZone({ minPauseMinutes: 0 } as IrrigationZoneConfig, state, reason);
+        if (state && zone) this.stopZone(zone, state, reason, groupId);
+        else if (state) this.stopZone({ minPauseMinutes: 0 } as IrrigationZoneConfig, state, reason, groupId);
     }
 
     /**

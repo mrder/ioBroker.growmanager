@@ -86,6 +86,9 @@ class GrowManagerAdapter extends utils.Adapter {
     // Außenluft-Sensorwerte {stateId → Wert}
     private readonly outdoorValues = new Map<string, number>();
 
+    // Letzter bekannter kWh-Wert pro Aktor-State-ID für Delta-Berechnung
+    private readonly lastKwhValues = new Map<string, number>();
+
     constructor(options: Partial<utils.AdapterOptions> = {}) {
         super({ ...options, name: 'growmanager' });
 
@@ -217,7 +220,16 @@ class GrowManagerAdapter extends utils.Adapter {
             }
         });
         this.webDashboard.setTrendsCallback(async (groupId, variable) => {
-            const stateId = `${this.namespace}.groups.${groupId}.climate.${variable}`;
+            // Variablen-Name → tatsächlicher ioBroker-State-Pfad
+            const varToPath: Record<string, string> = {
+                temperature: 'climate.temperature',
+                humidity:    'climate.humidity',
+                vpd:         'climate.vpd',
+                soilMoisture:'soil.moisture',
+                co2:         'climate.co2',
+            };
+            const subPath = varToPath[variable] ?? `climate.${variable}`;
+            const stateId = `${this.namespace}.groups.${groupId}.${subPath}`;
             const start = Date.now() - 48 * 3600 * 1000;
             const historyAdapters = ['history.0', 'influxdb.0', 'sql.0'];
             let foundAdapter: string | null = null;
@@ -225,7 +237,6 @@ class GrowManagerAdapter extends utils.Adapter {
                 try {
                     const pts = await this.queryHistory(adapter, stateId, start, Date.now());
                     if (pts.length > 0) return { points: pts };
-                    // Adapter antwortet, aber keine Daten → alle probieren, ersten als Hint merken
                     if (!foundAdapter) foundAdapter = adapter;
                     this.log.debug(`History: ${adapter} hat keine Daten für ${stateId}`);
                 } catch { /* Adapter nicht installiert, nächsten probieren */ }
@@ -237,11 +248,15 @@ class GrowManagerAdapter extends utils.Adapter {
                         `Bitte in ioBroker unter Objekte → ${stateId} → History-Tab die Aufzeichnung aktivieren.`,
                 };
             }
-            // Kein History-Adapter → eigener Puffer als Fallback
-            const pts = this.diagnosticsEngine.getHourlyHistory(
-                groupId, variable as 'temperature' | 'humidity' | 'vpd'
-            );
-            return { points: pts };
+            // Kein History-Adapter → eigener Puffer als Fallback (nur temp/humidity/vpd)
+            if (variable === 'temperature' || variable === 'humidity' || variable === 'vpd') {
+                const pts = this.diagnosticsEngine.getHourlyHistory(groupId, variable);
+                return { points: pts };
+            }
+            return {
+                points: [],
+                hint: `Kein History-Adapter installiert.\nBitte history.0, influxdb.0 oder sql.0 installieren\nund den State ${stateId} zur Aufzeichnung aktivieren.`,
+            };
         });
         this.webDashboard.setControlCallback(async ({ groupId, actuatorId, command, durationMinutes }) => {
             // Aktor in eigener Gruppe suchen; falls nicht gefunden, quer über alle Gruppen (shared-from Sicht)
@@ -267,6 +282,23 @@ class GrowManagerAdapter extends utils.Adapter {
                 case 'irrigation': return this.databaseService.getIrrigation(groupId);
             }
         });
+        this.webDashboard.setLifestyleCallbacks(
+            async (groupId) => {
+                const s = await this.getStateAsync(`lifestyle.${groupId}`);
+                if (typeof s?.val === 'string' && s.val) {
+                    try { return JSON.parse(s.val); } catch { /* ignore */ }
+                }
+                return {};
+            },
+            async (groupId, data) => {
+                await this.setObjectNotExistsAsync(`lifestyle.${groupId}`, {
+                    type: 'state',
+                    common: { name: `Lifestyle ${groupId}`, type: 'string', role: 'json', read: true, write: true, def: '{}' },
+                    native: {},
+                });
+                await this.setStateAsync(`lifestyle.${groupId}`, { val: JSON.stringify(data), ack: true });
+            },
+        );
         this.webDashboard.start(webPort, webBind);
 
         // Regelzyklus starten
@@ -527,10 +559,11 @@ class GrowManagerAdapter extends utils.Adapter {
                 }
                 // Energie-Tracking: kWh-State
                 if (actuator.energyStateId === id && typeof state.val === 'number' && actuator.energyStateUnit === 'kWh') {
-                    const actState = this.actuatorService.getState(actuator.id);
-                    const isOn = actState?.effectiveState === true || (typeof actState?.effectiveState === 'number' && actState.effectiveState > 0);
-                    if (isOn) {
-                        this.databaseService.trackActuatorWh(group.id, actuator.id, actuator.name, 0, 0);
+                    const prev = this.lastKwhValues.get(id);
+                    this.lastKwhValues.set(id, state.val);
+                    if (prev !== undefined && state.val >= prev) {
+                        const deltaWh = (state.val - prev) * 1000;
+                        this.databaseService.trackActuatorWh(group.id, actuator.id, actuator.name, deltaWh, 0);
                     }
                 }
             }
@@ -1035,11 +1068,13 @@ class GrowManagerAdapter extends utils.Adapter {
                 if (typeof action.requested === 'boolean') {
                     this.setActuatorStateWithVerify(actuatorConfig, config.id, action.requested);
                 }
-                // Energie-Tracking: ratedPowerW-Fallback (kein kWh-Sensor)
-                if (action.requested && typeof action.requested !== 'number') {
-                    this.databaseService.trackActuatorOn(config.id, actuatorConfig.id, actuatorConfig.name);
-                } else if (!action.requested && actuatorConfig.ratedPowerW) {
-                    this.databaseService.trackActuatorOff(config.id, actuatorConfig.id, actuatorConfig.ratedPowerW);
+                // Energie-Tracking: ratedPowerW-Fallback (nur wenn kein kWh-Sensor konfiguriert)
+                if (actuatorConfig.energyStateUnit !== 'kWh') {
+                    if (action.requested === true || (typeof action.requested === 'number' && action.requested > 0)) {
+                        this.databaseService.trackActuatorOn(config.id, actuatorConfig.id, actuatorConfig.name);
+                    } else if (!action.requested && actuatorConfig.ratedPowerW) {
+                        this.databaseService.trackActuatorOff(config.id, actuatorConfig.id, actuatorConfig.ratedPowerW);
+                    }
                 }
                 this.log.info(
                     `Gruppe ${config.name}: ${actuatorConfig.name} → ${action.requested} (${action.reason})`
@@ -1427,6 +1462,7 @@ class GrowManagerAdapter extends utils.Adapter {
             [`${base}.climate.absoluteHumidity`, state.absoluteHumidity !== null ? Math.round(state.absoluteHumidity * 10) / 10 : null],
             [`${base}.climate.condensationRisk`, state.condensationRisk],
             [`${base}.climate.sensorQuality`, state.sensorQuality],
+            [`${base}.climate.co2`, this.sensorService.aggregate(config.sensors, 'co2', config.aggregationMethod).value],
             [`${base}.diagnostics.sensorHealth`, state.sensorQuality],
             [`${base}.diagnostics.lastDecision`, state.lastDecision ? JSON.stringify(state.lastDecision) : ''],
         ];
@@ -1541,6 +1577,7 @@ class GrowManagerAdapter extends utils.Adapter {
             ['targetHumidity', '%', 'value.humidity', null],
             ['targetVpd', 'kPa', 'value', null],
             ['sensorQuality', '%', 'value', 0],
+            ['co2', 'ppm', 'value.co2', null],
         ];
         for (const [name, unit, role, def] of climateStates) {
             await this.createStateDef(`${base}.climate.${name}`, 'number', role, def, unit);
@@ -1835,7 +1872,7 @@ class GrowManagerAdapter extends utils.Adapter {
             case 'stopIrrigation':
                 if (obj.message && typeof obj.message === 'object') {
                     const sMsg = obj.message as { groupId?: string; zoneId: string };
-                    this.irrigationService.stopNow(sMsg.zoneId, 'Manuell gestoppt');
+                    this.irrigationService.stopNow(sMsg.zoneId, 'Manuell gestoppt', sMsg.groupId);
                     if (obj.callback) this.sendTo(obj.from, obj.command, { ok: true } as unknown as ioBroker.MessagePayload, obj.callback);
                 }
                 break;
