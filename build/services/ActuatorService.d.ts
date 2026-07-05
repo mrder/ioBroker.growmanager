@@ -69,6 +69,10 @@ export declare class ActuatorService {
      */
     tickOverrides(): void;
     getState(actuatorId: string): ActuatorState | undefined;
+    getWindSimInfo(actuatorId: string): {
+        isOn: boolean;
+        nextChangeAt: number;
+    } | undefined;
     getRunTimeSeconds(actuatorId: string): number;
     getSwitchCount(actuatorId: string): number;
     private isEffectivelyOn;

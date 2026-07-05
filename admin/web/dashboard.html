@@ -1088,13 +1088,21 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
     istHtml = `<span class="act-ist-label">Ist:</span><span class="act-state ${istOn?'on':'off'}">${istOn?'EIN':'AUS'}</span>`;
   }
 
-  // Countdown: Sperrzeit läuft noch und Soll ≠ Ist
+  // Countdown: Sperrzeit / Wind-Sim-Phase / manualLock
   let countdownHtml = '';
   if (a.blocked && a.blockSecondsLeft > 0) {
     const mins = Math.floor(a.blockSecondsLeft / 60);
     const secs = a.blockSecondsLeft % 60;
     const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
     countdownHtml = `<span class="act-countdown" title="${a.blockReason ?? 'Sperrzeit läuft'}">⏱ ${timeStr}</span>`;
+  } else if (a.windSimSecondsLeft !== undefined) {
+    const wsOn = a.windSimIsOn;
+    const wsSec = a.windSimSecondsLeft;
+    const wsM = Math.floor(wsSec / 60), wsS = wsSec % 60;
+    const wsTime = wsM > 0 ? `${wsM}m ${wsS}s` : `${wsS}s`;
+    const wsLabel = wsOn ? 'EIN' : 'AUS';
+    const wsColor = wsOn ? 'var(--accent)' : 'var(--muted)';
+    countdownHtml = `<span class="act-countdown" title="Windsimulator: ${wsLabel}-Phase endet in ${wsTime}" style="color:${wsColor}">🌀 ${wsLabel} noch ${wsTime}</span>`;
   } else if (a.manualLock) {
     countdownHtml = `<span class="act-manual-lock" title="Manuell gesperrt – Auto-Zyklus pausiert">🔒 MANUELL</span>`;
   }

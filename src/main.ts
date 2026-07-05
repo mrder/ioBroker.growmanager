@@ -1002,11 +1002,22 @@ class GrowManagerAdapter extends utils.Adapter {
             if (act.type !== 'circulationFan' || !act.enabled || !act.circulationMode) continue;
             if (act.shared) continue; // geteilte Aktoren laufen über SharedActorManager
 
+            const actState = this.actuatorService.getState(act.id);
+            if (!actState || actState.manualLock) continue;
+
             let wantsOn: boolean;
             switch (act.circulationMode) {
-                case 'windSimulator':
+                case 'windSimulator': {
+                    // Wind-Sim verwaltet seine eigenen Timer — canSwitch/minimumOn/Off überspringen
                     wantsOn = this.actuatorService.tickWindSimulator(act, now);
-                    break;
+                    const changed = this.actuatorService.recordCommand(act, wantsOn);
+                    if (changed) {
+                        await this.setActuatorState(act.commandStateId, wantsOn ? act.onValue : act.offValue);
+                        this.setActuatorStateWithVerify(act, config.id, wantsOn ? act.onValue as boolean | number : act.offValue as boolean | number);
+                        this.log.info(`Umluft ${act.name}: → ${wantsOn ? 'EIN' : 'AUS'} (windSimulator)`);
+                    }
+                    continue;
+                }
                 case 'schedule':
                     wantsOn = this.actuatorService.isCirculationScheduleActive(act, now);
                     break;
@@ -1014,9 +1025,6 @@ class GrowManagerAdapter extends utils.Adapter {
                 default:
                     wantsOn = true;
             }
-
-            const actState = this.actuatorService.getState(act.id);
-            if (!actState || actState.manualLock) continue;
 
             const canSwitch = this.actuatorService.canSwitch(act, wantsOn);
             if (!canSwitch.allowed) continue;
@@ -1277,6 +1285,9 @@ class GrowManagerAdapter extends utils.Adapter {
                         const blockSecondsLeft = as?.blockedUntil
                             ? Math.max(0, Math.round((as.blockedUntil - now2) / 1000))
                             : undefined;
+                        const wsInfo = a.circulationMode === 'windSimulator'
+                            ? this.actuatorService.getWindSimInfo(a.id)
+                            : undefined;
                         return {
                             id: a.id,
                             name: a.name,
@@ -1291,6 +1302,10 @@ class GrowManagerAdapter extends utils.Adapter {
                             blocked: as?.blocked ?? false,
                             blockReason: as?.blockedReason,
                             blockSecondsLeft: blockSecondsLeft && blockSecondsLeft > 0 ? blockSecondsLeft : undefined,
+                            windSimIsOn: wsInfo?.isOn,
+                            windSimSecondsLeft: wsInfo
+                                ? Math.max(0, Math.round((wsInfo.nextChangeAt - now2) / 1000))
+                                : undefined,
                         };
                     });
 

@@ -18,6 +18,8 @@ export interface DashboardActuatorState {
     blocked?: boolean;
     blockReason?: string;
     blockSecondsLeft?: number;
+    windSimIsOn?: boolean;
+    windSimSecondsLeft?: number;
 }
 export interface DashboardAlarm {
     id: string;

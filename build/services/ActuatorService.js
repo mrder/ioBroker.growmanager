@@ -299,6 +299,12 @@ class ActuatorService {
     getState(actuatorId) {
         return this.states.get(actuatorId);
     }
+    getWindSimInfo(actuatorId) {
+        const s = this.windSimStates.get(actuatorId);
+        if (!s)
+            return undefined;
+        return { isOn: s.isOn, nextChangeAt: s.nextChangeAt };
+    }
     getRunTimeSeconds(actuatorId) {
         const rt = this.runTime.get(actuatorId);
         if (!rt)

@@ -856,16 +856,16 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginTop: 4 }}>
-                    <div>
+                    {edit.circulationMode !== 'windSimulator' && (<div>
                         <label style={styles.fieldLabel}>Min. Einschaltzeit (s)</label>
                         <input style={styles.input} type="number" min={0} value={edit.minimumOnSeconds}
                             onChange={e => setEdit(prev => ({ ...prev, minimumOnSeconds: +e.target.value }))} />
-                    </div>
-                    <div>
+                    </div>)}
+                    {edit.circulationMode !== 'windSimulator' && (<div>
                         <label style={styles.fieldLabel}>Min. Ausschaltzeit (s)</label>
                         <input style={styles.input} type="number" min={0} value={edit.minimumOffSeconds}
                             onChange={e => setEdit(prev => ({ ...prev, minimumOffSeconds: +e.target.value }))} />
-                    </div>
+                    </div>)}
                     <div>
                         <label style={styles.fieldLabel}>Max. Laufzeit (s)</label>
                         <input style={styles.input} type="number" min={0} value={edit.maximumOnSeconds}
