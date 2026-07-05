@@ -361,7 +361,17 @@ export class ClimateController {
         if (vpdState === -1) {
             // VPD zu niedrig → Feuchte senken oder Temperatur erhöhen
             if (dir === 'down' || dir === 'both') {
-                // Entfeuchter / Abluft
+                // Entfeuchter darf nur laufen wenn Temperatur ≤ Solltemperatur.
+                // Bei Übertemperatur ist Abluft/Kühlung das richtige Mittel — Entfeuchten
+                // würde VPD zwar auch erhöhen, aber die Temperatur nicht lösen.
+                if (act.type === 'dehumidifier' && temp !== null && sp.temperature !== undefined) {
+                    const tempOvershoot = temp - (sp.temperature + (sp.temperatureTolerance ?? 1));
+                    if (tempOvershoot > 0) {
+                        this.pushAction(actions, act, false, `VPD zu niedrig, Temp zu hoch – Entfeuchter gesperrt (Abluft bevorzugt)`, false);
+                        return null;
+                    }
+                }
+                // Außenluft-Guard
                 if (act.outdoorGuardEnabled && outdoorHumidity !== null) {
                     const maxHumDelta = outdoorCfg?.maxHumidityDeltaPercent ?? 10;
                     if (outdoorHumidity > hum + maxHumDelta) {
