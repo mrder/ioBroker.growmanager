@@ -2,6 +2,107 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.2.0] - 2026-07-05
+
+### Stabiles Release — 6 Audit-Runden, alle Bugs behoben
+
+Diese Version markiert den ersten stabilen Release. Alle Kern-Features wurden implementiert und in 6
+aufeinanderfolgenden Code-Audit-Runden auf Laufzeit-Korrektheit geprüft. 254 Unit-Tests grün.
+
+---
+
+### Neue Features seit v0.1.26
+
+#### Geteilte Aktoren (Shared Actuators)
+- Aktoren können mehreren Gruppen zugeordnet werden; Eigentümer-Gruppe schreibt, Teilnehmer stimmen ab
+- Abstimmungsmodi: `any` (OR — EIN wenn irgendwer EIN will), `majority` (gewichtete Mehrheit),
+  `primary` (Eigentümer entscheidet, hoher Einfluss ≥ 0.8 kann überstimmen)
+- Hysterese-Timer für Zustandswechsel verhindert schnelles Hin- und Herschalten
+- `influenceFactor` (0–100) als konfigurierbares Stimmgewicht pro Teilnehmer
+- Feedback-Sichtbarkeit: Rückmeldung des Geräts erscheint in allen beteiligten Gruppen
+
+#### Befehlsverifizierung mit Retry & Alarm
+- Nach jedem Schreibbefehl startet ein 10-Sekunden-Timer
+- Timer prüft ob das Gerät mit `ack:true` bestätigt hat
+- Bei Abweichung: 1x automatischer Retry, dann `ACTUATOR_NO_FEEDBACK` Alarm/Warnung
+- Korrekte Trennung von `ack:false` (eigener Schreibbefehl) und `ack:true` (Geräte-Bestätigung)
+- Funktioniert für Aktoren mit und ohne separatem `feedbackStateId`
+
+#### VPD-Regelungsmodus
+- In VPD-Modus werden Lüfter, Befeuchter und Entfeuchter durch `decideVpd` geroutet
+- `vpdMin`/`vpdMax` Sollband mit Mindestbreite 0.05 kPa
+- Leaf-VPD-Berechnung über optionalen Blatttemperatur-Sensor
+
+#### Luftstrommanagement (AirSystemService)
+- `computeAirDemand`: berechnet Luftbedarf aus Abweichungen bei Temperatur, Feuchte und VPD
+- `computeAirOutput`: setzt Lüfter-Ausgabe mit Hysterese und Kapazitätsgrenzen
+- Koppelkurven (`ratioPoints`) für koordinierte Zu-/Abluft-Steuerung
+- Außenluft-Guard: Lüfter werden gesperrt wenn Außenluft thermodynamisch ungünstiger ist
+
+#### Bewässerungsservice (IrrigationService)
+- Zonenbasierte Bewässerungssteuerung mit Delta-basierter Durchflussmessung (kein Drift)
+- Tageslimit, feuchtebasierte Auslösung, Alarm bei Durchfluss-Überschreitung
+- `ZoneState` mit `lastFlowTs` für korrekte Intervall-Berechnung
+
+#### Kamera-Service (CameraService)
+- Timelapse-Snapshots mit konfigurierbarem Intervall
+- `captureOnlyWhenLightOn` für lichtbasierte Aufnahme-Steuerung
+- Offline-Alarm nach konfigurierbarem Ausfall-Schwellwert (Intervall × 3, min. 1 min)
+- Optionale lokale oder externe KI-Analyse mit Konfidenz-Filter und Health-Score
+
+#### Diagnostik-Engine (DiagnosticsEngine)
+- Effekt-Checks: prüft ob Aktorbefehle die Sensorwerte innerhalb eines Zeitfensters verändern
+- Stündliche Historien-Puffer als Trend-Fallback wenn kein History-Adapter installiert
+- Automatische Bereinigung abgelaufener Checks (`waitSeconds + windowSeconds × 3`)
+
+#### Benachrichtigungsservice (NotificationService)
+- Konfigurierbare Kanäle: Discord, E-Mail, Telegram
+- Quiet-Hours, Severity-Filter, Cooldown pro Alarm-ID
+- Formatierte Discord-Embeds mit Farb-Kodierung nach Schweregrad
+- Cooldown wird erst nach erfolgreichem Versand gesetzt (Netzfehler → Retry möglich)
+
+#### Shadow- und Wartungsmodus
+- **Shadow-Mode** (monitorOnly): alle Aktoren blockiert, nur Licht-Aktoren schalten durch
+- **Wartungsmodus**: Lüfter, Befeuchter etc. gesperrt — Licht-Aktoren bleiben aktiv
+- Beide Modi blockieren nie Licht-Aktoren (Zeitplan-Steuerung bleibt immer aktiv)
+
+---
+
+### Bugfixes (Audit-Runden 1–6)
+
+| # | Datei | Beschreibung |
+|---|-------|--------------|
+| 1 | SensorService | IQR-Filter synchronisierte Gewichte nicht mit Werten → falsche gewichtete Mittelwerte |
+| 2 | ActuatorService | `canSwitch`: `!runTime.get()` invertiert → Schaltungen fälschlich blockiert |
+| 3 | ActuatorService | `lastHourSwitches` nicht getrimmt → unbegrenztes Array-Wachstum |
+| 4 | ActuatorService | `stuckOn` false-positive bei Neustart (`lastSwitchTs=0` → ~1.7M Sekunden Laufzeit) |
+| 5 | ActuatorService | `manualLock` lief nie ab (fehlende `= false` Zuweisung in `tickOverrides`) |
+| 6 | IrrigationService | Flow-Akkumulation mit Gesamt-Laufzeit statt Delta → starke Überschätzung |
+| 7 | AirSystemService | `ratioPoints` null-Deref → Exception wenn keine Koppelkurve konfiguriert |
+| 8 | AlarmService | Async Listener-Fehler nicht gefangen → unhandled promise rejection |
+| 9 | ClimateController | Shadow-Mode blockierte Licht-Aktoren → Beleuchtung nie einschaltbar |
+| 10 | ClimateController | `inferControlTarget` ohne `config.mode` → VPD-Routing komplett defekt |
+| 11 | ClimateController | `vpdMin`/`vpdMax` null in `lerp` → NaN-Sollwerte downstream |
+| 12 | SafetyService | Wartungsmodus blockierte Licht-Aktoren |
+| 13 | main.ts | `cycleRunning`-Lock fehlte → parallele Regelzyklen überschrieben sich |
+| 14 | main.ts | Eigene `ack:false` Schreibbefehle als Geräte-Feedback verarbeitet → falscher Dashboard-Status |
+| 15 | main.ts | `computeParticipantNeed`: sp null-Deref wenn kein aktives Profil geladen |
+| 16 | main.ts | VPD-Ziel NaN wenn `vpdMin`/`vpdMax` nicht im Profil definiert |
+| 17 | main.ts | `setOverride`: kein Fehler-Callback wenn Aktor-ID nicht gefunden |
+| 18 | main.ts | `getActiveSetpoint` 4× redundant pro Regelzyklus aufgerufen |
+| 19 | main.ts | `lightChangeTimes ?? 0` im Dashboard → Übergangs-Fortschritt immer 100% nach Neustart |
+| 20 | main.ts | History-Fallback-Kette brach beim ersten Adapter mit 0 Datenpunkten ab |
+| 21 | calculations.ts | `dewPoint(t, 0)` → `Math.log(0) = -Infinity` → NaN in allen nachgelagerten Berechnungen |
+| 22 | calculations.ts | `curveInterpolate`: Division durch 0 bei doppelten x-Stützpunkten |
+| 23 | time.ts | `transitionProgress(ts, 0)` → Division durch 0 |
+| 24 | SharedActorManager | `anyOn` prüfte alle Gruppen → Niedrig-Priorität konnte Hoch-Priorität OFF überstimmen |
+| 25 | CameraService | `captureIntervalMinutes` konnte 0 sein → sofortiger Offline-Alarm ohne Wartezeit |
+| 26 | ScheduleService | Übergangs-Erkennung lieferte falsches Ergebnis für `transitionMinutes > 60` |
+| 27 | NotificationService | Cooldown vor Versand gesetzt → bei Netzfehler Alarm dauerhaft stumm für gesamte Cooldown-Dauer |
+| 28 | WebDashboardService | `req.destroy()` ohne Error-Handler → `uncaughtException` → Adapter-Crash bei großem POST-Body |
+
+---
+
 ## [0.1.26] - 2026-07-03
 
 ### Verbesserungen seit v0.1.0 — Gesamtübersicht
