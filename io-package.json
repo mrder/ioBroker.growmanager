@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.9",
+    "version": "0.2.10",
     "news": {
+      "0.2.10": {
+        "en": "Fix Tag/Nacht display: transition phase shown as '⇄ Übergang' instead of 'Tag'; isDay now only true for actual day",
+        "de": "Tag/Nacht-Anzeige korrigiert: Übergangsphase zeigt '⇄ Übergang' statt 'Tag'; isDay ist nur noch bei echtem Tag true"
+      },
       "0.2.9": {
         "en": "Fix: climate controller no longer overrides wind-sim/schedule circulation fans via executeDecision",
         "de": "Fix: Klimaregler überschreibt Umluft-Aktoren im Windsimulator-/Zeitfenster-Modus nicht mehr über executeDecision"

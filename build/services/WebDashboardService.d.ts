@@ -61,6 +61,7 @@ export interface DashboardGroupState {
         error?: string;
     }>;
     isDay: boolean;
+    dayNight: string;
     sensorQuality: number;
     actuators: DashboardActuatorState[];
     alarms: DashboardAlarm[];

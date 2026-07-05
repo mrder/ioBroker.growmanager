@@ -1262,9 +1262,11 @@ function groupCardHtml(g) {
   const isCtrlVpd  = controlled.includes('vpd');
   const isManual = g.runtimeMode === 'manual';
 
-  const dayNightTag = g.isDay
-    ? '<span class="meta-tag day">☀ Tag</span>'
-    : '<span class="meta-tag night">🌙 Nacht</span>';
+  const dayNightTag = g.dayNight === 'night'
+    ? '<span class="meta-tag night">🌙 Nacht</span>'
+    : g.dayNight === 'transition'
+      ? '<span class="meta-tag transition" style="color:#f9a825">⇄ Übergang</span>'
+      : '<span class="meta-tag day">☀ Tag</span>';
 
   let monitorTag = '';
   if (g.monitorSensors && g.monitorSensors.length > 0) {

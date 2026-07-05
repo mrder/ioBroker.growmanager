@@ -55,6 +55,7 @@ export interface DashboardGroupState {
     leafSensors: Array<{ id: string; name: string; value: number | null }>;
     sensorDetails: Array<{ id: string; name: string; type: string; quality: number; valid: boolean; stale: boolean; error?: string }>;
     isDay: boolean;
+    dayNight: string;
     sensorQuality: number;
     actuators: DashboardActuatorState[];
     alarms: DashboardAlarm[];
