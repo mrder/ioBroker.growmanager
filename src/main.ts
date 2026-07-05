@@ -790,6 +790,9 @@ class GrowManagerAdapter extends utils.Adapter {
             await this.executeDecision(config, decision);
         }
 
+        // 6d) Umluft-Aktoren: Wind-Simulator / Zeitfenster / alwaysOn (unabhängig von Klimaregelung)
+        await this.tickCirculationActuators(config);
+
         // 6b) Fähigkeiten der Gruppe bewerten (für Logging/Admin-UI)
         const leafTempVal = leafTempAgg.value;
         const soilAgg = this.sensorService.aggregate(config.sensors, 'soilMoisture', config.aggregationMethod, stab);
@@ -909,6 +912,40 @@ class GrowManagerAdapter extends utils.Adapter {
 
         // 8) ioBroker-States aktualisieren
         await this.updateGroupStates(config, state);
+    }
+
+    private async tickCirculationActuators(config: GroupConfig): Promise<void> {
+        const now = new Date();
+        for (const act of config.actuators) {
+            if (act.type !== 'circulationFan' || !act.enabled || !act.circulationMode) continue;
+            if (act.shared) continue; // geteilte Aktoren laufen über SharedActorManager
+
+            let wantsOn: boolean;
+            switch (act.circulationMode) {
+                case 'windSimulator':
+                    wantsOn = this.actuatorService.tickWindSimulator(act, now);
+                    break;
+                case 'schedule':
+                    wantsOn = this.actuatorService.isCirculationScheduleActive(act, now);
+                    break;
+                case 'alwaysOn':
+                default:
+                    wantsOn = true;
+            }
+
+            const actState = this.actuatorService.getState(act.id);
+            if (!actState || actState.manualLock) continue;
+
+            const canSwitch = this.actuatorService.canSwitch(act, wantsOn);
+            if (!canSwitch.allowed) continue;
+
+            const changed = this.actuatorService.recordCommand(act, wantsOn);
+            if (changed) {
+                await this.setActuatorState(act.commandStateId, wantsOn ? act.onValue : act.offValue);
+                this.setActuatorStateWithVerify(act, config.id, wantsOn ? act.onValue as boolean | number : act.offValue as boolean | number);
+                this.log.info(`Umluft ${act.name}: → ${wantsOn ? 'EIN' : 'AUS'} (${act.circulationMode})`);
+            }
+        }
     }
 
     private async executeDecision(config: GroupConfig, decision: ControlDecision): Promise<void> {

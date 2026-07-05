@@ -5,12 +5,14 @@
 // ============================================================
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ActuatorService = void 0;
+const time_1 = require("../utils/time");
 class ActuatorService {
     constructor(log) {
         this.log = log;
         this.states = new Map();
         this.runTime = new Map();
         this.overrideUntil = new Map();
+        this.windSimStates = new Map();
     }
     initActuator(config) {
         this.states.set(config.id, {
@@ -242,6 +244,41 @@ class ActuatorService {
         }
     }
     /**
+     * Wind-Simulator Tick für Umluft-Aktoren.
+     * Gibt den aktuell gewünschten Zustand (true=EIN / false=AUS) zurück.
+     * Kümmert sich intern um den Zustandswechsel-Timer.
+     */
+    tickWindSimulator(config, now) {
+        const cfg = config.windSimulator;
+        if (!cfg)
+            return true; // kein Konfig → immer EIN
+        let state = this.windSimStates.get(config.id);
+        if (!state) {
+            // Erststart: zufällige EIN-Phase beginnen
+            const onDur = this.randBetween(cfg.minOnSeconds, cfg.maxOnSeconds) * 1000;
+            state = { isOn: true, nextChangeAt: Date.now() + onDur };
+            this.windSimStates.set(config.id, state);
+        }
+        if (Date.now() >= state.nextChangeAt) {
+            state.isOn = !state.isOn;
+            const dur = state.isOn
+                ? this.randBetween(cfg.minOnSeconds, cfg.maxOnSeconds) * 1000
+                : this.randBetween(cfg.minOffSeconds, cfg.maxOffSeconds) * 1000;
+            state.nextChangeAt = Date.now() + dur;
+            this.log.debug(`WindSim ${config.name}: → ${state.isOn ? 'EIN' : 'AUS'} für ${Math.round(dur / 1000)}s`);
+        }
+        return state.isOn;
+    }
+    /**
+     * Prüft ob ein Umluft-Zeitfenster gerade aktiv ist.
+     */
+    isCirculationScheduleActive(config, now) {
+        const windows = config.circulationSchedule;
+        if (!windows || windows.length === 0)
+            return false;
+        return windows.some(w => (0, time_1.isInTimeWindow)(now, w.startHH, w.startMM, w.endHH, w.endMM));
+    }
+    /**
      * Prüft abgelaufene Overrides.
      */
     tickOverrides() {
@@ -325,6 +362,11 @@ class ActuatorService {
             return 'noPower';
         }
         return 'ok';
+    }
+    randBetween(minSec, maxSec) {
+        const lo = Math.max(1, minSec);
+        const hi = Math.max(lo + 1, maxSec);
+        return Math.floor(Math.random() * (hi - lo + 1)) + lo;
     }
 }
 exports.ActuatorService = ActuatorService;

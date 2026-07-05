@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { GrowManagerConfig, GroupConfig, ClimateProfile, ControlTarget, ControlDirection, OutdoorSensorConfig, SharedParticipant, NotificationChannel, NotificationConfig, NotificationChannelType } from './types';
+import type { GrowManagerConfig, GroupConfig, ClimateProfile, ControlTarget, ControlDirection, OutdoorSensorConfig, SharedParticipant, NotificationChannel, NotificationConfig, NotificationChannelType, WindSimulatorConfig, CirculationScheduleWindow } from './types';
 
 // ioBroker Admin-Globals (werden vom Admin-Framework bereitgestellt)
 declare const socket: {
@@ -515,6 +515,147 @@ interface ActuatorEditorProps {
     onClose: () => void;
 }
 
+// ---- CirculationFanSettings --------------------------------
+
+const defaultWindSim = (): WindSimulatorConfig => ({
+    minOnSeconds: 30, maxOnSeconds: 180, minOffSeconds: 20, maxOffSeconds: 120,
+});
+
+const defaultScheduleWindow = (): CirculationScheduleWindow => ({
+    startHH: 6, startMM: 0, endHH: 22, endMM: 0,
+});
+
+const CirculationFanSettings: React.FC<{
+    edit: ReturnType<typeof defaultActuator>;
+    setEdit: React.Dispatch<React.SetStateAction<ReturnType<typeof defaultActuator>>>;
+}> = ({ edit, setEdit }) => {
+    const mode = edit.circulationMode ?? 'alwaysOn';
+    const ws = edit.windSimulator ?? defaultWindSim();
+    const schedule = edit.circulationSchedule ?? [];
+
+    const setMode = (m: 'windSimulator' | 'schedule' | 'alwaysOn') =>
+        setEdit(prev => ({ ...prev, circulationMode: m }));
+
+    const setWs = (key: keyof WindSimulatorConfig, val: number) =>
+        setEdit(prev => ({ ...prev, windSimulator: { ...(prev.windSimulator ?? defaultWindSim()), [key]: val } }));
+
+    const addWindow = () =>
+        setEdit(prev => ({ ...prev, circulationSchedule: [...(prev.circulationSchedule ?? []), defaultScheduleWindow()] }));
+
+    const removeWindow = (i: number) =>
+        setEdit(prev => ({ ...prev, circulationSchedule: (prev.circulationSchedule ?? []).filter((_, idx) => idx !== i) }));
+
+    const setWindow = (i: number, key: keyof CirculationScheduleWindow, val: number) =>
+        setEdit(prev => {
+            const arr = [...(prev.circulationSchedule ?? [])];
+            arr[i] = { ...arr[i], [key]: val };
+            return { ...prev, circulationSchedule: arr };
+        });
+
+    const sectionStyle: React.CSSProperties = {
+        background: '#f0f4ff', border: '1px solid #c5d0e8', borderRadius: 8,
+        padding: '14px 16px', marginTop: 14,
+    };
+    const inp: React.CSSProperties = {
+        width: '100%', padding: '5px 8px', borderRadius: 4,
+        border: '1px solid #ccc', fontSize: 13, boxSizing: 'border-box',
+    };
+
+    return (
+        <div style={sectionStyle}>
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>🌀 Umluft-Betriebsart</div>
+
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                {(['alwaysOn', 'windSimulator', 'schedule'] as const).map(m => (
+                    <button key={m} onClick={() => setMode(m)}
+                        style={{
+                            flex: 1, padding: '6px 4px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                            border: mode === m ? '2px solid #1976d2' : '1px solid #ccc',
+                            background: mode === m ? '#1976d2' : '#fff',
+                            color: mode === m ? '#fff' : '#333', fontWeight: mode === m ? 700 : 400,
+                        }}>
+                        {m === 'alwaysOn' ? 'Immer EIN' : m === 'windSimulator' ? '🎲 Windsimulator' : '🕐 Zeitfenster'}
+                    </button>
+                ))}
+            </div>
+
+            {mode === 'alwaysOn' && (
+                <p style={{ margin: 0, fontSize: 12, color: '#666' }}>
+                    Lüfter läuft dauerhaft — nur manuelle Sperren oder Sicherheitsabschaltungen stoppen ihn.
+                </p>
+            )}
+
+            {mode === 'windSimulator' && (
+                <>
+                    <p style={{ margin: '0 0 10px', fontSize: 12, color: '#555' }}>
+                        Zufällige EIN/AUS-Intervalle innerhalb der konfigurierten Min/Max-Grenzen — simuliert natürlichen Wind.
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div>
+                            <label style={{ display: 'block', fontWeight: 600, fontSize: 12, marginBottom: 3 }}>Min. EIN (s)</label>
+                            <input style={inp} type="number" min={1} value={ws.minOnSeconds}
+                                onChange={e => setWs('minOnSeconds', +e.target.value)} />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontWeight: 600, fontSize: 12, marginBottom: 3 }}>Max. EIN (s)</label>
+                            <input style={inp} type="number" min={1} value={ws.maxOnSeconds}
+                                onChange={e => setWs('maxOnSeconds', +e.target.value)} />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontWeight: 600, fontSize: 12, marginBottom: 3 }}>Min. AUS (s)</label>
+                            <input style={inp} type="number" min={1} value={ws.minOffSeconds}
+                                onChange={e => setWs('minOffSeconds', +e.target.value)} />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontWeight: 600, fontSize: 12, marginBottom: 3 }}>Max. AUS (s)</label>
+                            <input style={inp} type="number" min={1} value={ws.maxOffSeconds}
+                                onChange={e => setWs('maxOffSeconds', +e.target.value)} />
+                        </div>
+                    </div>
+                    <p style={{ margin: '8px 0 0', fontSize: 11, color: '#888' }}>
+                        Beispiel: Min EIN 30s / Max EIN 180s / Min AUS 20s / Max AUS 120s → natürlicher Windrhythmus
+                    </p>
+                </>
+            )}
+
+            {mode === 'schedule' && (
+                <>
+                    <p style={{ margin: '0 0 10px', fontSize: 12, color: '#555' }}>
+                        Lüfter läuft nur innerhalb der definierten Zeitfenster (max. 3 Fenster).
+                    </p>
+                    {schedule.map((w, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+                            <span style={{ fontSize: 12, minWidth: 20 }}>#{i + 1}</span>
+                            <input style={{ ...inp, width: 52 }} type="number" min={0} max={23} value={w.startHH}
+                                onChange={e => setWindow(i, 'startHH', +e.target.value)} />
+                            <span style={{ fontSize: 13 }}>:</span>
+                            <input style={{ ...inp, width: 52 }} type="number" min={0} max={59} value={w.startMM}
+                                onChange={e => setWindow(i, 'startMM', +e.target.value)} />
+                            <span style={{ fontSize: 12, margin: '0 4px' }}>bis</span>
+                            <input style={{ ...inp, width: 52 }} type="number" min={0} max={23} value={w.endHH}
+                                onChange={e => setWindow(i, 'endHH', +e.target.value)} />
+                            <span style={{ fontSize: 13 }}>:</span>
+                            <input style={{ ...inp, width: 52 }} type="number" min={0} max={59} value={w.endMM}
+                                onChange={e => setWindow(i, 'endMM', +e.target.value)} />
+                            <span style={{ fontSize: 11, color: '#888', flex: 1 }}>Uhr</span>
+                            <button onClick={() => removeWindow(i)}
+                                style={{ background: '#e53935', color: '#fff', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 12 }}>
+                                ✕
+                            </button>
+                        </div>
+                    ))}
+                    {schedule.length < 3 && (
+                        <button onClick={addWindow}
+                            style={{ marginTop: 4, padding: '5px 12px', borderRadius: 6, border: '1px solid #1976d2', background: '#fff', color: '#1976d2', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                            + Zeitfenster hinzufügen
+                        </button>
+                    )}
+                </>
+            )}
+        </div>
+    );
+};
+
 const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ownerGroupId, onSave, onClose }) => {
     const [edit, setEdit] = useState(actuator ?? defaultActuator());
 
@@ -585,6 +726,10 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                         <span>Außenluft-Guard aktivieren</span>
                         <span style={{ fontSize: 11, color: '#888' }}>(Gruppe muss Außensensor haben → Lüfter sperren wenn Außen ungünstiger)</span>
                     </label>
+                )}
+
+                {edit.type === 'circulationFan' && (
+                    <CirculationFanSettings edit={edit} setEdit={setEdit} />
                 )}
 
                 <StateIdInput

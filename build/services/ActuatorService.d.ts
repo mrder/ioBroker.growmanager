@@ -5,6 +5,7 @@ export declare class ActuatorService {
     private readonly states;
     private readonly runTime;
     private readonly overrideUntil;
+    private readonly windSimStates;
     constructor(log: ILogger);
     initActuator(config: ActuatorConfig): void;
     /**
@@ -54,6 +55,16 @@ export declare class ActuatorService {
      */
     applyInterlock(configA: ActuatorConfig, configB: ActuatorConfig): void;
     /**
+     * Wind-Simulator Tick für Umluft-Aktoren.
+     * Gibt den aktuell gewünschten Zustand (true=EIN / false=AUS) zurück.
+     * Kümmert sich intern um den Zustandswechsel-Timer.
+     */
+    tickWindSimulator(config: ActuatorConfig, now: Date): boolean;
+    /**
+     * Prüft ob ein Umluft-Zeitfenster gerade aktiv ist.
+     */
+    isCirculationScheduleActive(config: ActuatorConfig, now: Date): boolean;
+    /**
      * Prüft abgelaufene Overrides.
      */
     tickOverrides(): void;
@@ -64,5 +75,6 @@ export declare class ActuatorService {
     isRequestingOn(config: ActuatorConfig, requested: boolean | number): boolean;
     private computeEffectiveState;
     private computeHealth;
+    private randBetween;
 }
 //# sourceMappingURL=ActuatorService.d.ts.map

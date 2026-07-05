@@ -4,8 +4,13 @@
 // ============================================================
 
 import type { ActuatorConfig, ActuatorState } from '../models/config';
-import { isStale } from '../utils/time';
+import { isStale, isInTimeWindow } from '../utils/time';
 import type { ILogger } from '../utils/logger';
+
+interface WindSimState {
+    isOn: boolean;
+    nextChangeAt: number; // Timestamp in ms
+}
 
 interface RunTimeEntry {
     startTs: number;
@@ -18,6 +23,7 @@ export class ActuatorService {
     private readonly states = new Map<string, ActuatorState>();
     private readonly runTime = new Map<string, RunTimeEntry>();
     private readonly overrideUntil = new Map<string, number>();
+    private readonly windSimStates = new Map<string, WindSimState>();
 
     constructor(private readonly log: ILogger) {}
 
@@ -272,6 +278,46 @@ export class ActuatorService {
     }
 
     /**
+     * Wind-Simulator Tick für Umluft-Aktoren.
+     * Gibt den aktuell gewünschten Zustand (true=EIN / false=AUS) zurück.
+     * Kümmert sich intern um den Zustandswechsel-Timer.
+     */
+    tickWindSimulator(config: ActuatorConfig, now: Date): boolean {
+        const cfg = config.windSimulator;
+        if (!cfg) return true; // kein Konfig → immer EIN
+
+        let state = this.windSimStates.get(config.id);
+        if (!state) {
+            // Erststart: zufällige EIN-Phase beginnen
+            const onDur = this.randBetween(cfg.minOnSeconds, cfg.maxOnSeconds) * 1000;
+            state = { isOn: true, nextChangeAt: Date.now() + onDur };
+            this.windSimStates.set(config.id, state);
+        }
+
+        if (Date.now() >= state.nextChangeAt) {
+            state.isOn = !state.isOn;
+            const dur = state.isOn
+                ? this.randBetween(cfg.minOnSeconds, cfg.maxOnSeconds) * 1000
+                : this.randBetween(cfg.minOffSeconds, cfg.maxOffSeconds) * 1000;
+            state.nextChangeAt = Date.now() + dur;
+            this.log.debug(
+                `WindSim ${config.name}: → ${state.isOn ? 'EIN' : 'AUS'} für ${Math.round(dur / 1000)}s`
+            );
+        }
+
+        return state.isOn;
+    }
+
+    /**
+     * Prüft ob ein Umluft-Zeitfenster gerade aktiv ist.
+     */
+    isCirculationScheduleActive(config: ActuatorConfig, now: Date): boolean {
+        const windows = config.circulationSchedule;
+        if (!windows || windows.length === 0) return false;
+        return windows.some(w => isInTimeWindow(now, w.startHH, w.startMM, w.endHH, w.endMM));
+    }
+
+    /**
      * Prüft abgelaufene Overrides.
      */
     tickOverrides(): void {
@@ -368,5 +414,11 @@ export class ActuatorService {
         }
 
         return 'ok';
+    }
+
+    private randBetween(minSec: number, maxSec: number): number {
+        const lo = Math.max(1, minSec);
+        const hi = Math.max(lo + 1, maxSec);
+        return Math.floor(Math.random() * (hi - lo + 1)) + lo;
     }
 }

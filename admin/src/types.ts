@@ -55,6 +55,23 @@ export interface ActuatorConfig {
     controlDirection?: ControlDirection;
     outdoorGuardEnabled?: boolean;
     actuatorHysteresis?: number;
+    circulationMode?: 'windSimulator' | 'schedule' | 'alwaysOn';
+    windSimulator?: WindSimulatorConfig;
+    circulationSchedule?: CirculationScheduleWindow[];
+}
+
+export interface WindSimulatorConfig {
+    minOnSeconds: number;
+    maxOnSeconds: number;
+    minOffSeconds: number;
+    maxOffSeconds: number;
+}
+
+export interface CirculationScheduleWindow {
+    startHH: number;
+    startMM: number;
+    endHH: number;
+    endMM: number;
 }
 
 export interface OutdoorSensorConfig {

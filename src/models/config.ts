@@ -146,6 +146,26 @@ export interface ActuatorConfig {
     // Per-Aktor Schaltschwelle: Mindestabweichung vom Sollwert vor EIN-/AUS-Schaltung
     // (°C für Temp-Aktoren, % für Feuchte-Aktoren, kPa für VPD-Aktoren; 0 = Profil-Toleranz)
     actuatorHysteresis?: number;
+    // Umluft-Betriebsart (nur für circulationFan)
+    circulationMode?: 'windSimulator' | 'schedule' | 'alwaysOn';
+    windSimulator?: WindSimulatorConfig;
+    circulationSchedule?: CirculationScheduleWindow[];
+}
+
+// ---- Umluft-Windsimulator ----------------------------------
+
+export interface WindSimulatorConfig {
+    minOnSeconds: number;    // min. EIN-Dauer in Sekunden
+    maxOnSeconds: number;    // max. EIN-Dauer in Sekunden
+    minOffSeconds: number;   // min. AUS-Dauer in Sekunden
+    maxOffSeconds: number;   // max. AUS-Dauer in Sekunden
+}
+
+export interface CirculationScheduleWindow {
+    startHH: number;
+    startMM: number;
+    endHH: number;
+    endMM: number;
 }
 
 // ---- Zeitplan ----------------------------------------------
