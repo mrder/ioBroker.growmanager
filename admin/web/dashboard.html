@@ -1098,7 +1098,10 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   } else if (a.windSimNextChangeAt !== undefined) {
     const wsOn = a.windSimIsOn;
     const wsColor = wsOn ? 'var(--accent)' : 'var(--muted)';
-    countdownHtml = `<span class="act-countdown ws-cd" id="ws-cd-${a.id}" data-until="${a.windSimNextChangeAt}" data-on="${wsOn}" style="color:${wsColor}">🌀 ${wsOn?'EIN':'AUS'} ...</span>`;
+    const wsRemInit = Math.max(0, Math.round((a.windSimNextChangeAt - Date.now()) / 1000));
+    const wsMi = Math.floor(wsRemInit / 60), wsSi = wsRemInit % 60;
+    const wsInitStr = wsMi > 0 ? `${wsMi}m ${wsSi.toString().padStart(2,'0')}s` : `${wsSi}s`;
+    countdownHtml = `<span class="act-countdown ws-cd" id="ws-cd-${a.id}" data-until="${a.windSimNextChangeAt}" data-on="${wsOn}" style="color:${wsColor}">🌀 ${wsOn?'EIN':'AUS'} noch ${wsInitStr}</span>`;
   } else if (a.manualLock) {
     countdownHtml = `<span class="act-manual-lock" title="Manuell gesperrt – Auto-Zyklus pausiert">🔒 MANUELL</span>`;
   }
