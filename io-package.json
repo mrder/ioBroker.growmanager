@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "news": {
+      "0.2.1": {
+        "en": "feat: Wind simulator and schedule mode for circulation fans (circulationMode: windSimulator / schedule / alwaysOn)",
+        "de": "feat: Windsimulator und Zeitfenster-Modus für Umluftlüfter (circulationMode: windSimulator / schedule / alwaysOn)"
+      },
       "0.2.0": {
         "en": "Stable release: 6 audit rounds completed, all bugs fixed. Features: shared actuators, command verification with retry and alarm, VPD control mode, air system management, irrigation service, camera service, diagnostics engine, notification service, safety service, shadow/maintenance mode, multi-group scheduling, dashboard SSE, admin SPA",
         "de": "Stabiles Release: 6 Audit-Durchläufe abgeschlossen, alle Bugs behoben. Features: geteilte Aktoren, Befehlsverifizierung mit Retry und Alarm, VPD-Regelungsmodus, Luftstrommanagement, Bewässerungsservice, Kameraservice, Diagnostik-Engine, Benachrichtigungsservice, Sicherheitsservice, Shadow-/Wartungsmodus, Gruppen-Zeitpläne, Dashboard-SSE, Admin-SPA"
