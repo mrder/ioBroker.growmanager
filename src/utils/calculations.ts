@@ -37,6 +37,7 @@ export function calculateLeafVPD(airTempC: number, leafTempC: number, rhPercent:
  * Berechnet den Taupunkt in °C (Magnus-Formel).
  */
 export function dewPoint(tempC: number, rhPercent: number): number {
+    if (rhPercent <= 0) return -999; // Math.log(0) = -Infinity → NaN downstream
     const a = 17.27;
     const b = 237.3;
     const rh = rhPercent / 100;
@@ -151,7 +152,9 @@ export function curveInterpolate(
     if (input >= sorted[sorted.length - 1].x) return sorted[sorted.length - 1].y;
     for (let i = 0; i < sorted.length - 1; i++) {
         if (input >= sorted[i].x && input <= sorted[i + 1].x) {
-            const t = (input - sorted[i].x) / (sorted[i + 1].x - sorted[i].x);
+            const dx = sorted[i + 1].x - sorted[i].x;
+            if (dx === 0) return sorted[i].y; // Doppelter Stützpunkt → Division durch 0 vermeiden
+            const t = (input - sorted[i].x) / dx;
             return lerp(sorted[i].y, sorted[i + 1].y, t);
         }
     }

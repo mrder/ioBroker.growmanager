@@ -64,6 +64,8 @@ exports.isStale = isStale;
  * @param durationSeconds Übergangsdauer in Sekunden
  */
 function transitionProgress(changeTs, durationSeconds) {
+    if (durationSeconds <= 0)
+        return 1; // kein Übergang konfiguriert → sofort am Ziel
     const elapsed = (Date.now() - changeTs) / 1000;
     return Math.min(1, elapsed / durationSeconds);
 }

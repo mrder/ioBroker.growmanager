@@ -70,7 +70,7 @@ class CameraService {
         const minutesSinceLastSnapshot = state.lastSnapshotTs > 0
             ? (Date.now() - state.lastSnapshotTs) / 60000
             : 999;
-        if (minutesSinceLastSnapshot > camera.captureIntervalMinutes * 3) {
+        if (minutesSinceLastSnapshot > Math.max(1, camera.captureIntervalMinutes) * 3) {
             state.health = 'offline';
             this.alarmService.raise(AlarmService_1.ALARM_CODES.CAMERA_OFFLINE, groupId, `camera:${cameraId}`, 'warning', `Kamera ${camera.name} antwortet nicht (${minutesSinceLastSnapshot.toFixed(0)} min seit letztem Snapshot)`);
         }

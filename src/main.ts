@@ -797,22 +797,17 @@ class GrowManagerAdapter extends utils.Adapter {
 
         // 6c) Luftstrommanagement
         const isDay = dayNight !== 'night';
+        const airSp = state.activeProfile
+            ? this.scheduleService.getActiveSetpoint(state.activeProfile, dayNight, lightChangeTs)
+            : null;
         const airDemand = this.airSystemService.computeAirDemand(
             config, config.airSystem, state.temperature,
-            state.activeProfile
-                ? this.scheduleService.getActiveSetpoint(state.activeProfile, dayNight, lightChangeTs).temperature
-                : null,
+            airSp?.temperature ?? null,
             state.humidity,
-            state.activeProfile
-                ? this.scheduleService.getActiveSetpoint(state.activeProfile, dayNight, lightChangeTs).humidity
-                : null,
+            airSp?.humidity ?? null,
             state.vpd,
-            state.activeProfile
-                ? this.scheduleService.getActiveSetpoint(state.activeProfile, dayNight, lightChangeTs).vpdMin
-                : null,
-            state.activeProfile
-                ? this.scheduleService.getActiveSetpoint(state.activeProfile, dayNight, lightChangeTs).vpdMax
-                : null,
+            airSp?.vpdMin ?? null,
+            airSp?.vpdMax ?? null,
             isDay
         );
         const airOutput = this.airSystemService.computeAirOutput(config.id, config, config.airSystem, airDemand);
@@ -1645,8 +1640,10 @@ class GrowManagerAdapter extends utils.Adapter {
                     const actuator = group?.actuators.find(a => a.id === msg.actuatorId);
                     if (actuator) {
                         this.actuatorService.setOverride(actuator, msg.value, durationMin);
+                        if (obj.callback) this.sendTo(obj.from, obj.command, { ok: true }, obj.callback);
+                    } else if (obj.callback) {
+                        this.sendTo(obj.from, obj.command, { ok: false, error: `Aktor nicht gefunden: ${msg.actuatorId}` }, obj.callback);
                     }
-                    if (obj.callback) this.sendTo(obj.from, obj.command, { ok: true }, obj.callback);
                 }
                 break;
             case 'acknowledgeAlarm':

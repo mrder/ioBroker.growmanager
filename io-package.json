@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.1.54",
+    "version": "0.1.55",
     "news": {
+      "0.1.55": {
+        "en": "Bugfix batch 4: dewPoint NaN guard, curveInterpolate dx=0, transitionProgress guard, SharedActorManager ON/OFF priority + max value, CameraService interval min 1, setOverride error callback, redundant setpoint calls",
+        "de": "Bugfix-Batch 4: dewPoint NaN-Guard, curveInterpolate dx=0, transitionProgress Guard, SharedActorManager ON/OFF-Priorität + Max-Wert, CameraService Intervall Min 1, setOverride Fehler-Callback, redundante Setpoint-Aufrufe"
+      },
       "0.1.54": {
         "en": "Bugfix batch 3: SensorService weights sync after outlier removal, WebDashboard POST body limit, ConfigurationService undefined guards",
         "de": "Bugfix-Batch 3: SensorService Gewichte synchron nach Ausreißerfilter, WebDashboard POST-Body-Limit 64KB, ConfigurationService undefined-Guards"

@@ -68,10 +68,10 @@ class SharedActorManager {
         const topPriority = sorted[0].groupPriority;
         const topGroup = sorted.filter(r => r.groupPriority === topPriority);
         // Wenn jemand mit höchster Priorität EIN will → EIN gilt für alle
-        const anyOn = list.find(r => r.requested === true || (typeof r.requested === 'number' && r.requested > 0));
+        const anyOn = topGroup.find(r => r.requested === true || (typeof r.requested === 'number' && r.requested > 0));
         if (anyOn) {
-            // EIN-Anforderungen erfüllen mehrere Gruppen → Maximum der Prozentwerte
-            const winner = this.pickHighestCommand(list);
+            // EIN-Anforderungen: Maximum der Prozentwerte aus der Top-Prioritäts-Gruppe
+            const winner = this.pickHighestCommand(topGroup);
             return {
                 actuatorId,
                 finalCommand: winner.requested,

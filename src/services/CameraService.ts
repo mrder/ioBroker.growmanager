@@ -107,7 +107,7 @@ export class CameraService {
             ? (Date.now() - state.lastSnapshotTs) / 60000
             : 999;
 
-        if (minutesSinceLastSnapshot > camera.captureIntervalMinutes * 3) {
+        if (minutesSinceLastSnapshot > Math.max(1, camera.captureIntervalMinutes) * 3) {
             state.health = 'offline';
             this.alarmService.raise(
                 ALARM_CODES.CAMERA_OFFLINE,

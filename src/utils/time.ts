@@ -65,6 +65,7 @@ export function isStale(timestampMs: number, maxAgeSeconds: number): boolean {
  * @param durationSeconds Übergangsdauer in Sekunden
  */
 export function transitionProgress(changeTs: number, durationSeconds: number): number {
+    if (durationSeconds <= 0) return 1; // kein Übergang konfiguriert → sofort am Ziel
     const elapsed = (Date.now() - changeTs) / 1000;
     return Math.min(1, elapsed / durationSeconds);
 }
