@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.13",
+    "version": "0.2.14",
     "news": {
+      "0.2.14": {
+        "en": "SharedActor 'any' mode: soft owner veto — owner OFF blocks participants unless urgency >= 0.7 (critical need wins)",
+        "de": "SharedAktor 'any'-Modus: weiches Eigentümer-Veto — Eigentümer-AUS sperrt Teilnehmer, außer bei kritischem Bedarf (urgency >= 0.7)"
+      },
       "0.2.13": {
         "en": "SharedActor 'any' mode: owner veto — owner's OFF decision overrides all participant ON votes",
         "de": "SharedAktor 'any'-Modus: Eigentümer-Veto — Eigentümer-AUS überstimmt alle Teilnehmer-EIN-Stimmen"
