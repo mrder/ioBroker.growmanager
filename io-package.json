@@ -1,8 +1,16 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.4",
+    "version": "0.2.6",
     "news": {
+      "0.2.6": {
+        "en": "Wind simulator: bypass minimumOn/OffSeconds, phase countdown in dashboard, hide irrelevant timing fields in admin",
+        "de": "Windsimulator: minimumOn/OffSeconds werden übersprungen, Phasen-Countdown im Dashboard, irrelevante Zeitfelder im Admin ausgeblendet"
+      },
+      "0.2.5": {
+        "en": "Fix WhatsApp-cmb notification: use 'text' field instead of 'message'",
+        "de": "WhatsApp-cmb Benachrichtigung: Feld 'text' statt 'message' verwendet"
+      },
       "0.2.4": {
         "en": "Database: daily sensor stats, energy tracking (kWh/ratedPower), irrigation log with CSV export; Grow calendar with phase countdown in dashboard; soilMoisture/CO2 trend fix; energy tracking bugs fixed",
         "de": "Datenbank: Tages-Sensorstatistiken, Energie-Tracking (kWh/Nennleistung), Bewässerungsprotokoll mit CSV-Export; Grow-Kalender mit Phasen-Countdown im Dashboard; Bodenfeuchte/CO₂-Trend-Fix; Energie-Tracking-Bugs behoben"
