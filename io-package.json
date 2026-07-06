@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.21",
+    "version": "0.2.22",
     "news": {
+      "0.2.22": {
+        "en": "Fix energy tracking: actuators already ON at startup now tracked immediately; W-type power sensors (load_power) accumulate real Wh per sample; all actuators appear in energy table",
+        "de": "Fix Energie-Tracking: beim Start bereits aktive Aktoren werden sofort erfasst; W-Sensoren (load_power) akkumulieren echte Wh per Sample; alle Aktoren erscheinen in der Energietabelle"
+      },
       "0.2.21": {
         "en": "Fix: actuator IST state correctly initialized on adapter start (feedbackStateId + powerStateId read at startup); admin bundle rebuilt clean",
         "de": "Fix: Aktor IST-Zustand beim Adapter-Start korrekt initialisiert (feedbackStateId + powerStateId werden beim Start einmalig gelesen); Admin-Bundle sauber neu gebaut"

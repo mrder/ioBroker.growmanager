@@ -368,7 +368,6 @@ class GrowManagerAdapter extends utils.Adapter {
             if (actuator.feedbackStateId && !this.subscribedStateIds.has(actuator.feedbackStateId)) {
                 await this.subscribeForeignStatesAsync(actuator.feedbackStateId);
                 this.subscribedStateIds.add(actuator.feedbackStateId);
-                // Initialzustand laden — sonst bleibt IST beim Start auf null
                 const current = await this.getForeignStateAsync(actuator.feedbackStateId);
                 if (current?.val !== null && current?.val !== undefined) {
                     this.actuatorService.processFeedback(actuator, current.val);
@@ -385,7 +384,6 @@ class GrowManagerAdapter extends utils.Adapter {
             if (actuator.powerStateId && !this.subscribedStateIds.has(actuator.powerStateId)) {
                 await this.subscribeForeignStatesAsync(actuator.powerStateId);
                 this.subscribedStateIds.add(actuator.powerStateId);
-                // Initialzustand Leistung laden
                 const currentPower = await this.getForeignStateAsync(actuator.powerStateId);
                 if (currentPower?.val !== null && currentPower?.val !== undefined) {
                     const actState = this.actuatorService.getState(actuator.id);
@@ -396,6 +394,16 @@ class GrowManagerAdapter extends utils.Adapter {
             if (actuator.energyStateId && !this.subscribedStateIds.has(actuator.energyStateId)) {
                 await this.subscribeForeignStatesAsync(actuator.energyStateId);
                 this.subscribedStateIds.add(actuator.energyStateId);
+            }
+            // Energie-Tracking: beim Start bereits-AN-Aktoren erfassen
+            {
+                const actState = this.actuatorService.getState(actuator.id);
+                const isOn = actState
+                    ? (typeof actState.effectiveState === 'boolean' ? actState.effectiveState : actState.effectiveState > 0)
+                    : false;
+                if (isOn && actuator.energyStateUnit !== 'kWh') {
+                    this.databaseService.trackActuatorOn(group.id, actuator.id, actuator.name);
+                }
             }
             if (actuator.healthStateId && !this.subscribedStateIds.has(actuator.healthStateId)) {
                 await this.subscribeForeignStatesAsync(actuator.healthStateId);
@@ -530,6 +538,10 @@ class GrowManagerAdapter extends utils.Adapter {
                         const deltaWh = (state.val - prev) * 1000;
                         this.databaseService.trackActuatorWh(group.id, actuator.id, actuator.name, deltaWh, 0);
                     }
+                }
+                // Energie-Tracking: W-State (Momentanleistung) → Wh per Sample akkumulieren
+                if (actuator.energyStateId === id && typeof state.val === 'number' && actuator.energyStateUnit === 'W') {
+                    this.databaseService.updateActuatorPowerSample(group.id, actuator.id, state.val);
                 }
             }
             // Außensensor-Werte aktualisieren

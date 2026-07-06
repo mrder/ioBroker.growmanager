@@ -44,6 +44,11 @@ export declare class DatabaseService {
     trackSensorValue(groupId: string, sensorId: string, value: number, name?: string): void;
     trackActuatorOn(groupId: string, actuatorId: string, name: string): void;
     trackActuatorOff(groupId: string, actuatorId: string, ratedWatts: number): void;
+    /**
+     * Wird bei jedem Live-W-Wert aufgerufen (energyStateUnit='W').
+     * Akkumuliert Wh seit dem letzten Sample-Zeitpunkt.
+     */
+    updateActuatorPowerSample(groupId: string, actuatorId: string, watts: number): void;
     trackActuatorWh(groupId: string, actuatorId: string, name: string, deltaWh: number, durationMin: number): void;
     addIrrigationEvent(groupId: string, event: IrrigationEvent): Promise<void>;
     tickMidnight(groupId: string): Promise<void>;

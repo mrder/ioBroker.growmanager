@@ -76,8 +76,30 @@ class DatabaseService {
             return;
         const durationMin = (Date.now() - cur.lastOnTs) / 60000;
         cur.runtimeMin += durationMin;
-        cur.wh += (ratedWatts * durationMin) / 60;
+        // ratedWatts nur nutzen wenn keine realen Wh per Power-Sample akkumuliert wurden
+        if (ratedWatts > 0 && cur.wh === 0 && cur.runtimeMin === 0) {
+            cur.wh += (ratedWatts * durationMin) / 60;
+        }
         cur.lastOnTs = 0;
+    }
+    /**
+     * Wird bei jedem Live-W-Wert aufgerufen (energyStateUnit='W').
+     * Akkumuliert Wh seit dem letzten Sample-Zeitpunkt.
+     */
+    updateActuatorPowerSample(groupId, actuatorId, watts) {
+        const group = this.energyAcc.get(groupId);
+        if (!group)
+            return;
+        const cur = group.get(actuatorId);
+        if (!cur || cur.lastOnTs === 0)
+            return; // Gerät ist nicht als AN bekannt
+        const now = Date.now();
+        const durationMin = (now - cur.lastOnTs) / 60000;
+        if (durationMin < 0.001)
+            return; // Zu kurzes Intervall ignorieren
+        cur.wh += (watts * durationMin) / 60;
+        cur.runtimeMin += durationMin;
+        cur.lastOnTs = now;
     }
     trackActuatorWh(groupId, actuatorId, name, deltaWh, durationMin) {
         const group = this.energyAcc.get(groupId);
