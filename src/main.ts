@@ -410,6 +410,11 @@ class GrowManagerAdapter extends utils.Adapter {
             if (actuator.feedbackStateId && !this.subscribedStateIds.has(actuator.feedbackStateId)) {
                 await this.subscribeForeignStatesAsync(actuator.feedbackStateId);
                 this.subscribedStateIds.add(actuator.feedbackStateId);
+                // Initialzustand laden — sonst bleibt IST beim Start auf null
+                const current = await this.getForeignStateAsync(actuator.feedbackStateId);
+                if (current?.val !== null && current?.val !== undefined) {
+                    this.actuatorService.processFeedback(actuator, current.val);
+                }
             }
             // Kein separates Feedback: stateId selbst subscriben → ack:true = Gerätebestätigung
             if (!actuator.feedbackStateId && !this.subscribedStateIds.has(actuator.commandStateId)) {
@@ -421,6 +426,12 @@ class GrowManagerAdapter extends utils.Adapter {
             if (actuator.powerStateId && !this.subscribedStateIds.has(actuator.powerStateId)) {
                 await this.subscribeForeignStatesAsync(actuator.powerStateId);
                 this.subscribedStateIds.add(actuator.powerStateId);
+                // Initialzustand Leistung laden
+                const currentPower = await this.getForeignStateAsync(actuator.powerStateId);
+                if (currentPower?.val !== null && currentPower?.val !== undefined) {
+                    const actState = this.actuatorService.getState(actuator.id);
+                    if (actState) this.actuatorService.processFeedback(actuator, actState.feedback, currentPower.val);
+                }
             }
             if (actuator.energyStateId && !this.subscribedStateIds.has(actuator.energyStateId)) {
                 await this.subscribeForeignStatesAsync(actuator.energyStateId);
