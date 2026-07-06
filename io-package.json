@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.22",
+    "version": "0.2.23",
     "news": {
+      "0.2.23": {
+        "en": "Fix Admin UI encoding: all non-ASCII characters escaped to \\uXXXX in bundle so ioBroker's charset-less HTTP header no longer garbles German text and emojis",
+        "de": "Fix Admin-UI-Darstellung: alle Nicht-ASCII-Zeichen im Bundle als \\uXXXX kodiert, damit ioBroker ohne charset-Header keine Umlaute und Emojis mehr verstümmelt"
+      },
       "0.2.22": {
         "en": "Fix energy tracking: actuators already ON at startup now tracked immediately; W-type power sensors (load_power) accumulate real Wh per sample; all actuators appear in energy table",
         "de": "Fix Energie-Tracking: beim Start bereits aktive Aktoren werden sofort erfasst; W-Sensoren (load_power) akkumulieren echte Wh per Sample; alle Aktoren erscheinen in der Energietabelle"
