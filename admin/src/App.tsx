@@ -1154,7 +1154,7 @@ const IrrigationZoneEditor: React.FC<IrrigationZoneEditorProps> = ({ zone, actua
 
 // ---- GroupEditor -------------------------------------------
 
-type GroupEditorTab = 'basis' | 'sensoren' | 'aktoren' | 'bewaesserung';
+type GroupEditorTab = 'basis' | 'sensoren' | 'aktoren' | 'bewaesserung' | 'kamera';
 
 interface GroupEditorProps {
     group: GroupConfig | null;
@@ -1200,6 +1200,9 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                 </button>
                 <button style={tabStyle('bewaesserung')} onClick={() => setTab('bewaesserung')}>
                     Bewässerung ({edit.irrigationZones.length})
+                </button>
+                <button style={tabStyle('kamera')} onClick={() => setTab('kamera')}>
+                    Kamera ({edit.cameras.length})
                 </button>
             </div>
 
@@ -1540,6 +1543,56 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                             onClose={() => setEditingZone(null)}
                         />
                     )}
+                </div>
+            )}
+
+            {/* ---- TAB: Kamera ---- */}
+            {tab === 'kamera' && (
+                <div>
+                    <p style={{ color: '#555', fontSize: 13, marginTop: 0 }}>
+                        Snapshot-URL konfigurieren. Das Dashboard zeigt ein 128×128 Vorschaubild; beim Hover wird es vergrößert.
+                        Für KI-Analyse (Plant.id) den API-Key in den globalen Einstellungen hinterlegen.
+                    </p>
+                    <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#666', fontSize: 13 }}>
+                            {edit.cameras.length === 0
+                                ? 'Keine Kamera konfiguriert.'
+                                : `${edit.cameras.length} Kamera(s)`}
+                        </span>
+                        <button style={styles.btnPrimary} onClick={() => {
+                            const newCam: import('./types').CameraConfig = {
+                                id: `cam_${Date.now()}`, name: 'Kamera 1', enabled: true,
+                                sourceType: 'snapshotUrl', sourceId: '',
+                                captureIntervalMinutes: 5, captureOnlyWhenLightOn: false,
+                                delayAfterLightOnMinutes: 0, retentionDays: 7,
+                                maxStorageMB: 500, analysisMode: 'externalAI',
+                                aiAnalysisIntervalHours: 24, minimumConfidence: 0.7, cpuLimitPercent: 50,
+                            };
+                            setEdit(prev => ({ ...prev, cameras: [...prev.cameras, newCam] }));
+                        }}>+ Kamera</button>
+                    </div>
+                    {edit.cameras.map((cam, idx) => (
+                        <div key={cam.id} style={{ ...styles.listRow, flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontWeight: 600, fontSize: 14 }}>{cam.name}</span>
+                                <button style={{ ...styles.btnSecondary, color: '#d32f2f' }}
+                                    onClick={() => setEdit(prev => ({ ...prev, cameras: prev.cameras.filter((_, i) => i !== idx) }))}>
+                                    ✕ Entfernen
+                                </button>
+                            </div>
+                            <label style={styles.fieldLabel}>Name</label>
+                            <input style={styles.input} value={cam.name}
+                                onChange={e => setEdit(prev => ({ ...prev, cameras: prev.cameras.map((c, i) => i === idx ? { ...c, name: e.target.value } : c) }))} />
+                            <label style={styles.fieldLabel}>Snapshot-URL (http://...)</label>
+                            <input style={styles.input} type="url" placeholder="http://192.168.1.x:port/snapshot.jpg" value={cam.sourceId}
+                                onChange={e => setEdit(prev => ({ ...prev, cameras: prev.cameras.map((c, i) => i === idx ? { ...c, sourceId: e.target.value, sourceType: 'snapshotUrl' } : c) }))} />
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                                <input type="checkbox" checked={cam.enabled}
+                                    onChange={e => setEdit(prev => ({ ...prev, cameras: prev.cameras.map((c, i) => i === idx ? { ...c, enabled: e.target.checked } : c) }))} />
+                                Kamera aktiv
+                            </label>
+                        </div>
+                    ))}
                 </div>
             )}
 
@@ -2275,6 +2328,17 @@ const SettingsView: React.FC<{
             <input style={styles.input} type="password" placeholder="z.B. 1234"
                 value={String(config.dashboardPin ?? '')}
                 onChange={e => onChange({ ...config, dashboardPin: e.target.value })} />
+
+            <hr style={{ margin: '24px 0', borderColor: '#e0e0e0' }} />
+            <h4 style={{ margin: '0 0 12px' }}>Plant.id – KI-Mangelanalyse</h4>
+            <p style={{ fontSize: 12, color: '#666', margin: '0 0 8px' }}>
+                API-Key von <strong>plant.id</strong> (kostenlos: 100 Anfragen/Monat).
+                Wird im Dashboard für manuelle Pflanzenanalyse verwendet.
+            </p>
+            <label style={styles.fieldLabel}>Plant.id API-Key</label>
+            <input style={styles.input} type="password" placeholder="sk-..."
+                value={String(config.plantIdApiKey ?? '')}
+                onChange={e => onChange({ ...config, plantIdApiKey: e.target.value })} />
 
             <label style={styles.fieldLabel}>Start-Verhalten</label>
             <select style={styles.select} {...field('startBehavior')}>

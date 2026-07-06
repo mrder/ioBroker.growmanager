@@ -5,6 +5,7 @@
 // ============================================================
 
 import * as http from 'http';
+import * as https from 'https';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -117,6 +118,7 @@ export class WebDashboardService {
     private databaseCallback: ((groupId: string, type: 'stats' | 'energy' | 'irrigation') => unknown) | null = null;
     private lifestyleGetCallback: ((groupId: string) => Promise<unknown>) | null = null;
     private lifestyleSetCallback: ((groupId: string, data: unknown) => Promise<void>) | null = null;
+    private plantIdApiKey = '';
 
     constructor(
         private readonly log: {
@@ -128,6 +130,7 @@ export class WebDashboardService {
     ) {}
 
     setPin(pin: string): void { this.pin = pin; }
+    setPlantIdApiKey(key: string): void { this.plantIdApiKey = key; }
     setControlCallback(cb: (cmd: ControlCommand) => Promise<void>): void { this.controlCallback = cb; }
     setModeCallback(cb: (cmd: ModeCommand) => Promise<void>): void { this.modeCallback = cb; }
     setTrendsCallback(cb: (groupId: string, variable: string) => Promise<{ points: Array<{ ts: number; value: number }>; hint?: string }>): void { this.trendsCallback = cb; }
@@ -286,8 +289,72 @@ export class WebDashboardService {
             }
         }
 
+        if (url === '/api/plant-analysis' && req.method === 'POST') {
+            this.handlePlantAnalysis(req, res);
+            return;
+        }
+
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('Not found');
+    }
+
+    private handlePlantAnalysis(req: http.IncomingMessage, res: http.ServerResponse): void {
+        if (!this.plantIdApiKey) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Kein Plant.id API-Key konfiguriert. Bitte in den globalen Einstellungen hinterlegen.' }));
+            return;
+        }
+        let body = '';
+        req.on('data', chunk => { body += chunk; if (body.length > 8 * 1024 * 1024) req.destroy(); });
+        req.on('error', () => { /* ignore */ });
+        req.on('end', () => {
+            let imageBase64: string;
+            try {
+                const parsed = JSON.parse(body) as { image?: string };
+                if (!parsed.image) throw new Error('Kein Bild');
+                // Base64-Daten-URL bereinigen
+                imageBase64 = parsed.image.replace(/^data:image\/[a-z]+;base64,/, '');
+            } catch (e) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: `Ungültige Anfrage: ${e}` }));
+                return;
+            }
+
+            const payload = JSON.stringify({
+                images: [imageBase64],
+                similar_images: true,
+            });
+
+            const options: https.RequestOptions = {
+                hostname: 'plant.id',
+                path: '/api/v3/health_assessment',
+                method: 'POST',
+                headers: {
+                    'Api-Key': this.plantIdApiKey,
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(payload),
+                },
+            };
+
+            const plantReq = https.request(options, plantRes => {
+                let data = '';
+                plantRes.on('data', chunk => { data += chunk; });
+                plantRes.on('end', () => {
+                    res.writeHead(plantRes.statusCode ?? 200, {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*',
+                    });
+                    res.end(data);
+                });
+            });
+            plantReq.on('error', err => {
+                this.log.error(`Plant.id API Fehler: ${err.message}`);
+                res.writeHead(502, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: `Plant.id nicht erreichbar: ${err.message}` }));
+            });
+            plantReq.write(payload);
+            plantReq.end();
+        });
     }
 
     private handleMode(req: http.IncomingMessage, res: http.ServerResponse): void {

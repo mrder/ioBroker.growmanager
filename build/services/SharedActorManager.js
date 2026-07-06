@@ -132,10 +132,12 @@ class SharedActorManager {
         let rawCommand;
         switch (mode) {
             case 'any': {
-                // EIN wenn Eigentümer ODER irgendein Teilnehmer EIN will —
-                // ABER: Eigentümer-AUS ist immer ein Veto (verhindert sinnwidrigen Betrieb)
-                if (ownerVote && !ownerWantsOn) {
-                    rawCommand = false; // Eigentümer-Veto
+                // EIN wenn Eigentümer ODER irgendein Teilnehmer EIN will.
+                // Owner-AUS ist ein weiches Veto — kann von kritisch dringendem
+                // Teilnehmer (urgency >= 0.7) überstimmt werden.
+                const criticalParticipant = voteList.some(v => v.groupId !== ownerId && v.wantsOn && v.urgency >= 0.7);
+                if (ownerVote && !ownerWantsOn && !criticalParticipant) {
+                    rawCommand = false;
                 }
                 else {
                     rawCommand = voteList.some(v => v.wantsOn);

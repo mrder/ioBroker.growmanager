@@ -30,6 +30,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WebDashboardService = void 0;
 const http = __importStar(require("http"));
+const https = __importStar(require("https"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 class WebDashboardService {
@@ -53,8 +54,10 @@ class WebDashboardService {
         this.databaseCallback = null;
         this.lifestyleGetCallback = null;
         this.lifestyleSetCallback = null;
+        this.plantIdApiKey = '';
     }
     setPin(pin) { this.pin = pin; }
+    setPlantIdApiKey(key) { this.plantIdApiKey = key; }
     setControlCallback(cb) { this.controlCallback = cb; }
     setModeCallback(cb) { this.modeCallback = cb; }
     setTrendsCallback(cb) { this.trendsCallback = cb; }
@@ -205,8 +208,70 @@ class WebDashboardService {
                 return;
             }
         }
+        if (url === '/api/plant-analysis' && req.method === 'POST') {
+            this.handlePlantAnalysis(req, res);
+            return;
+        }
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('Not found');
+    }
+    handlePlantAnalysis(req, res) {
+        if (!this.plantIdApiKey) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Kein Plant.id API-Key konfiguriert. Bitte in den globalen Einstellungen hinterlegen.' }));
+            return;
+        }
+        let body = '';
+        req.on('data', chunk => { body += chunk; if (body.length > 8 * 1024 * 1024)
+            req.destroy(); });
+        req.on('error', () => { });
+        req.on('end', () => {
+            let imageBase64;
+            try {
+                const parsed = JSON.parse(body);
+                if (!parsed.image)
+                    throw new Error('Kein Bild');
+                // Base64-Daten-URL bereinigen
+                imageBase64 = parsed.image.replace(/^data:image\/[a-z]+;base64,/, '');
+            }
+            catch (e) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: `Ungültige Anfrage: ${e}` }));
+                return;
+            }
+            const payload = JSON.stringify({
+                images: [imageBase64],
+                similar_images: true,
+            });
+            const options = {
+                hostname: 'plant.id',
+                path: '/api/v3/health_assessment',
+                method: 'POST',
+                headers: {
+                    'Api-Key': this.plantIdApiKey,
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(payload),
+                },
+            };
+            const plantReq = https.request(options, plantRes => {
+                let data = '';
+                plantRes.on('data', chunk => { data += chunk; });
+                plantRes.on('end', () => {
+                    res.writeHead(plantRes.statusCode ?? 200, {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*',
+                    });
+                    res.end(data);
+                });
+            });
+            plantReq.on('error', err => {
+                this.log.error(`Plant.id API Fehler: ${err.message}`);
+                res.writeHead(502, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: `Plant.id nicht erreichbar: ${err.message}` }));
+            });
+            plantReq.write(payload);
+            plantReq.end();
+        });
     }
     handleMode(req, res) {
         let body = '';

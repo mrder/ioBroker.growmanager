@@ -141,7 +141,9 @@ class AirSystemService {
      */
     computeCirculationCommands(groupId, config, isDay, afterIrrigation) {
         const commands = new Map();
-        const circulationFans = config.actuators.filter(a => a.type === 'circulationFan' && a.enabled);
+        // windSimulator/schedule-Fans werden von tickCirculationActuators gesteuert — hier überspringen
+        const circulationFans = config.actuators.filter(a => a.type === 'circulationFan' && a.enabled &&
+            (!a.circulationMode || a.circulationMode === 'alwaysOn'));
         if (circulationFans.length === 0)
             return commands;
         // Alle EIN wenn kein AirSystem oder Dauerbetrieb gewünscht

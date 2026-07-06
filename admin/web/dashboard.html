@@ -267,16 +267,38 @@
   .irrig-badge.running { display: block; }
 
   /* ---- Kamera ---- */
-  .card-camera {
-    margin: 0 16px 12px; border-radius: 6px; overflow: hidden;
-    border: 1px solid var(--border); position: relative;
-  }
-  .card-camera img { width: 100%; display: block; max-height: 200px; object-fit: cover; }
-  .card-camera-label {
-    position: absolute; top: 6px; left: 6px;
-    background: rgba(0,0,0,0.6); border-radius: 3px;
-    font-size: 11px; color: var(--text-dim); padding: 2px 6px;
-  }
+  .card-camera { margin: 0 16px 12px; display: flex; align-items: flex-start; gap: 10px; }
+  .cam-thumb-wrap { position: relative; flex-shrink: 0; cursor: pointer; }
+  .cam-thumb { width: 128px; height: 128px; object-fit: cover; border-radius: 6px;
+    border: 1px solid var(--border); display: block; }
+  .cam-thumb-overlay { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center;
+    font-size: 10px; color: #fff; background: rgba(0,0,0,0.55); border-radius: 0 0 5px 5px; padding: 2px 0; }
+  .cam-actions { display: flex; flex-direction: column; gap: 6px; padding-top: 2px; }
+  .cam-btn { font-size: 11px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px;
+    background: var(--bg-card); color: var(--text); cursor: pointer; white-space: nowrap; }
+  .cam-btn:hover { background: var(--hover-bg,#f5f5f5); }
+  /* Hover-Popup */
+  .cam-popup { display: none; position: fixed; z-index: 9000; background: rgba(0,0,0,0.88);
+    border-radius: 8px; padding: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+  .cam-popup img { max-width: 90vw; max-height: 80vh; border-radius: 4px; display: block; }
+  .cam-popup-ts { font-size: 11px; color: #aaa; margin-top: 4px; text-align: center; }
+  /* Crop-Modal */
+  .crop-modal { display:none; position:fixed; inset:0; z-index:9100; background:rgba(0,0,0,0.75);
+    align-items:center; justify-content:center; flex-direction:column; gap:12px; }
+  .crop-modal.open { display:flex; }
+  .crop-canvas-wrap { position: relative; display: inline-block; cursor: crosshair; }
+  .crop-overlay { position:absolute; border: 2px dashed #4caf50; pointer-events:none; display:none; }
+  .crop-btns { display:flex; gap:10px; }
+  .crop-btns button { padding: 8px 18px; border-radius: 6px; border:none; cursor:pointer; font-size:14px; }
+  /* Analyse-Ergebnis */
+  .plant-result { margin: 0 16px 12px; border-radius: 6px; border: 1px solid var(--border);
+    padding: 10px 12px; font-size: 13px; background: var(--bg-card); }
+  .plant-result-title { font-weight: 600; margin-bottom: 6px; }
+  .plant-disease-row { display:flex; align-items:center; gap: 8px; margin: 4px 0; }
+  .plant-conf-bar { flex:1; height: 8px; background: #e0e0e0; border-radius: 4px; overflow:hidden; }
+  .plant-conf-fill { height: 100%; background: #4caf50; border-radius: 4px; }
+  .plant-conf-fill.medium { background: #ff9800; }
+  .plant-conf-fill.low { background: #f44336; }
 
   /* ---- Empty ---- */
   .empty-state { grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--text-dim); }
@@ -1384,9 +1406,20 @@ function groupCardHtml(g) {
 
   const cameraHtml = g.cameraUrl
     ? `<div class="card-camera">
-        <img src="${g.cameraUrl}?t=${Date.now()}" alt="Kamera" onerror="this.style.display='none'" />
-        <span class="card-camera-label">📷 Kamera</span>
-      </div>`
+        <div class="cam-thumb-wrap"
+          onmouseenter="camPopupShow(event,'${g.cameraUrl}')"
+          onmouseleave="camPopupHide()">
+          <img class="cam-thumb" src="${g.cameraUrl}?t=${Date.now()}"
+            alt="Kamera" onerror="this.parentNode.parentNode.style.display='none'" />
+          <div class="cam-thumb-overlay">📷 Hover zum Vergrößern</div>
+        </div>
+        <div class="cam-actions">
+          <button class="cam-btn" onclick="openCropModal('${g.id}','${g.cameraUrl}')">🔍 Analysieren (Plant.id)</button>
+          <button class="cam-btn" onclick="openUploadAnalysis('${g.id}')">📤 Bild hochladen &amp; analysieren</button>
+          <button class="cam-btn" onclick="refreshCamThumb('${g.id}','${g.cameraUrl}')">🔄 Aktualisieren</button>
+        </div>
+      </div>
+      <div id="plant-result-${g.id}" class="plant-result" style="display:none"></div>`
     : '';
 
   const irrigBadge = g.irrigationRunning
@@ -1513,6 +1546,239 @@ setInterval(() => {
     el.style.color = isOn ? 'var(--accent)' : 'var(--muted)';
   });
 }, 1000);
+
+// ============================================================
+// Kamera: Hover-Popup
+// ============================================================
+let camPopupEl = null;
+function camPopupShow(evt, url) {
+  if (!camPopupEl) {
+    camPopupEl = document.createElement('div');
+    camPopupEl.className = 'cam-popup';
+    camPopupEl.innerHTML = `<img id="cam-popup-img" src="" alt="Kamera-Vorschau" />
+      <div class="cam-popup-ts" id="cam-popup-ts"></div>`;
+    document.body.appendChild(camPopupEl);
+  }
+  const img = camPopupEl.querySelector('#cam-popup-img');
+  const ts = camPopupEl.querySelector('#cam-popup-ts');
+  img.src = url + '?t=' + Date.now();
+  ts.textContent = new Date().toLocaleTimeString('de-DE');
+  camPopupEl.style.display = 'block';
+  camPopupEl.style.left = Math.min(evt.clientX + 10, window.innerWidth - 420) + 'px';
+  camPopupEl.style.top = Math.max(evt.clientY - 200, 10) + 'px';
+}
+function camPopupHide() {
+  if (camPopupEl) camPopupEl.style.display = 'none';
+}
+
+function refreshCamThumb(groupId, url) {
+  const card = document.getElementById('card-' + groupId);
+  if (!card) return;
+  const img = card.querySelector('.cam-thumb');
+  if (img) img.src = url + '?t=' + Date.now();
+}
+
+// ============================================================
+// Kamera: Crop-Modal + Plant.id Analyse
+// ============================================================
+let cropModal = null, cropCanvas = null, cropCtx = null, cropOverlay = null;
+let cropStart = null, cropRect = null, cropSourceUrl = null, cropGroupId = null;
+let uploadFile = null;
+
+function buildCropModal() {
+  if (cropModal) return;
+  cropModal = document.createElement('div');
+  cropModal.className = 'crop-modal';
+  cropModal.innerHTML = `
+    <div style="background:var(--bg-card,#fff);border-radius:10px;padding:16px;max-width:95vw;max-height:90vh;overflow:auto">
+      <h3 style="margin:0 0 10px;font-size:15px">Bildausschnitt wählen &amp; analysieren</h3>
+      <p style="font-size:12px;color:#666;margin:0 0 8px">Rechteck ziehen um den gewünschten Ausschnitt. Dann "Analysieren" klicken.</p>
+      <div class="crop-canvas-wrap" id="crop-wrap">
+        <canvas id="crop-canvas"></canvas>
+        <div class="crop-overlay" id="crop-overlay"></div>
+      </div>
+      <div class="crop-btns" style="margin-top:10px">
+        <button id="crop-analyze-btn" style="background:#2e7d32;color:#fff" onclick="doCropAnalyze()">🔬 Analysieren</button>
+        <button style="background:#eee;color:#333" onclick="closeCropModal()">Abbrechen</button>
+      </div>
+      <div id="crop-status" style="font-size:12px;color:#666;margin-top:8px"></div>
+    </div>`;
+  document.body.appendChild(cropModal);
+
+  cropCanvas = cropModal.querySelector('#crop-canvas');
+  cropOverlay = cropModal.querySelector('#crop-overlay');
+  cropCtx = cropCanvas.getContext('2d');
+
+  cropCanvas.addEventListener('mousedown', e => {
+    const r = cropCanvas.getBoundingClientRect();
+    cropStart = { x: e.clientX - r.left, y: e.clientY - r.top };
+    cropRect = null;
+    cropOverlay.style.display = 'none';
+  });
+  cropCanvas.addEventListener('mousemove', e => {
+    if (!cropStart) return;
+    const r = cropCanvas.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    const rx = Math.min(cropStart.x, x), ry = Math.min(cropStart.y, y);
+    const rw = Math.abs(x - cropStart.x), rh = Math.abs(y - cropStart.y);
+    cropOverlay.style.display = 'block';
+    cropOverlay.style.left = rx + 'px'; cropOverlay.style.top = ry + 'px';
+    cropOverlay.style.width = rw + 'px'; cropOverlay.style.height = rh + 'px';
+    cropRect = { x: rx, y: ry, w: rw, h: rh };
+  });
+  cropCanvas.addEventListener('mouseup', () => { cropStart = null; });
+}
+
+function loadImageOntoCanvas(src, onDone) {
+  buildCropModal();
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    const maxW = Math.min(img.naturalWidth, window.innerWidth * 0.85);
+    const scale = maxW / img.naturalWidth;
+    cropCanvas.width = img.naturalWidth * scale;
+    cropCanvas.height = img.naturalHeight * scale;
+    cropCtx.drawImage(img, 0, 0, cropCanvas.width, cropCanvas.height);
+    cropRect = null;
+    cropOverlay.style.display = 'none';
+    if (onDone) onDone();
+  };
+  img.onerror = () => {
+    document.querySelector('#crop-status').textContent = 'Bild konnte nicht geladen werden. Bitte prüfe die URL.';
+  };
+  img.src = src;
+}
+
+function openCropModal(groupId, url) {
+  cropGroupId = groupId;
+  cropSourceUrl = url + '?t=' + Date.now();
+  uploadFile = null;
+  loadImageOntoCanvas(cropSourceUrl, () => {
+    cropModal.classList.add('open');
+    document.querySelector('#crop-status').textContent = '';
+  });
+}
+
+function openUploadAnalysis(groupId) {
+  cropGroupId = groupId;
+  cropSourceUrl = null;
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    uploadFile = file;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      loadImageOntoCanvas(ev.target.result, () => {
+        cropModal.classList.add('open');
+        document.querySelector('#crop-status').textContent = '';
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+function closeCropModal() {
+  if (cropModal) cropModal.classList.remove('open');
+}
+
+async function doCropAnalyze() {
+  const statusEl = cropModal.querySelector('#crop-status');
+  statusEl.textContent = '⏳ Analyse läuft...';
+  cropModal.querySelector('#crop-analyze-btn').disabled = true;
+
+  let base64;
+  try {
+    const offscreen = document.createElement('canvas');
+    if (cropRect && cropRect.w > 10 && cropRect.h > 10) {
+      offscreen.width = cropRect.w;
+      offscreen.height = cropRect.h;
+      offscreen.getContext('2d').drawImage(cropCanvas, cropRect.x, cropRect.y, cropRect.w, cropRect.h, 0, 0, cropRect.w, cropRect.h);
+    } else {
+      offscreen.width = cropCanvas.width;
+      offscreen.height = cropCanvas.height;
+      offscreen.getContext('2d').drawImage(cropCanvas, 0, 0);
+    }
+    base64 = offscreen.toDataURL('image/jpeg', 0.85);
+  } catch(e) {
+    statusEl.textContent = '⚠ Bild konnte nicht verarbeitet werden: ' + e;
+    cropModal.querySelector('#crop-analyze-btn').disabled = false;
+    return;
+  }
+
+  try {
+    const resp = await fetch('/api/plant-analysis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64 }),
+    });
+    const data = await resp.json();
+    closeCropModal();
+    showPlantResult(cropGroupId, data);
+  } catch(e) {
+    statusEl.textContent = '⚠ Netzwerkfehler: ' + e;
+  }
+  cropModal.querySelector('#crop-analyze-btn').disabled = false;
+}
+
+function showPlantResult(groupId, data) {
+  const el = document.getElementById('plant-result-' + groupId);
+  if (!el) return;
+
+  if (data.error) {
+    el.style.display = 'block';
+    el.innerHTML = `<div class="plant-result-title">⚠ Analyse fehlgeschlagen</div><div style="color:#d32f2f;font-size:12px">${data.error}</div>`;
+    return;
+  }
+
+  const health = data.result?.is_healthy;
+  const diseases = data.result?.disease?.suggestions ?? [];
+  const isHealthy = health?.binary === true || health?.probability > 0.85;
+
+  let html = `<div class="plant-result-title">🔬 Plant.id Analyse`;
+  if (isHealthy) html += ' <span style="color:#4caf50">✓ Gesund</span>';
+  else html += ' <span style="color:#f44336">⚠ Probleme erkannt</span>';
+  html += `</div>`;
+
+  if (diseases.length === 0) {
+    html += '<div style="font-size:12px;color:#666">Keine Krankheiten oder Mängel erkannt.</div>';
+  } else {
+    diseases.slice(0, 5).forEach(d => {
+      const pct = Math.round((d.probability ?? 0) * 100);
+      const cls = pct >= 60 ? '' : pct >= 35 ? 'medium' : 'low';
+      html += `<div class="plant-disease-row">
+        <span style="flex:0 0 44px;font-size:11px;color:#666">${pct}%</span>
+        <div class="plant-conf-bar"><div class="plant-conf-fill ${cls}" style="width:${pct}%"></div></div>
+        <span style="font-size:12px;flex:1">${d.name ?? '–'}</span>
+      </div>`;
+    });
+  }
+
+  if (data.result?.disease?.question?.suggestions) {
+    // similar_images Ergebnisse
+    const imgs = data.result.disease.question.suggestions.slice(0, 2);
+    if (imgs.length > 0) {
+      html += `<div style="font-size:11px;color:#666;margin-top:6px">Ähnliche Bilder aus DB:</div>
+        <div style="display:flex;gap:6px;margin-top:4px">`;
+      imgs.forEach(s => {
+        if (s.similar_images?.[0]?.url) {
+          html += `<img src="${s.similar_images[0].url}" style="width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid var(--border)" />`;
+        }
+      });
+      html += '</div>';
+    }
+  }
+
+  html += `<div style="font-size:10px;color:#aaa;margin-top:6px">Plant.id v3 · ${new Date().toLocaleString('de-DE')}</div>`;
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
+
+// Crop-Modal schließen mit Escape
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCropModal(); });
 </script>
 </body>
 </html>

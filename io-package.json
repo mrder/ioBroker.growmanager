@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.19",
+    "version": "0.2.20",
     "news": {
+      "0.2.20": {
+        "en": "Camera: snapshot thumbnail (128×128) with hover-popup in dashboard, camera config tab per group in admin; Plant.id AI analysis with manual image upload and crop tool; Plant.id API key in global settings",
+        "de": "Kamera: Snapshot-Thumbnail (128×128) mit Hover-Popup im Dashboard, Kamera-Konfigurations-Tab pro Gruppe im Admin; Plant.id KI-Analyse mit manuellem Bild-Upload und Crop-Tool; Plant.id API-Key in globalen Einstellungen"
+      },
       "0.2.19": {
         "en": "Fix Verlaufsdaten: today's live data visible immediately (no midnight wait); wind-sim fans now tracked in energy; extra Energy/Irrigation buttons removed",
         "de": "Fix Verlaufsdaten: heutige Daten sofort sichtbar (kein Warten bis Mitternacht); Wind-Sim-Aktoren werden jetzt Energie-getrackt; extra Energie/Bewässerungs-Buttons entfernt"
@@ -359,6 +363,7 @@
     "webBindAddress": "0.0.0.0",
     "webAuth": false,
     "dashboardPin": "",
+    "plantIdApiKey": "",
     "groups": [],
     "climateProfiles": [],
     "alarmChannels": []

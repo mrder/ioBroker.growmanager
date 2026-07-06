@@ -487,6 +487,7 @@ export interface GrowManagerConfig {
     climateProfiles: ClimateProfile[];
     alarmChannels: AlarmChannel[];
     notifications?: NotificationConfig;
+    plantIdApiKey?: string;
 }
 
 // ---- Laufzeitzustände (nicht persistent) -------------------

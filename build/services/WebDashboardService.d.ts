@@ -20,6 +20,8 @@ export interface DashboardActuatorState {
     blockSecondsLeft?: number;
     windSimIsOn?: boolean;
     windSimNextChangeAt?: number;
+    power?: number | null;
+    ratedPowerW?: number;
 }
 export interface DashboardAlarm {
     id: string;
@@ -116,12 +118,14 @@ export declare class WebDashboardService {
     private databaseCallback;
     private lifestyleGetCallback;
     private lifestyleSetCallback;
+    private plantIdApiKey;
     constructor(log: {
         info: (m: string) => void;
         warn: (m: string) => void;
         error: (m: string) => void;
     }, adapterDir: string);
     setPin(pin: string): void;
+    setPlantIdApiKey(key: string): void;
     setControlCallback(cb: (cmd: ControlCommand) => Promise<void>): void;
     setModeCallback(cb: (cmd: ModeCommand) => Promise<void>): void;
     setTrendsCallback(cb: (groupId: string, variable: string) => Promise<{
@@ -137,6 +141,7 @@ export declare class WebDashboardService {
     stop(): void;
     updateState(state: DashboardState): void;
     private handleRequest;
+    private handlePlantAnalysis;
     private handleMode;
     private handleControl;
 }

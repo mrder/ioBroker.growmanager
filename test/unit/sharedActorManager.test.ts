@@ -93,9 +93,16 @@ describe('SharedActorManager – Abstimmung (resolveWithVoting)', () => {
         expect(cmd).toBe(true);
     });
 
-    it('Modus "any": EIN wenn Teilnehmer EIN will, Eigentümer AUS', () => {
+    it('Modus "any": AUS wenn Teilnehmer EIN will (urgency 0.5) aber Eigentümer AUS — kein kritischer Bedarf', () => {
         ownerVote('act-1', 'owner', false);
         vote('act-1', 'p1', true, 0.5);
+        const cmd = manager.resolveWithVoting('act-1', 'any', 0, 'owner', false);
+        expect(cmd).toBe(false);
+    });
+
+    it('Modus "any": EIN wenn Teilnehmer kritischen Bedarf hat (urgency >= 0.7), auch wenn Eigentümer AUS', () => {
+        ownerVote('act-1', 'owner', false);
+        manager.submitVote('act-1', { groupId: 'p1', wantsOn: true, weight: 1.0, urgency: 0.7, reason: 'kritisch' });
         const cmd = manager.resolveWithVoting('act-1', 'any', 0, 'owner', false);
         expect(cmd).toBe(true);
     });

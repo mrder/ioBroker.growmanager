@@ -310,6 +310,7 @@ export interface GrowManagerConfig {
     climateProfiles: ClimateProfile[];
     alarmChannels: AlarmChannel[];
     notifications?: NotificationConfig;
+    plantIdApiKey?: string;
 }
 export type DegradationLevel = 'FULL' | 'LIMITED' | 'FALLBACK' | 'MONITOR_ONLY' | 'SAFE' | 'FAULT';
 export type DayNight = 'day' | 'night' | 'transition';

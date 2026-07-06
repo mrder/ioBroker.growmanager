@@ -202,6 +202,7 @@ class GrowManagerAdapter extends utils.Adapter {
         const webPort = this.growConfig.webPort ?? 8097;
         const webBind = this.growConfig.webBindAddress ?? '0.0.0.0';
         this.webDashboard.setPin(this.growConfig.dashboardPin ?? '');
+        this.webDashboard.setPlantIdApiKey(this.growConfig.plantIdApiKey ?? '');
         this.webDashboard.setModeCallback(async ({ groupId, mode }) => {
             const group = this.growConfig.groups.find(g => g.id === groupId);
             if (!group) throw new Error(`Gruppe ${groupId} nicht gefunden`);

@@ -165,6 +165,7 @@ class GrowManagerAdapter extends utils.Adapter {
         const webPort = this.growConfig.webPort ?? 8097;
         const webBind = this.growConfig.webBindAddress ?? '0.0.0.0';
         this.webDashboard.setPin(this.growConfig.dashboardPin ?? '');
+        this.webDashboard.setPlantIdApiKey(this.growConfig.plantIdApiKey ?? '');
         this.webDashboard.setModeCallback(async ({ groupId, mode }) => {
             const group = this.growConfig.groups.find(g => g.id === groupId);
             if (!group)
@@ -917,6 +918,13 @@ class GrowManagerAdapter extends utils.Adapter {
                         await this.setActuatorState(act.commandStateId, wantsOn ? act.onValue : act.offValue);
                         this.setActuatorStateWithVerify(act, config.id, wantsOn ? act.onValue : act.offValue);
                         this.log.info(`Umluft ${act.name}: → ${wantsOn ? 'EIN' : 'AUS'} (windSimulator)`);
+                        // Energie-Tracking (Nennleistung)
+                        if (act.energyStateUnit !== 'kWh') {
+                            if (wantsOn)
+                                this.databaseService.trackActuatorOn(config.id, act.id, act.name);
+                            else if (act.ratedPowerW)
+                                this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW);
+                        }
                     }
                     continue;
                 }
@@ -1183,6 +1191,8 @@ class GrowManagerAdapter extends utils.Adapter {
                     blockSecondsLeft: blockSecondsLeft && blockSecondsLeft > 0 ? blockSecondsLeft : undefined,
                     windSimIsOn: wsInfo?.isOn,
                     windSimNextChangeAt: wsInfo?.nextChangeAt,
+                    power: as?.power ?? null,
+                    ratedPowerW: a.ratedPowerW,
                 };
             });
             // Externe geteilte Aktoren: Aktoren aus anderen Gruppen die diese Gruppe als Teilnehmer listen
