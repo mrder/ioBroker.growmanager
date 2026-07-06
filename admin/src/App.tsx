@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // GrowManager Admin-UI
 // ============================================================
 
@@ -20,7 +20,7 @@ declare function sendTo(
     callback?: (result: unknown) => void
 ): void;
 
-// ioBroker Admin 5+ hat kein globales sendTo mehr â€“ socket.emit als primÃ¤ren Weg nutzen.
+// ioBroker Admin 5+ hat kein globales sendTo mehr – socket.emit als primären Weg nutzen.
 function iobSendTo(target: string, cmd: string, data: unknown, cb: (r: unknown) => void): void {
     const sock = (window as unknown as Record<string, unknown>).socket as { emit: (...a: unknown[]) => void } | undefined;
     const legacy = (window as unknown as Record<string, unknown>).sendTo as ((t: string, c: string, d: unknown, cb: (r: unknown) => void) => void) | undefined;
@@ -83,17 +83,17 @@ const TABS: Array<{ id: TabId; label: string }> = [
 // ---- Hilfsfunktionen ----------------------------------------
 
 function formatVpd(vpd: number | null): string {
-    if (vpd === null) return 'â€“';
+    if (vpd === null) return '–';
     return `${vpd.toFixed(2)} kPa`;
 }
 
 function formatTemp(t: number | null): string {
-    if (t === null) return 'â€“';
-    return `${t.toFixed(1)} Â°C`;
+    if (t === null) return '–';
+    return `${t.toFixed(1)} °C`;
 }
 
 function formatHum(h: number | null): string {
-    if (h === null) return 'â€“';
+    if (h === null) return '–';
     return `${h.toFixed(0)} %`;
 }
 
@@ -146,7 +146,7 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, live, onManualOverride }) 
             <div style={styles.cardHeader} onClick={() => setExpanded(!expanded)}>
                 <span style={styles.cardTitle}>{group.name}</span>
                 <span style={{ ...styles.badge, backgroundColor: healthColor }}>
-                    {live?.health ?? 'â€¦'}
+                    {live?.health ?? '…'}
                 </span>
             </div>
 
@@ -159,12 +159,12 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, live, onManualOverride }) 
             <div style={styles.cardMeta}>
                 <small>Phase: {live?.phase ?? group.phase}</small>
                 <small>Modus: {live?.mode ?? group.mode}</small>
-                <small>QualitÃ¤t: {live?.sensorQuality ?? 0} %</small>
+                <small>Qualität: {live?.sensorQuality ?? 0} %</small>
             </div>
 
             {live?.alarmSeverity && live.alarmSeverity !== 'none' && (
                 <div style={{ ...styles.alarmBanner, backgroundColor: severityColor(live.alarmSeverity) }}>
-                    âš  Alarm: {live.alarmSeverity}
+                    ⚠ Alarm: {live.alarmSeverity}
                 </div>
             )}
 
@@ -183,7 +183,7 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, live, onManualOverride }) 
                                 {actState?.power !== null && actState?.power !== undefined && (
                                     <span style={styles.powerLabel}>{actState.power} W</span>
                                 )}
-                                <span style={styles.healthLabel}>{actState?.health ?? 'â€“'}</span>
+                                <span style={styles.healthLabel}>{actState?.health ?? '–'}</span>
                                 <button
                                     style={styles.overrideBtn}
                                     onClick={() => onManualOverride(group.id, act.id)}
@@ -203,7 +203,7 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, live, onManualOverride }) 
                     )}
 
                     {live?.nextChange && (
-                        <div style={styles.nextChange}>NÃ¤chster Wechsel: {live.nextChange}</div>
+                        <div style={styles.nextChange}>Nächster Wechsel: {live.nextChange}</div>
                     )}
                 </div>
             )}
@@ -224,7 +224,7 @@ const DecisionDisplay: React.FC<{ raw: string }> = ({ raw }) => {
                         <li key={a.actuatorId} style={{ color: a.blocked ? '#999' : '#000' }}>
                             <strong>{a.actuatorId}</strong>: {String(a.requested)}
                             {a.blocked && ` (gesperrt: ${a.blockedReason})`}
-                            {' â€“ '}{a.reason}
+                            {' – '}{a.reason}
                         </li>
                     ))}
                 </ul>
@@ -266,7 +266,7 @@ const defaultSensor = (): GroupConfig['sensors'][0] => ({
     stateId: '',
     type: 'temperature',
     role: 'primary',
-    unit: 'Â°C',
+    unit: '°C',
     offset: 0,
     multiplier: 1,
     weight: 1,
@@ -352,8 +352,8 @@ const SensorEditor: React.FC<SensorEditorProps> = ({ sensor, onSave, onClose }) 
     });
 
     const SENSOR_UNITS: Record<string, string> = {
-        temperature: 'Â°C', humidity: '%', pressure: 'hPa', co2: 'ppm',
-        vpd: 'kPa', soilMoisture: '%', flow: 'L/min', light: 'lux', leafTemperature: 'Â°C',
+        temperature: '°C', humidity: '%', pressure: 'hPa', co2: 'ppm',
+        vpd: 'kPa', soilMoisture: '%', flow: 'L/min', light: 'lux', leafTemperature: '°C',
     };
 
     return (
@@ -375,7 +375,7 @@ const SensorEditor: React.FC<SensorEditorProps> = ({ sensor, onSave, onClose }) 
                     <option value="leafTemperature">Blatttemperatur</option>
                     <option value="humidity">Luftfeuchte</option>
                     <option value="pressure">Luftdruck</option>
-                    <option value="co2">COâ‚‚</option>
+                    <option value="co2">CO₂</option>
                     <option value="vpd">VPD</option>
                     <option value="soilMoisture">Bodenfeuchte</option>
                     <option value="flow">Durchfluss</option>
@@ -387,27 +387,27 @@ const SensorEditor: React.FC<SensorEditorProps> = ({ sensor, onSave, onClose }) 
                     <div>
                         <label style={styles.fieldLabel}>Rolle</label>
                         <select style={styles.select} {...f('role')}>
-                            <option value="primary">PrimÃ¤r (Hauptregelwert)</option>
+                            <option value="primary">Primär (Hauptregelwert)</option>
                             <option value="backup">Backup (Fallback bei Ausfall)</option>
-                            <option value="monitor">Nur Ãœberwachung (nie RegelgrÃ¶ÃŸe)</option>
+                            <option value="monitor">Nur Überwachung (nie Regelgröße)</option>
                         </select>
                     </div>
                     <div>
-                        <label style={styles.fieldLabel}>PrioritÃ¤t</label>
+                        <label style={styles.fieldLabel}>Priorität</label>
                         <input style={styles.input} type="number" min={1} max={99}
                             value={edit.controlPriority ?? 1}
                             onChange={e => setEdit(prev => ({ ...prev, controlPriority: +e.target.value }))}
-                            title="1 = hÃ¶chste PrioritÃ¤t. Bei mehreren PrimÃ¤r/Backup-Sensoren gleicher Art bestimmt die PrioritÃ¤t die Reihenfolge." />
+                            title="1 = höchste Priorität. Bei mehreren Primär/Backup-Sensoren gleicher Art bestimmt die Priorität die Reihenfolge." />
                     </div>
                 </div>
                 {edit.role === 'backup' && (
                     <div style={{ fontSize: 12, color: '#f57c00', padding: '4px 8px', background: '#fff8e1', borderRadius: 4, marginTop: 2 }}>
-                        âš  Backup-Sensor wird nur genutzt wenn alle PrimÃ¤r-Sensoren dieses Typs ausfallen oder veraltet sind.
+                        ⚠ Backup-Sensor wird nur genutzt wenn alle Primär-Sensoren dieses Typs ausfallen oder veraltet sind.
                     </div>
                 )}
                 {edit.role === 'monitor' && (
                     <div style={{ fontSize: 12, color: '#1565c0', padding: '4px 8px', background: '#e3f2fd', borderRadius: 4, marginTop: 2 }}>
-                        â„¹ Ãœberwachungs-Sensor erzeugt Alarme, beeinflusst aber keine Regelung.
+                        ℹ Überwachungs-Sensor erzeugt Alarme, beeinflusst aber keine Regelung.
                     </div>
                 )}
 
@@ -448,7 +448,7 @@ const SensorEditor: React.FC<SensorEditorProps> = ({ sensor, onSave, onClose }) 
                     </div>
                 </div>
 
-                <label style={styles.fieldLabel}>GlÃ¤ttung</label>
+                <label style={styles.fieldLabel}>Glättung</label>
                 <select style={styles.select} {...f('smoothing')}>
                     <option value="none">Keine</option>
                     <option value="movingAverage">Gleitender Mittelwert</option>
@@ -467,8 +467,8 @@ const SensorEditor: React.FC<SensorEditorProps> = ({ sensor, onSave, onClose }) 
                 <hr style={{ margin: '14px 0', borderColor: '#e0e0e0' }} />
 
                 <StateIdInput
-                    label="GerÃ¤testatus (Erreichbarkeit)"
-                    tip={"PrÃ¼ft ob das GerÃ¤t erreichbar/online ist.\nBeispiele:\nâ€¢ available (bool) â†’ true = ok\nâ€¢ link_quality (Zahl) â†’ â‰¥ Mindestwert = ok\nâ€¢ alive (bool) â†’ true = ok\n\nUnabhÃ¤ngig vom Schaltzustand des Aktors!"}
+                    label="Gerätestatus (Erreichbarkeit)"
+                    tip={"Prüft ob das Gerät erreichbar/online ist.\nBeispiele:\n• available (bool) → true = ok\n• link_quality (Zahl) → ≥ Mindestwert = ok\n• alive (bool) → true = ok\n\nUnabhängig vom Schaltzustand des Aktors!"}
                     value={edit.healthStateId ?? ''}
                     onChange={v => setEdit(prev => ({ ...prev, healthStateId: v || undefined }))}
                     placeholder="z.B. zigbee.0.device.available"
@@ -482,12 +482,12 @@ const SensorEditor: React.FC<SensorEditorProps> = ({ sensor, onSave, onClose }) 
                                 value={edit.healthCheckType ?? 'boolean'}
                                 onChange={e => setEdit(prev => ({ ...prev, healthCheckType: e.target.value as 'boolean' | 'number' }))}>
                                 <option value="boolean">Boolean (true = ok)</option>
-                                <option value="number">Zahl (â‰¥ Mindestwert = ok)</option>
+                                <option value="number">Zahl (≥ Mindestwert = ok)</option>
                             </select>
                         </div>
                         {(edit.healthCheckType ?? 'boolean') === 'number' && (
                             <div>
-                                <label style={styles.fieldLabel}>Mindestwert (z.B. 10 fÃ¼r link_quality)</label>
+                                <label style={styles.fieldLabel}>Mindestwert (z.B. 10 für link_quality)</label>
                                 <input style={styles.input} type="number" min={0}
                                     value={edit.healthCheckMin ?? 1}
                                     onChange={e => setEdit(prev => ({ ...prev, healthCheckMin: +e.target.value }))} />
@@ -500,7 +500,7 @@ const SensorEditor: React.FC<SensorEditorProps> = ({ sensor, onSave, onClose }) 
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
                         <input type="checkbox" checked={edit.useForControl}
                             onChange={e => setEdit(prev => ({ ...prev, useForControl: e.target.checked }))} />
-                        FÃ¼r Regelung nutzen
+                        Für Regelung nutzen
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
                         <input type="checkbox" checked={edit.enabled}
@@ -576,7 +576,7 @@ const CirculationFanSettings: React.FC<{
 
     return (
         <div style={sectionStyle}>
-            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>ðŸŒ€ Umluft-Betriebsart</div>
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>🌀 Umluft-Betriebsart</div>
 
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                 {(['alwaysOn', 'windSimulator', 'schedule'] as const).map(m => (
@@ -587,21 +587,21 @@ const CirculationFanSettings: React.FC<{
                             background: mode === m ? '#1976d2' : '#fff',
                             color: mode === m ? '#fff' : '#333', fontWeight: mode === m ? 700 : 400,
                         }}>
-                        {m === 'alwaysOn' ? 'Immer EIN' : m === 'windSimulator' ? 'ðŸŽ² Windsimulator' : 'ðŸ• Zeitfenster'}
+                        {m === 'alwaysOn' ? 'Immer EIN' : m === 'windSimulator' ? '🎲 Windsimulator' : '🕐 Zeitfenster'}
                     </button>
                 ))}
             </div>
 
             {mode === 'alwaysOn' && (
                 <p style={{ margin: 0, fontSize: 12, color: '#666' }}>
-                    LÃ¼fter lÃ¤uft dauerhaft â€” nur manuelle Sperren oder Sicherheitsabschaltungen stoppen ihn.
+                    Lüfter läuft dauerhaft — nur manuelle Sperren oder Sicherheitsabschaltungen stoppen ihn.
                 </p>
             )}
 
             {mode === 'windSimulator' && (
                 <>
                     <p style={{ margin: '0 0 10px', fontSize: 12, color: '#555' }}>
-                        ZufÃ¤llige EIN/AUS-Intervalle innerhalb der konfigurierten Min/Max-Grenzen â€” simuliert natÃ¼rlichen Wind.
+                        Zufällige EIN/AUS-Intervalle innerhalb der konfigurierten Min/Max-Grenzen — simuliert natürlichen Wind.
                     </p>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                         <div>
@@ -626,7 +626,7 @@ const CirculationFanSettings: React.FC<{
                         </div>
                     </div>
                     <p style={{ margin: '8px 0 0', fontSize: 11, color: '#888' }}>
-                        Beispiel: Min EIN 30s / Max EIN 180s / Min AUS 20s / Max AUS 120s â†’ natÃ¼rlicher Windrhythmus
+                        Beispiel: Min EIN 30s / Max EIN 180s / Min AUS 20s / Max AUS 120s → natürlicher Windrhythmus
                     </p>
                 </>
             )}
@@ -634,7 +634,7 @@ const CirculationFanSettings: React.FC<{
             {mode === 'schedule' && (
                 <>
                     <p style={{ margin: '0 0 10px', fontSize: 12, color: '#555' }}>
-                        LÃ¼fter lÃ¤uft nur innerhalb der definierten Zeitfenster (max. 3 Fenster).
+                        Lüfter läuft nur innerhalb der definierten Zeitfenster (max. 3 Fenster).
                     </p>
                     {schedule.map((w, i) => (
                         <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
@@ -653,14 +653,14 @@ const CirculationFanSettings: React.FC<{
                             <span style={{ fontSize: 11, color: '#888', flex: 1 }}>Uhr</span>
                             <button onClick={() => removeWindow(i)}
                                 style={{ background: '#e53935', color: '#fff', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 12 }}>
-                                âœ•
+                                ✕
                             </button>
                         </div>
                     ))}
                     {schedule.length < 3 && (
                         <button onClick={addWindow}
                             style={{ marginTop: 4, padding: '5px 12px', borderRadius: 6, border: '1px solid #1976d2', background: '#fff', color: '#1976d2', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-                            + Zeitfenster hinzufÃ¼gen
+                            + Zeitfenster hinzufügen
                         </button>
                     )}
                 </>
@@ -693,11 +693,11 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                     <option value="supplyFan">Zuluft</option>
                     <option value="circulationFan">Umluft</option>
                     <option value="heating">Heizung</option>
-                    <option value="cooling">KÃ¼hlung</option>
+                    <option value="cooling">Kühlung</option>
                     <option value="humidifier">Befeuchter</option>
                     <option value="dehumidifier">Entfeuchter</option>
-                    <option value="irrigation">BewÃ¤sserung</option>
-                    <option value="co2Valve">COâ‚‚-Ventil</option>
+                    <option value="irrigation">Bewässerung</option>
+                    <option value="co2Valve">CO₂-Ventil</option>
                     <option value="damper">Klappe</option>
                     <option value="custom">Benutzerdefiniert</option>
                 </select>
@@ -708,11 +708,11 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                         <select style={styles.select}
                             value={edit.controlTarget ?? ''}
                             onChange={e => setEdit(prev => ({ ...prev, controlTarget: (e.target.value || undefined) as ControlTarget | undefined }))}>
-                            <option value="">â€“ Auto (vom Typ abgeleitet) â€“</option>
+                            <option value="">– Auto (vom Typ abgeleitet) –</option>
                             <option value="temperature">Temperatur</option>
                             <option value="humidity">Luftfeuchtigkeit</option>
                             <option value="vpd">VPD (koordiniert)</option>
-                            <option value="co2">COâ‚‚</option>
+                            <option value="co2">CO₂</option>
                             <option value="soilMoisture">Bodenfeuchte</option>
                             <option value="light">Licht (Zeitplan)</option>
                             <option value="timer">Timer (immer EIN)</option>
@@ -724,9 +724,9 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                         <select style={styles.select}
                             value={edit.controlDirection ?? ''}
                             onChange={e => setEdit(prev => ({ ...prev, controlDirection: (e.target.value || undefined) as ControlDirection | undefined }))}>
-                            <option value="">â€“ Auto (vom Typ abgeleitet) â€“</option>
-                            <option value="up">ErhÃ¶hen (up) â€“ z.B. Heizung, Befeuchter</option>
-                            <option value="down">Senken (down) â€“ z.B. Abluft, Entfeuchter</option>
+                            <option value="">– Auto (vom Typ abgeleitet) –</option>
+                            <option value="up">Erhöhen (up) – z.B. Heizung, Befeuchter</option>
+                            <option value="down">Senken (down) – z.B. Abluft, Entfeuchter</option>
                             <option value="both">Beides</option>
                         </select>
                     </div>
@@ -736,17 +736,17 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                         <input type="checkbox"
                             checked={edit.outdoorGuardEnabled ?? false}
                             onChange={e => setEdit(prev => ({ ...prev, outdoorGuardEnabled: e.target.checked }))} />
-                        <span>AuÃŸenluft-Guard aktivieren</span>
-                        <span style={{ fontSize: 11, color: '#888' }}>(Gruppe muss AuÃŸensensor haben â†’ LÃ¼fter sperren wenn AuÃŸen ungÃ¼nstiger)</span>
+                        <span>Außenluft-Guard aktivieren</span>
+                        <span style={{ fontSize: 11, color: '#888' }}>(Gruppe muss Außensensor haben → Lüfter sperren wenn Außen ungünstiger)</span>
                     </label>
                 )}
 
-                {/* Stufenregelung: nur fÃ¼r Aktoren die Klima beeinflussen (nicht Licht/Umluft/COâ‚‚) */}
+                {/* Stufenregelung: nur für Aktoren die Klima beeinflussen (nicht Licht/Umluft/CO₂) */}
                 {!['light', 'circulationFan', 'co2Valve', 'irrigation', 'custom'].includes(edit.type) && (
                     <div style={{ background: '#f5f8ff', border: '1px solid #d0daf0', borderRadius: 8, padding: '12px 14px', marginTop: 14 }}>
                         <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
                             Stufenregelung
-                            <InfoTip text={'ErmÃ¶glicht gestaffelte Regelung:\nâ€¢ Stufe 1 (PrimÃ¤r) = LÃ¼ftung schaltet zuerst\nâ€¢ Stufe 2 (Eskalation) = KlimagerÃ¤t/Heizung schaltet erst wenn Stufe 1 seit X Minuten lÃ¤uft und das Ziel noch nicht erreicht ist\nâ€¢ Kein Limit = kein Stufensystem (Standard)'} />
+                            <InfoTip text={'Ermöglicht gestaffelte Regelung:\n• Stufe 1 (Primär) = Lüftung schaltet zuerst\n• Stufe 2 (Eskalation) = Klimagerät/Heizung schaltet erst wenn Stufe 1 seit X Minuten läuft und das Ziel noch nicht erreicht ist\n• Kein Limit = kein Stufensystem (Standard)'} />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                             <div>
@@ -757,14 +757,14 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                                         ...prev,
                                         escalationStage: e.target.value ? +e.target.value as 1 | 2 : undefined,
                                     }))}>
-                                    <option value="">â€“ Kein Stufensystem â€“</option>
-                                    <option value="1">Stufe 1 â€“ PrimÃ¤r (LÃ¼ftung zuerst)</option>
-                                    <option value="2">Stufe 2 â€“ Eskalation (KlimagerÃ¤t / Heizung)</option>
+                                    <option value="">– Kein Stufensystem –</option>
+                                    <option value="1">Stufe 1 – Primär (Lüftung zuerst)</option>
+                                    <option value="2">Stufe 2 – Eskalation (Klimagerät / Heizung)</option>
                                 </select>
                             </div>
                             {edit.escalationStage === 2 && (
                                 <div>
-                                    <label style={styles.fieldLabel}>Eskalations-VerzÃ¶gerung (min)</label>
+                                    <label style={styles.fieldLabel}>Eskalations-Verzögerung (min)</label>
                                     <input style={styles.input} type="number" min={1} max={120}
                                         value={edit.escalationDelayMinutes ?? 10}
                                         onChange={e => setEdit(prev => ({ ...prev, escalationDelayMinutes: +e.target.value }))} />
@@ -781,15 +781,15 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
 
                 <StateIdInput
                     label="Befehls-State (schreiben)"
-                    tip={"Der State, in den der Adapter den Schaltbefehl schreibt.\nBeispiele:\nâ€¢ tasmota.0.POWER\nâ€¢ zigbee.0.device.state\nâ€¢ shelly.0.relay0"}
+                    tip={"Der State, in den der Adapter den Schaltbefehl schreibt.\nBeispiele:\n• tasmota.0.POWER\n• zigbee.0.device.state\n• shelly.0.relay0"}
                     value={edit.commandStateId}
                     onChange={v => setEdit(prev => ({ ...prev, commandStateId: v }))}
                     placeholder="z.B. tasmota.0.switch.POWER"
                 />
 
                 <StateIdInput
-                    label="RÃ¼ckmelde-State (Ist-Zustand, optional)"
-                    tip={"Der State, den das GerÃ¤t als tatsÃ¤chlichen Schaltzustand zurÃ¼ckmeldet.\nGETRENNT vom Befehls-State und vom GerÃ¤testatus!\n\nBeispiel Zigbee-Steckdose:\nâ€¢ Befehl: zigbee.0.device.state â†’ 'ON'\nâ€¢ RÃ¼ckmeldung: zigbee.0.device.state_l (echo)\n\nWird im Dashboard als 'Ist-Zustand' neben dem Soll-Zustand angezeigt."}
+                    label="Rückmelde-State (Ist-Zustand, optional)"
+                    tip={"Der State, den das Gerät als tatsächlichen Schaltzustand zurückmeldet.\nGETRENNT vom Befehls-State und vom Gerätestatus!\n\nBeispiel Zigbee-Steckdose:\n• Befehl: zigbee.0.device.state → 'ON'\n• Rückmeldung: zigbee.0.device.state_l (echo)\n\nWird im Dashboard als 'Ist-Zustand' neben dem Soll-Zustand angezeigt."}
                     value={edit.feedbackStateId ?? ''}
                     onChange={v => setEdit(prev => ({ ...prev, feedbackStateId: v || undefined }))}
                     placeholder="z.B. zigbee.0.device.state_l"
@@ -797,10 +797,10 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
 
                 {/* Energie-Tracking */}
                 <div style={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 6, padding: 10, marginTop: 8 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: '#f0b429' }}>âš¡ Energie-Tracking (optional)</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: '#f0b429' }}>⚡ Energie-Tracking (optional)</div>
                     <StateIdInput
                         label="Energie-State (W oder kWh)"
-                        tip="State der Watt oder kWh liefert (z.B. tasmota.0.ENERGY_Power). Ohne State wird die Nennleistung Ã— Laufzeit gerechnet."
+                        tip="State der Watt oder kWh liefert (z.B. tasmota.0.ENERGY_Power). Ohne State wird die Nennleistung × Laufzeit gerechnet."
                         value={edit.energyStateId ?? ''}
                         onChange={v => setEdit(prev => ({ ...prev, energyStateId: v || undefined }))}
                         placeholder="z.B. shelly.0.device.Power (optional)"
@@ -811,18 +811,18 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                             <select style={styles.select}
                                 value={edit.energyStateUnit ?? 'W'}
                                 onChange={e => setEdit(prev => ({ ...prev, energyStateUnit: e.target.value as 'W' | 'kWh' }))}>
-                                <option value="W">Watt (W) â€“ Momentanleistung</option>
-                                <option value="kWh">Kilowattstunden (kWh) â€“ ZÃ¤hlerwert</option>
+                                <option value="W">Watt (W) – Momentanleistung</option>
+                                <option value="kWh">Kilowattstunden (kWh) – Zählerwert</option>
                             </select>
                         </div>
                     )}
                     <div style={{ marginTop: 6 }}>
-                        <label style={styles.fieldLabel}>Nennleistung (W) â€“ Fallback ohne State</label>
+                        <label style={styles.fieldLabel}>Nennleistung (W) – Fallback ohne State</label>
                         <input style={styles.input} type="number" min={0} step={1}
                             value={edit.ratedPowerW ?? ''}
                             placeholder="z.B. 600"
                             onChange={e => setEdit(prev => ({ ...prev, ratedPowerW: e.target.value ? +e.target.value : undefined }))} />
-                        <span style={{ fontSize: 11, color: '#888' }}>Laufzeit Ã— Nennleistung â†’ Wh/Tag (nur wenn kein Energy-State)</span>
+                        <span style={{ fontSize: 11, color: '#888' }}>Laufzeit × Nennleistung → Wh/Tag (nur wenn kein Energy-State)</span>
                     </div>
                 </div>
 
@@ -872,7 +872,7 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                             onChange={e => setEdit(prev => ({ ...prev, maximumOnSeconds: +e.target.value }))} />
                     </div>
                     <div>
-                        <FieldLabel tip="Mindestabweichung vom Sollwert bevor dieser Aktor schaltet. Ãœberschreibt die Profil-Toleranz. Einheit: Â°C (Temp), % (Feuchte), kPa (VPD). 0 = Profil-Toleranz nutzen.">Schaltschwelle</FieldLabel>
+                        <FieldLabel tip="Mindestabweichung vom Sollwert bevor dieser Aktor schaltet. Überschreibt die Profil-Toleranz. Einheit: °C (Temp), % (Feuchte), kPa (VPD). 0 = Profil-Toleranz nutzen.">Schaltschwelle</FieldLabel>
                         <input style={styles.input} type="number" min={0} step={0.1} value={edit.actuatorHysteresis ?? 0}
                             onChange={e => setEdit(prev => ({ ...prev, actuatorHysteresis: +e.target.value || undefined }))} />
                     </div>
@@ -882,7 +882,7 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
                         <input type="checkbox" checked={edit.supportsPercent}
                             onChange={e => setEdit(prev => ({ ...prev, supportsPercent: e.target.checked }))} />
-                        Prozentwert (0â€“100)
+                        Prozentwert (0–100)
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
                         <input type="checkbox" checked={edit.shared}
@@ -912,7 +912,7 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                                     onChange={e => setEdit(prev => ({ ...prev, sharedVotingMode: e.target.value as 'any' | 'majority' | 'primary' }))}>
                                     <option value="any">Beliebige Gruppe (OR)</option>
                                     <option value="majority">Gewichtete Mehrheit</option>
-                                    <option value="primary">EigentÃ¼mer entscheidet</option>
+                                    <option value="primary">Eigentümer entscheidet</option>
                                 </select>
                             </div>
                             <div>
@@ -930,38 +930,38 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
 `EINFLUSS-% UND ABSTIMMUNGSMODI
 
 Der Einfluss-% ist das Stimmgewicht der Teilnehmer-Gruppe.
-Er wirkt NUR im Modus "Mehrheit" â€“ in allen anderen Modi wird er ignoriert.
+Er wirkt NUR im Modus "Mehrheit" – in allen anderen Modi wird er ignoriert.
 
-â”€â”€â”€ MODI IM ÃœBERBLICK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+─── MODI IM ÜBERBLICK ───────────────────────────────
 
   Beliebige Gruppe (OR)
-  â†’ Aktor geht AN sobald EINE Gruppe EIN will.
-  â†’ Einfluss-% wird ignoriert.
-  â†’ Empfohlen fÃ¼r geteilte LÃ¼fter, Befeuchter o.Ã¤.:
+  → Aktor geht AN sobald EINE Gruppe EIN will.
+  → Einfluss-% wird ignoriert.
+  → Empfohlen für geteilte Lüfter, Befeuchter o.ä.:
     Jede Gruppe regelt nach ihrem eigenen Sollwert,
-    der Aktor lÃ¤uft wenn irgendwer ihn braucht.
+    der Aktor läuft wenn irgendwer ihn braucht.
 
   Mehrheit
-  â†’ Aktor geht AN wenn EIN-Gewichte > 50% aller Gewichte.
-  â†’ Einfluss-% bestimmt wie viel die Gruppe zÃ¤hlt.
-  â†’ Achtung: Mit max. 100% Einfluss kann eine Teilnehmer-
-    Gruppe den EigentÃ¼mer NICHT alleine Ã¼berstimmen.
-    (100/(100+100) = 50% â†’ nicht > 50% â†’ bleibt AUS)
-  â†’ Sinnvoll wenn der Aktor nur bei Einigkeit laufen soll.
+  → Aktor geht AN wenn EIN-Gewichte > 50% aller Gewichte.
+  → Einfluss-% bestimmt wie viel die Gruppe zählt.
+  → Achtung: Mit max. 100% Einfluss kann eine Teilnehmer-
+    Gruppe den Eigentümer NICHT alleine überstimmen.
+    (100/(100+100) = 50% → nicht > 50% → bleibt AUS)
+  → Sinnvoll wenn der Aktor nur bei Einigkeit laufen soll.
 
-  EigentÃ¼mer entscheidet
-  â†’ Nur die EigentÃ¼mer-Gruppe steuert den Aktor.
-  â†’ Teilnehmer sehen den Status, beeinflussen ihn nicht.
+  Eigentümer entscheidet
+  → Nur die Eigentümer-Gruppe steuert den Aktor.
+  → Teilnehmer sehen den Status, beeinflussen ihn nicht.
 
-â”€â”€â”€ DEIN FALL: ZWEI GRUPPEN MIT VERSCHIEDENEN SOLLWERTEN â”€â”€
+─── DEIN FALL: ZWEI GRUPPEN MIT VERSCHIEDENEN SOLLWERTEN ──
 
-  Beispiel: Wuchs (VPD 0.8â€“1.2) + BlÃ¼te (VPD 1.0â€“1.3)
+  Beispiel: Wuchs (VPD 0.8–1.2) + Blüte (VPD 1.0–1.3)
   Richtiger Modus: "Beliebige Gruppe (OR)"
-  â†’ Wuchs VPD=1.25 â†’ will EIN â†’ LÃ¼fter lÃ¤uft âœ“
-  â†’ BlÃ¼te VPD=1.15 â†’ will EIN â†’ LÃ¼fter lÃ¤uft âœ“
-  â†’ Beide unter Sollwert â†’ beide wollen AUS â†’ LÃ¼fter aus âœ“
-  Jede Gruppe behÃ¤lt ihren eigenen Sollwert im Dashboard.`
-                                } style={{ cursor: 'help', fontSize: 13, color: '#1976d2', userSelect: 'none' }}>â“˜</span>
+  → Wuchs VPD=1.25 → will EIN → Lüfter läuft ✓
+  → Blüte VPD=1.15 → will EIN → Lüfter läuft ✓
+  → Beide unter Sollwert → beide wollen AUS → Lüfter aus ✓
+  Jede Gruppe behält ihren eigenen Sollwert im Dashboard.`
+                                } style={{ cursor: 'help', fontSize: 13, color: '#1976d2', userSelect: 'none' }}>ⓘ</span>
                             </div>
                             {(edit.sharedParticipants ?? []).map((p, idx) => {
                                 const availableGroups = allGroups.filter(g => g.id !== ownerGroupId);
@@ -974,7 +974,7 @@ Er wirkt NUR im Modus "Mehrheit" â€“ in allen anderen Modi wird er ignorier
                                                 parts[idx] = { ...parts[idx], groupId: e.target.value };
                                                 return { ...prev, sharedParticipants: parts };
                                             })}>
-                                            <option value="">â€“ Gruppe wÃ¤hlen â€“</option>
+                                            <option value="">– Gruppe wählen –</option>
                                             {availableGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                                         </select>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -992,7 +992,7 @@ Er wirkt NUR im Modus "Mehrheit" â€“ in allen anderen Modi wird er ignorier
                                             onClick={() => setEdit(prev => ({
                                                 ...prev,
                                                 sharedParticipants: (prev.sharedParticipants ?? []).filter((_, i) => i !== idx),
-                                            }))}>âœ•</button>
+                                            }))}>✕</button>
                                     </div>
                                 );
                             })}
@@ -1003,7 +1003,7 @@ Er wirkt NUR im Modus "Mehrheit" â€“ in allen anderen Modi wird er ignorier
                                         ...prev,
                                         sharedParticipants: [...(prev.sharedParticipants ?? []), newParticipant],
                                     }));
-                                }}>+ Teilnehmer hinzufÃ¼gen</button>
+                                }}>+ Teilnehmer hinzufügen</button>
                         </div>
                     </div>
                 )}
@@ -1011,8 +1011,8 @@ Er wirkt NUR im Modus "Mehrheit" â€“ in allen anderen Modi wird er ignorier
                 <hr style={{ margin: '14px 0', borderColor: '#e0e0e0' }} />
 
                 <StateIdInput
-                    label="GerÃ¤testatus (Erreichbarkeit)"
-                    tip={"PrÃ¼ft ob das GerÃ¤t erreichbar ist â€“ NICHT ob es gerade an/aus ist.\nBeispiele:\nâ€¢ alive (bool) â†’ true = erreichbar\nâ€¢ available (bool) â†’ true = erreichbar\nâ€¢ link_quality (Zahl) â†’ â‰¥ Mindestwert = erreichbar\n\nFÃ¼r Leistungsmessung stattdessen 'Power-State' verwenden."}
+                    label="Gerätestatus (Erreichbarkeit)"
+                    tip={"Prüft ob das Gerät erreichbar ist – NICHT ob es gerade an/aus ist.\nBeispiele:\n• alive (bool) → true = erreichbar\n• available (bool) → true = erreichbar\n• link_quality (Zahl) → ≥ Mindestwert = erreichbar\n\nFür Leistungsmessung stattdessen 'Power-State' verwenden."}
                     value={edit.healthStateId ?? ''}
                     onChange={v => setEdit(prev => ({ ...prev, healthStateId: v || undefined }))}
                     placeholder="z.B. sonoff.0.device.alive"
@@ -1026,12 +1026,12 @@ Er wirkt NUR im Modus "Mehrheit" â€“ in allen anderen Modi wird er ignorier
                                 value={edit.healthCheckType ?? 'boolean'}
                                 onChange={e => setEdit(prev => ({ ...prev, healthCheckType: e.target.value as 'boolean' | 'number' }))}>
                                 <option value="boolean">Boolean (true = ok)</option>
-                                <option value="number">Zahl (â‰¥ Mindestwert = ok)</option>
+                                <option value="number">Zahl (≥ Mindestwert = ok)</option>
                             </select>
                         </div>
                         {(edit.healthCheckType ?? 'boolean') === 'number' && (
                             <div>
-                                <label style={styles.fieldLabel}>Mindestwert (z.B. 0.1 fÃ¼r ENERGY_Power)</label>
+                                <label style={styles.fieldLabel}>Mindestwert (z.B. 0.1 für ENERGY_Power)</label>
                                 <input style={styles.input} type="number" min={0} step="0.1"
                                     value={edit.healthCheckMin ?? 1}
                                     onChange={e => setEdit(prev => ({ ...prev, healthCheckMin: +e.target.value }))} />
@@ -1068,7 +1068,7 @@ const IrrigationZoneEditor: React.FC<IrrigationZoneEditorProps> = ({ zone, actua
     return (
         <div style={styles.modalOverlay}>
             <div style={{ ...styles.modal, maxWidth: 480 }}>
-                <h4 style={{ margin: '0 0 16px' }}>{zone ? 'Zone bearbeiten' : 'Neue BewÃ¤sserungszone'}</h4>
+                <h4 style={{ margin: '0 0 16px' }}>{zone ? 'Zone bearbeiten' : 'Neue Bewässerungszone'}</h4>
 
                 <label style={styles.fieldLabel}>Name</label>
                 <input style={styles.input} value={edit.name}
@@ -1077,19 +1077,19 @@ const IrrigationZoneEditor: React.FC<IrrigationZoneEditorProps> = ({ zone, actua
                 <label style={styles.fieldLabel}>Pumpen-Aktor</label>
                 <select style={styles.select} value={edit.pumpActuatorId}
                     onChange={e => setEdit(prev => ({ ...prev, pumpActuatorId: e.target.value }))}>
-                    <option value="">â€“ wÃ¤hlen â€“</option>
+                    <option value="">– wählen –</option>
                     {actuators.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
                 {pumpActuators.length === 0 && (
                     <p style={{ fontSize: 12, color: '#f57c00', margin: '4px 0' }}>
-                        Tipp: Zuerst einen Aktor vom Typ â€žBewÃ¤sserung" anlegen.
+                        Tipp: Zuerst einen Aktor vom Typ „Bewässerung" anlegen.
                     </p>
                 )}
 
                 <label style={styles.fieldLabel}>Bodenfeuchte-Sensoren (optional)</label>
                 {moistureSensors.length === 0 ? (
                     <p style={{ fontSize: 12, color: '#888', margin: '4px 0' }}>
-                        Kein Bodenfeuchte-Sensor konfiguriert â†’ nur Timer-Betrieb via triggerManual().
+                        Kein Bodenfeuchte-Sensor konfiguriert → nur Timer-Betrieb via triggerManual().
                     </p>
                 ) : (
                     moistureSensors.map(s => (
@@ -1134,7 +1134,7 @@ const IrrigationZoneEditor: React.FC<IrrigationZoneEditorProps> = ({ zone, actua
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
                         <input type="checkbox" checked={edit.dryRunProtection}
                             onChange={e => setEdit(prev => ({ ...prev, dryRunProtection: e.target.checked }))} />
-                        TrockenlÃ¤uferschutz
+                        Trockenläuferschutz
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
                         <input type="checkbox" checked={edit.enabled}
@@ -1199,7 +1199,7 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                     Aktoren ({edit.actuators.length})
                 </button>
                 <button style={tabStyle('bewaesserung')} onClick={() => setTab('bewaesserung')}>
-                    BewÃ¤sserung ({edit.irrigationZones.length})
+                    Bewässerung ({edit.irrigationZones.length})
                 </button>
                 <button style={tabStyle('kamera')} onClick={() => setTab('kamera')}>
                     Kamera ({edit.cameras.length})
@@ -1232,7 +1232,7 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                     <select style={styles.select} {...field('phase')}>
                         <option value="seedling">Keimling</option>
                         <option value="growth">Wachstum</option>
-                        <option value="bloom">BlÃ¼te</option>
+                        <option value="bloom">Blüte</option>
                         <option value="drying">Trocknung</option>
                         <option value="custom">Benutzerdefiniert</option>
                     </select>
@@ -1240,7 +1240,7 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                     <label style={styles.fieldLabel}>Betriebsart</label>
                     <select style={styles.select} {...field('mode')}>
                         <option value="off">Aus</option>
-                        <option value="monitorOnly">Nur Ãœberwachung</option>
+                        <option value="monitorOnly">Nur Überwachung</option>
                         <option value="schedule">Zeitplan</option>
                         <option value="temperature">Temperaturregelung</option>
                         <option value="humidity">Feuchteregelung</option>
@@ -1251,7 +1251,7 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
 
                     <label style={styles.fieldLabel}>Klimaprofil</label>
                     <select style={styles.select} {...field('profileId')}>
-                        <option value="">â€“ Kein Profil â€“</option>
+                        <option value="">– Kein Profil –</option>
                         {profiles.map(p => (
                             <option key={p.id} value={p.id}>{p.name}</option>
                         ))}
@@ -1289,21 +1289,21 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                             </select>
                         </div>
                         <div>
-                            <label style={styles.fieldLabel}>StabilitÃ¤tszeit Sensor (s)</label>
+                            <label style={styles.fieldLabel}>Stabilitätszeit Sensor (s)</label>
                             <input style={styles.input} type="number" min={0} value={edit.stabilityTimeSeconds}
                                 onChange={e => setEdit(prev => ({ ...prev, stabilityTimeSeconds: +e.target.value }))} />
                         </div>
                         <div>
-                            <label style={styles.fieldLabel}>Sensor-Abweichungsalarm (Â°C)</label>
+                            <label style={styles.fieldLabel}>Sensor-Abweichungsalarm (°C)</label>
                             <input style={styles.input} type="number" min={1} value={edit.sensorDisagreementThreshold ?? 5}
                                 onChange={e => setEdit(prev => ({ ...prev, sensorDisagreementThreshold: +e.target.value }))} />
                         </div>
                     </div>
 
-                    {/* AuÃŸenluft-Vergleichssensor */}
+                    {/* Außenluft-Vergleichssensor */}
                     <hr style={{ margin: '16px 0', borderColor: '#e0e0e0' }} />
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <span style={{ fontWeight: 600, fontSize: 14 }}>AuÃŸenluft-Vergleichssensor</span>
+                        <span style={{ fontWeight: 600, fontSize: 14 }}>Außenluft-Vergleichssensor</span>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 }}>
                             <input type="checkbox"
                                 checked={edit.outdoorSensor?.enabled ?? false}
@@ -1317,17 +1317,17 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                     {edit.outdoorSensor?.enabled ? (
                         <div>
                             <p style={{ fontSize: 12, color: '#666', marginBottom: 10 }}>
-                                Schaltet Abluft/Zuluft-LÃ¼fter (mit aktiviertem AuÃŸenluft-Guard) nur dann, wenn die AuÃŸenluft gÃ¼nstiger als die Innenluft ist.
+                                Schaltet Abluft/Zuluft-Lüfter (mit aktiviertem Außenluft-Guard) nur dann, wenn die Außenluft günstiger als die Innenluft ist.
                             </p>
                             <StateIdInput
-                                label="AuÃŸentemperatur State-ID"
+                                label="Außentemperatur State-ID"
                                 value={edit.outdoorSensor.tempStateId ?? ''}
                                 onChange={v => setEdit(prev => ({ ...prev, outdoorSensor: { ...(prev.outdoorSensor ?? defaultOutdoorSensor()), tempStateId: v } }))}
                                 placeholder="z.B. hm-rpc.0.NEQ1234.1.TEMPERATURE"
                                 typeFilter="temperature"
                             />
                             <StateIdInput
-                                label="AuÃŸenfeuchte State-ID (optional)"
+                                label="Außenfeuchte State-ID (optional)"
                                 value={edit.outdoorSensor.humidityStateId ?? ''}
                                 onChange={v => setEdit(prev => ({ ...prev, outdoorSensor: { ...(prev.outdoorSensor ?? defaultOutdoorSensor()), humidityStateId: v } }))}
                                 placeholder="z.B. hm-rpc.0.NEQ1234.1.HUMIDITY"
@@ -1335,24 +1335,24 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                             />
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                 <div>
-                                    <label style={styles.fieldLabel}>Min. Temp-Vorteil AuÃŸen (Â°C)</label>
+                                    <label style={styles.fieldLabel}>Min. Temp-Vorteil Außen (°C)</label>
                                     <input style={styles.input} type="number" step="0.5" min={0}
                                         value={edit.outdoorSensor.minTempDeltaCelsius ?? 2}
-                                        title="AuÃŸen muss mindestens XÂ°C kÃ¼hler sein als Innen, sonst kein LÃ¼ften"
+                                        title="Außen muss mindestens X°C kühler sein als Innen, sonst kein Lüften"
                                         onChange={e => setEdit(prev => ({ ...prev, outdoorSensor: { ...(prev.outdoorSensor ?? defaultOutdoorSensor()), minTempDeltaCelsius: +e.target.value } }))} />
                                 </div>
                                 <div>
-                                    <label style={styles.fieldLabel}>Max. Feuchte-Nachteil AuÃŸen (%)</label>
+                                    <label style={styles.fieldLabel}>Max. Feuchte-Nachteil Außen (%)</label>
                                     <input style={styles.input} type="number" step="1" min={0}
                                         value={edit.outdoorSensor.maxHumidityDeltaPercent ?? 10}
-                                        title="AuÃŸen darf maximal X% feuchter sein als Innen, sonst kein Feuchte-LÃ¼ften"
+                                        title="Außen darf maximal X% feuchter sein als Innen, sonst kein Feuchte-Lüften"
                                         onChange={e => setEdit(prev => ({ ...prev, outdoorSensor: { ...(prev.outdoorSensor ?? defaultOutdoorSensor()), maxHumidityDeltaPercent: +e.target.value } }))} />
                                 </div>
                             </div>
                         </div>
                     ) : (
                         <p style={{ fontSize: 12, color: '#aaa', fontStyle: 'italic' }}>
-                            Kein AuÃŸensensor â€“ LÃ¼fter schalten ohne AuÃŸenluft-Vergleich.
+                            Kein Außensensor – Lüfter schalten ohne Außenluft-Vergleich.
                         </p>
                     )}
                 </div>
@@ -1364,7 +1364,7 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                     <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ color: '#666', fontSize: 13 }}>
                             {edit.sensors.length === 0
-                                ? 'Keine Sensoren â€“ Regelung ist nicht mÃ¶glich, nur Ãœberwachung.'
+                                ? 'Keine Sensoren – Regelung ist nicht möglich, nur Überwachung.'
                                 : `${edit.sensors.length} Sensor(en) konfiguriert`}
                         </span>
                         <button style={styles.btnPrimary} onClick={() => setEditingSensor('new')}>+ Sensor</button>
@@ -1374,7 +1374,7 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                         <div key={s.id} style={styles.listRow}>
                             <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                                 <span style={{ fontWeight: 600 }}>{s.name}</span>
-                                <span style={{ fontSize: 12, color: '#666' }}>{s.type} Â· {s.role} Â· {s.stateId || <em>keine State-ID</em>}</span>
+                                <span style={{ fontSize: 12, color: '#666' }}>{s.type} · {s.role} · {s.stateId || <em>keine State-ID</em>}</span>
                             </div>
                             <span style={{ ...styles.badge2, background: s.enabled ? '#e8f5e9' : '#f5f5f5', color: s.enabled ? '#2e7d32' : '#999' }}>
                                 {s.enabled ? 'aktiv' : 'inaktiv'}
@@ -1382,7 +1382,7 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                             <button style={styles.btnSecondary} onClick={() => setEditingSensor(s)}>Bearbeiten</button>
                             <button style={{ ...styles.btnSecondary, color: '#d32f2f', marginLeft: 6 }}
                                 onClick={() => setEdit(prev => ({ ...prev, sensors: prev.sensors.filter(x => x.id !== s.id) }))}>
-                                âœ•
+                                ✕
                             </button>
                         </div>
                     ))}
@@ -1411,7 +1411,7 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                     <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ color: '#666', fontSize: 13 }}>
                             {edit.actuators.length === 0
-                                ? 'Keine Aktoren â€“ nur Ãœberwachung mÃ¶glich.'
+                                ? 'Keine Aktoren – nur Überwachung möglich.'
                                 : `${edit.actuators.length} Aktor(en) konfiguriert`}
                         </span>
                         <button style={styles.btnPrimary} onClick={() => setEditingActuator('new')}>+ Aktor</button>
@@ -1421,8 +1421,8 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                         <div key={a.id} style={styles.listRow}>
                             <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                                 <span style={{ fontWeight: 600 }}>{a.name}</span>
-                                <span style={{ fontSize: 12, color: '#666' }}>{a.type} Â· {a.commandStateId || <em>keine State-ID</em>}
-                                    {a.shared && ' Â· geteilt'}{a.supportsPercent && ' Â· %'}
+                                <span style={{ fontSize: 12, color: '#666' }}>{a.type} · {a.commandStateId || <em>keine State-ID</em>}
+                                    {a.shared && ' · geteilt'}{a.supportsPercent && ' · %'}
                                 </span>
                             </div>
                             <span style={{ ...styles.badge2, background: a.enabled ? '#e8f5e9' : '#f5f5f5', color: a.enabled ? '#2e7d32' : '#999' }}>
@@ -1431,7 +1431,7 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                             <button style={styles.btnSecondary} onClick={() => setEditingActuator(a)}>Bearbeiten</button>
                             <button style={{ ...styles.btnSecondary, color: '#d32f2f', marginLeft: 6 }}
                                 onClick={() => setEdit(prev => ({ ...prev, actuators: prev.actuators.filter(x => x.id !== a.id) }))}>
-                                âœ•
+                                ✕
                             </button>
                         </div>
                     ))}
@@ -1452,7 +1452,7 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                         return (
                             <div style={{ marginTop: 16, padding: '10px 14px', background: '#f0f4ff', borderRadius: 8, border: '1px solid #c5cae9' }}>
                                 <div style={{ fontWeight: 600, fontSize: 13, color: '#3949ab', marginBottom: 8 }}>
-                                    â‡„ Geteilte Aktoren (aus anderen Gruppen)
+                                    ⇄ Geteilte Aktoren (aus anderen Gruppen)
                                 </div>
                                 <div style={{ fontSize: 12, color: '#555', marginBottom: 8 }}>
                                     Diese Aktoren werden von anderen Gruppen verwaltet. Diese Gruppe beeinflusst die Abstimmung mit dem konfigurierten Einfluss-Faktor.
@@ -1461,7 +1461,7 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                                     <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderTop: '1px solid #e8eaf6' }}>
                                         <span style={{ flex: 1 }}>
                                             <span style={{ fontWeight: 600 }}>{a.name}</span>
-                                            <span style={{ fontSize: 12, color: '#666', marginLeft: 8 }}>{a.type} Â· {a.sharedVotingMode ?? 'any'}</span>
+                                            <span style={{ fontSize: 12, color: '#666', marginLeft: 8 }}>{a.type} · {a.sharedVotingMode ?? 'any'}</span>
                                         </span>
                                         <span style={{ fontSize: 12, background: '#e8eaf6', color: '#3949ab', borderRadius: 4, padding: '2px 8px' }}>
                                             aus: {og.name}
@@ -1495,13 +1495,13 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                 </div>
             )}
 
-            {/* ---- TAB: BewÃ¤sserung ---- */}
+            {/* ---- TAB: Bewässerung ---- */}
             {tab === 'bewaesserung' && (
                 <div>
                     <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ color: '#666', fontSize: 13 }}>
                             {edit.irrigationZones.length === 0
-                                ? 'Keine BewÃ¤sserungszonen â€“ BewÃ¤sserung deaktiviert.'
+                                ? 'Keine Bewässerungszonen – Bewässerung deaktiviert.'
                                 : `${edit.irrigationZones.length} Zone(n)`}
                         </span>
                         <button style={styles.btnPrimary} onClick={() => setEditingZone('new')}>+ Zone</button>
@@ -1512,16 +1512,16 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                             <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                                 <span style={{ fontWeight: 600 }}>{z.name}</span>
                                 <span style={{ fontSize: 12, color: '#666' }}>
-                                    Pumpe: {(edit.actuators.find(a => a.id === z.pumpActuatorId)?.name ?? z.pumpActuatorId) || 'â€“'} Â·
-                                    Feuchte: {z.startMoisture}% â†’ {z.targetMoisture}% Â·
+                                    Pumpe: {(edit.actuators.find(a => a.id === z.pumpActuatorId)?.name ?? z.pumpActuatorId) || '–'} ·
+                                    Feuchte: {z.startMoisture}% → {z.targetMoisture}% ·
                                     Max: {z.maxRunSeconds}s
-                                    {z.moistureSensorIds.length === 0 && ' Â· nur Timer'}
+                                    {z.moistureSensorIds.length === 0 && ' · nur Timer'}
                                 </span>
                             </div>
                             <button style={styles.btnSecondary} onClick={() => setEditingZone(z)}>Bearbeiten</button>
                             <button style={{ ...styles.btnSecondary, color: '#d32f2f', marginLeft: 6 }}
                                 onClick={() => setEdit(prev => ({ ...prev, irrigationZones: prev.irrigationZones.filter(x => x.id !== z.id) }))}>
-                                âœ•
+                                ✕
                             </button>
                         </div>
                     ))}
@@ -1550,8 +1550,8 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
             {tab === 'kamera' && (
                 <div>
                     <p style={{ color: '#555', fontSize: 13, marginTop: 0 }}>
-                        Snapshot-URL konfigurieren. Das Dashboard zeigt ein 128Ã—128 Vorschaubild; beim Hover wird es vergrÃ¶ÃŸert.
-                        FÃ¼r KI-Analyse (Plant.id) den API-Key in den globalen Einstellungen hinterlegen.
+                        Snapshot-URL konfigurieren. Das Dashboard zeigt ein 128x128 Vorschaubild; beim Hover wird es vergroessert.
+                        Fuer KI-Analyse (Plant.id) den API-Key in den globalen Einstellungen hinterlegen.
                     </p>
                     <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ color: '#666', fontSize: 13 }}>
@@ -1577,7 +1577,7 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                                 <span style={{ fontWeight: 600, fontSize: 14 }}>{cam.name}</span>
                                 <button style={{ ...styles.btnSecondary, color: '#d32f2f' }}
                                     onClick={() => setEdit(prev => ({ ...prev, cameras: prev.cameras.filter((_, i) => i !== idx) }))}>
-                                    âœ• Entfernen
+                                    x Entfernen
                                 </button>
                             </div>
                             <label style={styles.fieldLabel}>Name</label>
@@ -1597,7 +1597,7 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
             )}
 
             <div style={{ ...styles.editorButtons, marginTop: 20, paddingTop: 16, borderTop: '1px solid #e0e0e0' }}>
-                <button style={styles.btnPrimary} onClick={() => onSave(edit)}>ðŸ’¾ Speichern</button>
+                <button style={styles.btnPrimary} onClick={() => onSave(edit)}>Speichern</button>
                 <button style={styles.btnSecondary} onClick={onCancel}>Abbrechen</button>
             </div>
         </div>
@@ -1629,7 +1629,7 @@ const AlarmView: React.FC<{ alarms: AlarmRecord[]; onAck: (id: string) => void }
             {active.map(alarm => (
                 <div key={alarm.id} style={{ ...styles.alarmRow, borderLeftColor: severityColor(alarm.severity) }}>
                     <div>
-                        <strong>[{alarm.severity.toUpperCase()}]</strong> {alarm.code} â€“ {alarm.groupId}
+                        <strong>[{alarm.severity.toUpperCase()}]</strong> {alarm.code} – {alarm.groupId}
                     </div>
                     <div style={{ fontSize: 13 }}>{alarm.message}</div>
                     <div style={{ fontSize: 11, color: '#666' }}>
@@ -1643,10 +1643,10 @@ const AlarmView: React.FC<{ alarms: AlarmRecord[]; onAck: (id: string) => void }
 
             {cleared.length > 0 && (
                 <>
-                    <h3>Letzte gelÃ¶schte Alarme</h3>
+                    <h3>Letzte gelöschte Alarme</h3>
                     {cleared.map(alarm => (
                         <div key={alarm.id} style={{ ...styles.alarmRow, opacity: 0.6, borderLeftColor: '#9e9e9e' }}>
-                            <strong>{alarm.code}</strong> â€“ {alarm.groupId}: {alarm.message}
+                            <strong>{alarm.code}</strong> – {alarm.groupId}: {alarm.message}
                         </div>
                     ))}
                 </>
@@ -1667,7 +1667,7 @@ interface ObjEntry {
     funcs: string[];
 }
 
-type EnumMap = Record<string, string[]>; // stateId â†’ [label, ...]
+type EnumMap = Record<string, string[]>; // stateId → [label, ...]
 
 function emitSocket(event: string, ...args: unknown[]): Promise<unknown> {
     return new Promise(resolve => {
@@ -1676,7 +1676,7 @@ function emitSocket(event: string, ...args: unknown[]): Promise<unknown> {
         const sock = w._growSocket ?? w.socket;
         if (!sock) { resolve(null); return; }
         const cb = (_err: unknown, res: unknown) => resolve(res);
-        // ioBroker admin v6 sometimes wraps methods directly (sock.getState, sock.getObjectView â€¦)
+        // ioBroker admin v6 sometimes wraps methods directly (sock.getState, sock.getObjectView …)
         // instead of routing through sock.emit. Try the direct method first.
         if (typeof sock[event] === 'function') {
             (sock[event] as (...a: unknown[]) => void)(...args, cb);
@@ -1700,11 +1700,11 @@ async function loadAllObjects(): Promise<{ entries: ObjEntry[]; rooms: EnumMap; 
     type ViewRes = { rows?: Row[] } | null;
 
     const [stateRes, enumRes, channelRes, deviceRes, folderRes] = await Promise.all([
-        emitSocket('getObjectView', 'system', 'state',   { startkey: '', endkey: 'é¦™' }) as Promise<ViewRes>,
-        emitSocket('getObjectView', 'system', 'enum',    { startkey: 'enum.', endkey: 'enum.é¦™' }) as Promise<ViewRes>,
-        emitSocket('getObjectView', 'system', 'channel', { startkey: '', endkey: 'é¦™' }) as Promise<ViewRes>,
-        emitSocket('getObjectView', 'system', 'device',  { startkey: '', endkey: 'é¦™' }) as Promise<ViewRes>,
-        emitSocket('getObjectView', 'system', 'folder',  { startkey: '', endkey: 'é¦™' }) as Promise<ViewRes>,
+        emitSocket('getObjectView', 'system', 'state',   { startkey: '', endkey: '香' }) as Promise<ViewRes>,
+        emitSocket('getObjectView', 'system', 'enum',    { startkey: 'enum.', endkey: 'enum.香' }) as Promise<ViewRes>,
+        emitSocket('getObjectView', 'system', 'channel', { startkey: '', endkey: '香' }) as Promise<ViewRes>,
+        emitSocket('getObjectView', 'system', 'device',  { startkey: '', endkey: '香' }) as Promise<ViewRes>,
+        emitSocket('getObjectView', 'system', 'folder',  { startkey: '', endkey: '香' }) as Promise<ViewRes>,
     ]);
 
     const stateRows   = stateRes?.rows   ?? [];
@@ -1713,7 +1713,7 @@ async function loadAllObjects(): Promise<{ entries: ObjEntry[]; rooms: EnumMap; 
     const deviceRows  = deviceRes?.rows  ?? [];
     const folderRows  = folderRes?.rows  ?? [];
 
-    // Name-Map: id â†’ friendly name (fÃ¼r channel/device/folder-Header)
+    // Name-Map: id → friendly name (für channel/device/folder-Header)
     const names: Record<string, string> = {};
     for (const r of [...channelRows, ...deviceRows, ...folderRows]) {
         const n = getName(r.value?.common?.name);
@@ -1758,7 +1758,7 @@ function matchesTab(e: ObjEntry, tab: string): boolean {
     if (!tab) return true;
     if (tab === 'boolean') return e.type === 'boolean';
     if (tab === 'number') return e.type === 'number';
-    if (tab === 'temperature') return e.role.includes('temperature') || e.unit === 'Â°C';
+    if (tab === 'temperature') return e.role.includes('temperature') || e.unit === '°C';
     if (tab === 'humidity') return e.role.includes('humidity') || e.unit === '%';
     return true;
 }
@@ -1794,12 +1794,12 @@ const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilt
         });
     }, []);
 
-    // Build 2-level tree: instance (adapter.N) â†’ subfolder (3rd segment) â†’ entries
-    // e.g. "0_userdata.0" â†’ { "Macros": [...], "variables": [...] }
-    //      "hm-rpc.0"     â†’ { "NEQ123456": [...], "MEQ789": [...] }
+    // Build 2-level tree: instance (adapter.N) → subfolder (3rd segment) → entries
+    // e.g. "0_userdata.0" → { "Macros": [...], "variables": [...] }
+    //      "hm-rpc.0"     → { "NEQ123456": [...], "MEQ789": [...] }
     const tree = React.useMemo(() => {
         const filtered = allEntries.filter(e => matchesTab(e, tab) && matchesSearch(e, search));
-        // Map: instanceKey â†’ subfolderKey â†’ entries[]
+        // Map: instanceKey → subfolderKey → entries[]
         const map: Record<string, Record<string, ObjEntry[]>> = {};
         for (const e of filtered) {
             const parts = e.id.split('.');
@@ -1879,7 +1879,7 @@ const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilt
                     </tr>
                 ))}
                 {entries.length > 300 && (
-                    <tr><td colSpan={6} style={{ padding: '5px 8px', fontSize: 11, color: '#888' }}>â€¦ und {entries.length - 300} weitere â€“ Suche verfeinern</td></tr>
+                    <tr><td colSpan={6} style={{ padding: '5px 8px', fontSize: 11, color: '#888' }}>… und {entries.length - 300} weitere – Suche verfeinern</td></tr>
                 )}
             </tbody>
         </table>
@@ -1890,15 +1890,15 @@ const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilt
             <div style={{ background: '#fff', borderRadius: 8, width: '90vw', maxWidth: 1000, height: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
                 {/* Header */}
                 <div style={{ padding: '12px 16px', borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontWeight: 600, fontSize: 15 }}>Objekt-ID auswÃ¤hlen</span>
+                    <span style={{ fontWeight: 600, fontSize: 15 }}>Objekt-ID auswählen</span>
                     <input
                         style={{ ...styles.input, flex: 1, marginBottom: 0 }}
                         autoFocus
-                        placeholder="Suche nach ID, Name, Raum, Funktion, Rolleâ€¦"
+                        placeholder="Suche nach ID, Name, Raum, Funktion, Rolle…"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                     />
-                    <button style={{ border: 'none', background: 'none', fontSize: 22, cursor: 'pointer', color: '#666' }} onClick={onClose}>Ã—</button>
+                    <button style={{ border: 'none', background: 'none', fontSize: 22, cursor: 'pointer', color: '#666' }} onClick={onClose}>×</button>
                 </div>
 
                 {/* Tabs */}
@@ -1917,21 +1917,21 @@ const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilt
                         >{t.label}</button>
                     ))}
                     <span style={{ marginLeft: 'auto', fontSize: 12, color: '#888', alignSelf: 'center' }}>
-                        {loading ? 'Ladeâ€¦' : `${totalVisible} von ${allEntries.length} Datenpunkten`}
+                        {loading ? 'Lade…' : `${totalVisible} von ${allEntries.length} Datenpunkten`}
                     </span>
                 </div>
 
                 {/* Tree content */}
                 <div style={{ flex: 1, overflowY: 'auto' }}>
                     {loading ? (
-                        <div style={{ padding: 32, textAlign: 'center', color: '#888' }}>Datenpunkte werden geladenâ€¦</div>
+                        <div style={{ padding: 32, textAlign: 'center', color: '#888' }}>Datenpunkte werden geladen…</div>
                     ) : tree.length === 0 ? (
                         <div style={{ padding: 32, textAlign: 'center', color: '#888' }}>Keine Datenpunkte gefunden.</div>
                     ) : tree.map(([inst, subs]) => {
                         const l1Open = isOpen(inst);
                         const subEntries = Object.entries(subs).sort(([a], [b]) => a.localeCompare(b));
                         const totalInst = subEntries.reduce((s, [, es]) => s + es.length, 0);
-                        // If only one subgroup with key '' â†’ no subfolders, show table directly
+                        // If only one subgroup with key '' → no subfolders, show table directly
                         const flatOnly = subEntries.length === 1 && subEntries[0][0] === '';
 
                         return (
@@ -1949,10 +1949,10 @@ const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilt
                                     onMouseEnter={e => (e.currentTarget.style.background = '#e4ecf4')}
                                     onMouseLeave={e => (e.currentTarget.style.background = '#f0f4f8')}
                                 >
-                                    <span style={{ fontSize: 11, color: '#555', width: 14 }}>{l1Open ? 'â–¼' : 'â–¶'}</span>
+                                    <span style={{ fontSize: 11, color: '#555', width: 14 }}>{l1Open ? '▼' : '▶'}</span>
                                     <span style={{ fontWeight: 700, fontSize: 13, fontFamily: 'monospace', color: '#1565c0' }}>{inst}</span>
-                                    {names[inst] && <span style={{ fontSize: 12, color: '#455a64', marginLeft: 2 }}>â€“ {names[inst]}</span>}
-                                    <span style={{ fontSize: 11, color: '#aaa', marginLeft: 'auto' }}>{totalInst} EintrÃ¤ge</span>
+                                    {names[inst] && <span style={{ fontSize: 12, color: '#455a64', marginLeft: 2 }}>– {names[inst]}</span>}
+                                    <span style={{ fontSize: 11, color: '#aaa', marginLeft: 'auto' }}>{totalInst} Einträge</span>
                                 </div>
 
                                 {l1Open && flatOnly && renderTable(subEntries[0][1], 16)}
@@ -1979,9 +1979,9 @@ const ObjectPicker: React.FC<ObjectPickerProps> = ({ onSelect, onClose, typeFilt
                                                 onMouseEnter={e => (e.currentTarget.style.background = '#f0f0f0')}
                                                 onMouseLeave={e => (e.currentTarget.style.background = '#fafafa')}
                                             >
-                                                <span style={{ fontSize: 10, color: '#999', width: 12 }}>{l2Open ? 'â–¼' : 'â–¶'}</span>
+                                                <span style={{ fontSize: 10, color: '#999', width: 12 }}>{l2Open ? '▼' : '▶'}</span>
                                                 <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#37474f' }}>{inst}.<strong style={{ color: '#2e7d32' }}>{sub}</strong></span>
-                                                {names[`${inst}.${sub}`] && <span style={{ fontSize: 11, color: '#546e7a' }}>â€“ {names[`${inst}.${sub}`]}</span>}
+                                                {names[`${inst}.${sub}`] && <span style={{ fontSize: 11, color: '#546e7a' }}>– {names[`${inst}.${sub}`]}</span>}
                                                 <span style={{ fontSize: 10, color: '#bbb', marginLeft: 'auto' }}>{entries.length}</span>
                                             </div>
                                             {l2Open && renderTable(entries, 32)}
@@ -2030,10 +2030,10 @@ const StateIdInput: React.FC<StateIdInputProps> = ({ value, onChange, label, pla
                 <button
                     style={{ ...styles.btnSecondary, whiteSpace: 'nowrap' }}
                     type="button"
-                    title="Aus ioBroker Objektbaum wÃ¤hlen"
+                    title="Aus ioBroker Objektbaum wählen"
                     onClick={() => setPickerOpen(true)}
                 >
-                    ðŸ” WÃ¤hlen
+                    🔍 Wählen
                 </button>
             </div>
             {pickerOpen && (
@@ -2080,37 +2080,37 @@ interface ClimatePreset {
 
 const CLIMATE_PRESETS: ClimatePreset[] = [
     {
-        label: 'Keimling', description: 'Hohe Feuchte, moderate WÃ¤rme, niedrige VPD', color: '#66bb6a',
+        label: 'Keimling', description: 'Hohe Feuchte, moderate Wärme, niedrige VPD', color: '#66bb6a',
         day:   { temperature: 25, temperatureTolerance: 1, temperatureMin: 22, temperatureMax: 28, temperatureCritical: 32, humidity: 75, humidityTolerance: 5, humidityMin: 65, humidityMax: 85, humidityCritical: 90, condensationRiskMaxHumidity: 88, vpdMin: 0.3, vpdMax: 0.6 },
         night: { temperature: 22, temperatureTolerance: 1, temperatureMin: 20, temperatureMax: 26, temperatureCritical: 30, humidity: 70, humidityTolerance: 5, humidityMin: 60, humidityMax: 80, humidityCritical: 88, condensationRiskMaxHumidity: 85, vpdMin: 0.3, vpdMax: 0.6 },
     },
     {
-        label: 'Wachstum (Veg)', description: 'Optimale Bedingungen fÃ¼r Blattmasse', color: '#26a69a',
+        label: 'Wachstum (Veg)', description: 'Optimale Bedingungen für Blattmasse', color: '#26a69a',
         day:   { temperature: 24, temperatureTolerance: 1.5, temperatureMin: 20, temperatureMax: 28, temperatureCritical: 33, humidity: 65, humidityTolerance: 5, humidityMin: 50, humidityMax: 75, humidityCritical: 85, condensationRiskMaxHumidity: 80, vpdMin: 0.8, vpdMax: 1.2 },
         night: { temperature: 20, temperatureTolerance: 1.5, temperatureMin: 17, temperatureMax: 24, temperatureCritical: 30, humidity: 60, humidityTolerance: 5, humidityMin: 45, humidityMax: 70, humidityCritical: 82, condensationRiskMaxHumidity: 78, vpdMin: 0.7, vpdMax: 1.1 },
     },
     {
-        label: 'BlÃ¼te (frÃ¼h)', description: '1.â€“4. BlÃ¼tewoche, etwas weniger Feuchte', color: '#ffa726',
+        label: 'Blüte (früh)', description: '1.–4. Blütewoche, etwas weniger Feuchte', color: '#ffa726',
         day:   { temperature: 25, temperatureTolerance: 1, temperatureMin: 20, temperatureMax: 28, temperatureCritical: 32, humidity: 55, humidityTolerance: 5, humidityMin: 40, humidityMax: 65, humidityCritical: 75, condensationRiskMaxHumidity: 72, vpdMin: 1.0, vpdMax: 1.5 },
         night: { temperature: 20, temperatureTolerance: 1, temperatureMin: 17, temperatureMax: 24, temperatureCritical: 29, humidity: 50, humidityTolerance: 5, humidityMin: 38, humidityMax: 60, humidityCritical: 72, condensationRiskMaxHumidity: 70, vpdMin: 0.9, vpdMax: 1.3 },
     },
     {
-        label: 'BlÃ¼te (spÃ¤t)', description: '5.+ Woche, niedrige Feuchte gegen Schimmel', color: '#ef5350',
+        label: 'Blüte (spät)', description: '5.+ Woche, niedrige Feuchte gegen Schimmel', color: '#ef5350',
         day:   { temperature: 24, temperatureTolerance: 1, temperatureMin: 19, temperatureMax: 27, temperatureCritical: 31, humidity: 42, humidityTolerance: 4, humidityMin: 30, humidityMax: 52, humidityCritical: 60, condensationRiskMaxHumidity: 58, vpdMin: 1.2, vpdMax: 1.7 },
         night: { temperature: 19, temperatureTolerance: 1, temperatureMin: 16, temperatureMax: 23, temperatureCritical: 28, humidity: 38, humidityTolerance: 4, humidityMin: 28, humidityMax: 48, humidityCritical: 58, condensationRiskMaxHumidity: 55, vpdMin: 1.1, vpdMax: 1.5 },
     },
     {
-        label: 'Trocknung', description: 'Langsam trocknen, kÃ¼hle Temperatur', color: '#8d6e63',
+        label: 'Trocknung', description: 'Langsam trocknen, kühle Temperatur', color: '#8d6e63',
         day:   { temperature: 18, temperatureTolerance: 1, temperatureMin: 15, temperatureMax: 22, temperatureCritical: 26, humidity: 50, humidityTolerance: 4, humidityMin: 40, humidityMax: 58, humidityCritical: 65, condensationRiskMaxHumidity: 62, vpdMin: 0.8, vpdMax: 1.2 },
         night: { temperature: 16, temperatureTolerance: 1, temperatureMin: 13, temperatureMax: 20, temperatureCritical: 24, humidity: 48, humidityTolerance: 4, humidityMin: 38, humidityMax: 56, humidityCritical: 62, condensationRiskMaxHumidity: 60, vpdMin: 0.7, vpdMax: 1.1 },
     },
     {
-        label: 'GemÃ¼se (Tomate)', description: 'Warm und feucht, hohe COâ‚‚', color: '#d32f2f',
+        label: 'Gemüse (Tomate)', description: 'Warm und feucht, hohe CO₂', color: '#d32f2f',
         day:   { temperature: 26, temperatureTolerance: 1.5, temperatureMin: 20, temperatureMax: 30, temperatureCritical: 35, humidity: 65, humidityTolerance: 5, humidityMin: 50, humidityMax: 75, humidityCritical: 85, condensationRiskMaxHumidity: 80, vpdMin: 0.8, vpdMax: 1.3, co2Target: 1000, co2Tolerance: 150 },
         night: { temperature: 18, temperatureTolerance: 1.5, temperatureMin: 15, temperatureMax: 24, temperatureCritical: 30, humidity: 60, humidityTolerance: 5, humidityMin: 45, humidityMax: 70, humidityCritical: 82, condensationRiskMaxHumidity: 78, vpdMin: 0.7, vpdMax: 1.1 },
     },
     {
-        label: 'Salat / KrÃ¤uter', description: 'KÃ¼hl, feucht, niedrige Belastung', color: '#43a047',
+        label: 'Salat / Kräuter', description: 'Kühl, feucht, niedrige Belastung', color: '#43a047',
         day:   { temperature: 20, temperatureTolerance: 2, temperatureMin: 15, temperatureMax: 25, temperatureCritical: 30, humidity: 70, humidityTolerance: 5, humidityMin: 55, humidityMax: 80, humidityCritical: 88, condensationRiskMaxHumidity: 85, vpdMin: 0.5, vpdMax: 0.9 },
         night: { temperature: 16, temperatureTolerance: 2, temperatureMin: 12, temperatureMax: 20, temperatureCritical: 25, humidity: 65, humidityTolerance: 5, humidityMin: 50, humidityMax: 75, humidityCritical: 85, condensationRiskMaxHumidity: 82, vpdMin: 0.4, vpdMax: 0.8 },
     },
@@ -2132,7 +2132,7 @@ function SetpointForm({ label, sp, onChange, isDay }: { label: string; sp: Clima
     const row = (lbl: string, k: keyof ClimateSetpoint, step = 0.1, optional = false) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <span style={{ width: 220, fontSize: 13, color: optional ? '#888' : 'inherit' }}>{lbl}{optional && ' (opt.)'}</span>
-            <input style={{ ...styles.input, width: 80 }} type="number" step={step} placeholder={optional ? 'â€“' : undefined} {...n(k)} />
+            <input style={{ ...styles.input, width: 80 }} type="number" step={step} placeholder={optional ? '–' : undefined} {...n(k)} />
         </div>
     );
 
@@ -2149,14 +2149,14 @@ function SetpointForm({ label, sp, onChange, isDay }: { label: string; sp: Clima
                     onClick={() => setShowPresets(v => !v)}
                     style={{ ...styles.btnSecondary, fontSize: 11, padding: '3px 10px' }}
                 >
-                    {showPresets ? 'â–² Presets schlieÃŸen' : 'â–¼ Preset laden'}
+                    {showPresets ? '▲ Presets schließen' : '▼ Preset laden'}
                 </button>
             </div>
 
             {showPresets && (
                 <div style={{ marginBottom: 12, padding: 10, background: '#f8fdf8', border: '1px solid #c8e6c9', borderRadius: 6 }}>
                     <div style={{ fontSize: 11, color: '#666', marginBottom: 8 }}>
-                        Preset Ã¼berschreibt alle Felder dieses Sollwert-Blocks:
+                        Preset überschreibt alle Felder dieses Sollwert-Blocks:
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 6 }}>
                         {CLIMATE_PRESETS.map(p => (
@@ -2176,8 +2176,8 @@ function SetpointForm({ label, sp, onChange, isDay }: { label: string; sp: Clima
                                 <div style={{ fontSize: 10, color: '#666', marginTop: 2 }}>{p.description}</div>
                                 <div style={{ fontSize: 10, color: '#888', marginTop: 3, fontFamily: 'monospace' }}>
                                     {isDay === false
-                                        ? `${p.night.temperature}Â°C Â· ${p.night.humidity}% Â· VPD ${p.night.vpdMin}â€“${p.night.vpdMax}`
-                                        : `${p.day.temperature}Â°C Â· ${p.day.humidity}% Â· VPD ${p.day.vpdMin}â€“${p.day.vpdMax}`
+                                        ? `${p.night.temperature}°C · ${p.night.humidity}% · VPD ${p.night.vpdMin}–${p.night.vpdMax}`
+                                        : `${p.day.temperature}°C · ${p.day.humidity}% · VPD ${p.day.vpdMin}–${p.day.vpdMax}`
                                     }
                                 </div>
                             </button>
@@ -2187,15 +2187,15 @@ function SetpointForm({ label, sp, onChange, isDay }: { label: string; sp: Clima
             )}
 
             {section('Temperatur', '#e65100')}
-            {row('Ziel-Temperatur (Â°C)', 'temperature')}
-            {row('Toleranz (Â±Â°C)', 'temperatureTolerance')}
-            {row('Min (Â°C)', 'temperatureMin')}
-            {row('Max (Â°C)', 'temperatureMax')}
-            {row('Kritisch (Â°C)', 'temperatureCritical')}
+            {row('Ziel-Temperatur (°C)', 'temperature')}
+            {row('Toleranz (±°C)', 'temperatureTolerance')}
+            {row('Min (°C)', 'temperatureMin')}
+            {row('Max (°C)', 'temperatureMax')}
+            {row('Kritisch (°C)', 'temperatureCritical')}
 
             {section('Luftfeuchtigkeit', '#1565c0')}
             {row('Ziel-Feuchte (%)', 'humidity', 1)}
-            {row('Toleranz (Â±%)', 'humidityTolerance', 1)}
+            {row('Toleranz (±%)', 'humidityTolerance', 1)}
             {row('Min (%)', 'humidityMin', 1)}
             {row('Max (%)', 'humidityMax', 1)}
             {row('Kritisch (%)', 'humidityCritical', 1)}
@@ -2205,13 +2205,13 @@ function SetpointForm({ label, sp, onChange, isDay }: { label: string; sp: Clima
             {row('VPD Min (kPa)', 'vpdMin')}
             {row('VPD Max (kPa)', 'vpdMax')}
 
-            {section('COâ‚‚', '#558b2f')}
-            {row('COâ‚‚ Ziel (ppm)', 'co2Target', 50, true)}
-            {row('COâ‚‚ Toleranz (ppm)', 'co2Tolerance', 50, true)}
+            {section('CO₂', '#558b2f')}
+            {row('CO₂ Ziel (ppm)', 'co2Target', 50, true)}
+            {row('CO₂ Toleranz (ppm)', 'co2Tolerance', 50, true)}
 
             {section('Bodenfeuchte', '#4527a0')}
             {row('Bodenfeuchte Ziel (%)', 'soilMoistureTarget', 1, true)}
-            {row('Bodenfeuchte Toleranz (Â±%)', 'soilMoistureTolerance', 1, true)}
+            {row('Bodenfeuchte Toleranz (±%)', 'soilMoistureTolerance', 1, true)}
         </div>
     );
 }
@@ -2236,19 +2236,19 @@ const ProfilesView: React.FC<{
                     onChange={e => setEditing(prev => prev && ({ ...prev, phase: e.target.value as ClimateProfile['phase'] }))}>
                     <option value="seedling">Keimling</option>
                     <option value="growth">Wachstum</option>
-                    <option value="bloom">BlÃ¼te</option>
+                    <option value="bloom">Blüte</option>
                     <option value="drying">Trocknung</option>
                     <option value="custom">Benutzerdefiniert</option>
                 </select>
 
-                <label style={styles.fieldLabel}>Tag/Nacht-Ãœbergang (min)</label>
+                <label style={styles.fieldLabel}>Tag/Nacht-Übergang (min)</label>
                 <input style={styles.input} type="number" value={editing.transitionMinutes}
                     onChange={e => setEditing(prev => prev && ({ ...prev, transitionMinutes: +e.target.value }))} />
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 16 }}>
-                    <SetpointForm label="â˜€ï¸ Tag" sp={editing.day} isDay={true}
+                    <SetpointForm label="☀️ Tag" sp={editing.day} isDay={true}
                         onChange={day => setEditing(prev => prev && ({ ...prev, day }))} />
-                    <SetpointForm label="ðŸŒ™ Nacht" sp={editing.night} isDay={false}
+                    <SetpointForm label="🌙 Nacht" sp={editing.night} isDay={false}
                         onChange={night => setEditing(prev => prev && ({ ...prev, night }))} />
                 </div>
 
@@ -2258,7 +2258,7 @@ const ProfilesView: React.FC<{
                             ? profiles.map(p => p.id === editing.id ? editing : p)
                             : [...profiles, editing]);
                         setEditing(null);
-                    }}>ðŸ’¾ Speichern</button>
+                    }}>💾 Speichern</button>
                     <button style={styles.btnSecondary} onClick={() => setEditing(null)}>Abbrechen</button>
                 </div>
             </div>
@@ -2269,7 +2269,7 @@ const ProfilesView: React.FC<{
         <div>
             <button style={styles.btnPrimary} onClick={() => setEditing(defaultProfile())}>+ Neues Klimaprofil</button>
             {profiles.length === 0 && (
-                <p style={{ color: '#888', marginTop: 16 }}>Noch keine Klimaprofile. Erstelle Profile mit Tag/Nacht-Sollwerten fÃ¼r Temperatur, Feuchte und VPD.</p>
+                <p style={{ color: '#888', marginTop: 16 }}>Noch keine Klimaprofile. Erstelle Profile mit Tag/Nacht-Sollwerten für Temperatur, Feuchte und VPD.</p>
             )}
             {profiles.map(p => (
                 <div key={p.id} style={styles.listRow}>
@@ -2278,13 +2278,13 @@ const ProfilesView: React.FC<{
                         <span style={{ color: '#666', marginLeft: 12, fontSize: 12 }}>{p.phase}</span>
                     </div>
                     <div style={{ fontSize: 12, color: '#888' }}>
-                        Tag: {p.day.temperature}Â°C / {p.day.humidity}% Â· Nacht: {p.night.temperature}Â°C / {p.night.humidity}%
+                        Tag: {p.day.temperature}°C / {p.day.humidity}% · Nacht: {p.night.temperature}°C / {p.night.humidity}%
                     </div>
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
                         <button style={styles.btnSecondary} onClick={() => setEditing({ ...p })}>Bearbeiten</button>
                         <button style={{ ...styles.btnSecondary, color: '#d32f2f' }}
-                            onClick={() => { if (window.confirm(`Profil â€ž${p.name}" lÃ¶schen?`)) onChange(profiles.filter(x => x.id !== p.id)); }}>
-                            LÃ¶schen
+                            onClick={() => { if (window.confirm(`Profil „${p.name}" löschen?`)) onChange(profiles.filter(x => x.id !== p.id)); }}>
+                            Löschen
                         </button>
                     </div>
                 </div>
@@ -2329,23 +2329,17 @@ const SettingsView: React.FC<{
                 value={String(config.dashboardPin ?? '')}
                 onChange={e => onChange({ ...config, dashboardPin: e.target.value })} />
 
-            <hr style={{ margin: '24px 0', borderColor: '#e0e0e0' }} />
-            <h4 style={{ margin: '0 0 12px' }}>Plant.id â€“ KI-Mangelanalyse</h4>
-            <p style={{ fontSize: 12, color: '#666', margin: '0 0 8px' }}>
-                API-Key von <strong>plant.id</strong> (kostenlos: 100 Anfragen/Monat).
-                Wird im Dashboard fÃ¼r manuelle Pflanzenanalyse verwendet.
-            </p>
-            <label style={styles.fieldLabel}>Plant.id API-Key</label>
-            <input style={styles.input} type="password" placeholder="sk-..."
-                value={String(config.plantIdApiKey ?? '')}
-                onChange={e => onChange({ ...config, plantIdApiKey: e.target.value })} />
+            <label style={styles.fieldLabel}>Plant.id API-Key (fuer Pflanzenanalyse)</label>
+            <input style={styles.input} type="password" placeholder="Ihr Plant.id v3 API-Key"
+                value={String((config as unknown as Record<string, unknown>).plantIdApiKey ?? '')}
+                onChange={e => onChange({ ...config, plantIdApiKey: e.target.value } as unknown as typeof config)} />
 
             <label style={styles.fieldLabel}>Start-Verhalten</label>
             <select style={styles.select} {...field('startBehavior')}>
-                <option value="lastState">Letzten Zustand Ã¼bernehmen</option>
-                <option value="delayedStart">Automatik verzÃ¶gert starten</option>
+                <option value="lastState">Letzten Zustand übernehmen</option>
+                <option value="delayedStart">Automatik verzögert starten</option>
                 <option value="safeTurnOff">Alle Aktoren sicher ausschalten</option>
-                <option value="monitorOnly">Nur Ã¼berwachen</option>
+                <option value="monitorOnly">Nur überwachen</option>
             </select>
 
             <label style={styles.fieldLabel}>Log-Level</label>
@@ -2375,7 +2369,7 @@ const SettingsView: React.FC<{
                                 a.click();
                                 URL.revokeObjectURL(url);
                             } else {
-                                alert('Export fehlgeschlagen â€“ Adapter lÃ¤uft?');
+                                alert('Export fehlgeschlagen – Adapter läuft?');
                             }
                         });
                     }}
@@ -2400,12 +2394,12 @@ const SettingsView: React.FC<{
                                     if (res?.valid) {
                                         alert('Konfiguration erfolgreich importiert. Seite neu laden.');
                                     } else {
-                                        alert(`Import fehlgeschlagen:\n${(res?.errors ?? ['Adapter lÃ¤uft?']).join('\n')}`);
+                                        alert(`Import fehlgeschlagen:\n${(res?.errors ?? ['Adapter läuft?']).join('\n')}`);
                                     }
                                 });
                             };
                             reader.readAsText(file);
-                            // Input zurÃ¼cksetzen damit dieselbe Datei nochmals gewÃ¤hlt werden kann
+                            // Input zurücksetzen damit dieselbe Datei nochmals gewählt werden kann
                             e.target.value = '';
                         }}
                     />
@@ -2424,10 +2418,10 @@ const SettingsView: React.FC<{
 // ---- NotificationSettings ----------------------------------
 
 const CHANNEL_TYPE_LABELS: Record<NotificationChannelType, string> = {
-    telegram: 'ðŸ“¨ Telegram',
-    whatsapp: 'ðŸ’¬ WhatsApp',
-    discord: 'ðŸŸ£ Discord Webhook',
-    signal: 'ðŸ”µ Signal',
+    telegram: '📨 Telegram',
+    whatsapp: '💬 WhatsApp',
+    discord: '🟣 Discord Webhook',
+    signal: '🔵 Signal',
 };
 
 function defaultChannel(type: NotificationChannelType): NotificationChannel {
@@ -2455,7 +2449,7 @@ const NotificationSettings: React.FC<{
     const detectAdapters = () => {
         iobSendTo('growmanager.0', 'detectAdapters', {}, (result: unknown) => {
             if (result === null) {
-                alert('Adapter-Erkennung nicht verfÃ¼gbar â€“ bitte Instanznummer manuell eintragen.');
+                alert('Adapter-Erkennung nicht verfügbar – bitte Instanznummer manuell eintragen.');
                 return;
             }
             const r = result as { detected: Array<{ type: string; instance: string }> };
@@ -2464,12 +2458,12 @@ const NotificationSettings: React.FC<{
     };
 
     const testChannel = (ch: NotificationChannel) => {
-        setTestResults(prev => ({ ...prev, [ch.id]: 'â³ Sendeâ€¦' }));
+        setTestResults(prev => ({ ...prev, [ch.id]: '⏳ Sende…' }));
         iobSendTo('growmanager.0', 'testNotification', { channel: ch }, (result: unknown) => {
             const r = result as { ok: boolean; error?: string } | null;
             setTestResults(prev => ({
                 ...prev,
-                [ch.id]: r?.ok ? 'âœ… Gesendet' : `âŒ ${r?.error ?? 'Kein Ergebnis â€“ Adapter lÃ¤uft?'}`,
+                [ch.id]: r?.ok ? '✅ Gesendet' : `❌ ${r?.error ?? 'Kein Ergebnis – Adapter läuft?'}`,
             }));
         });
     };
@@ -2490,7 +2484,7 @@ const NotificationSettings: React.FC<{
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                         <label style={{ fontSize: 13 }}>
                             Cooldown (Min.)
-                            <InfoTip text={'Gleicher Alarm wird frÃ¼hestens nach dieser Zeit erneut gesendet.\nVerhindert Alarm-Flut bei wiederkehrenden Problemen.'} />
+                            <InfoTip text={'Gleicher Alarm wird frühestens nach dieser Zeit erneut gesendet.\nVerhindert Alarm-Flut bei wiederkehrenden Problemen.'} />
                         </label>
                         <input type="number" min={1} max={1440} style={{ ...styles.input, width: 80, marginTop: 0 }}
                             value={value.cooldownMinutes}
@@ -2499,18 +2493,18 @@ const NotificationSettings: React.FC<{
 
                     <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
                         <button style={styles.btnSecondary} onClick={detectAdapters}>
-                            ðŸ” Adapter erkennen
+                            🔍 Adapter erkennen
                         </button>
                         {detected && (
                             <span style={{ fontSize: 12, color: '#555', alignSelf: 'center' }}>
-                                Gefunden: {detected.filter(d => d.type !== 'discord').map(d => `${d.type}.${d.instance}`).join(', ') || 'keine ioBroker-Adapter'} Â· Discord immer verfÃ¼gbar
+                                Gefunden: {detected.filter(d => d.type !== 'discord').map(d => `${d.type}.${d.instance}`).join(', ') || 'keine ioBroker-Adapter'} · Discord immer verfügbar
                             </span>
                         )}
                     </div>
 
                     {value.channels.length === 0 && (
                         <div style={{ color: '#888', fontSize: 13, marginBottom: 12 }}>
-                            Noch keine KanÃ¤le konfiguriert. Kanal hinzufÃ¼gen:
+                            Noch keine Kanäle konfiguriert. Kanal hinzufügen:
                         </div>
                     )}
 
@@ -2527,7 +2521,7 @@ const NotificationSettings: React.FC<{
                                     ab {ch.minSeverity}
                                 </span>
                                 {ch.quietHoursEnabled && (
-                                    <span style={{ fontSize: 12, color: '#888' }}>ðŸŒ™ Ruhephase {ch.quietHoursStart}â€“{ch.quietHoursEnd} Uhr</span>
+                                    <span style={{ fontSize: 12, color: '#888' }}>🌙 Ruhephase {ch.quietHoursStart}–{ch.quietHoursEnd} Uhr</span>
                                 )}
                                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                                     <button style={{ ...styles.btnSecondary, fontSize: 12 }} onClick={() => setEditingChannel({ ...ch })}>Bearbeiten</button>
@@ -2536,14 +2530,14 @@ const NotificationSettings: React.FC<{
                                     )}
                                     <button style={{ ...styles.btnSecondary, fontSize: 12 }} onClick={() => testChannel(ch)}>Test</button>
                                     <button style={{ ...styles.btnSecondary, fontSize: 12, color: '#d32f2f' }}
-                                        onClick={() => setChannels(value.channels.filter(c => c.id !== ch.id))}>âœ•</button>
+                                        onClick={() => setChannels(value.channels.filter(c => c.id !== ch.id))}>✕</button>
                                 </div>
                             </div>
                             <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
-                                {ch.type === 'telegram' && `telegram.${ch.telegramInstance ?? '0'}${ch.telegramChatId ? ` Â· Chat: ${ch.telegramChatId}` : ' Â· Broadcast'}`}
-                                {ch.type === 'whatsapp' && `whatsapp-cmb.${ch.whatsappInstance ?? '0'} Â· ${ch.whatsappPhone ?? 'keine Nummer'}`}
-                                {ch.type === 'signal' && `signal-cmb.${ch.signalInstance ?? '0'} Â· ${ch.signalPhone ?? 'keine Nummer'}`}
-                                {ch.type === 'discord' && (ch.discordWebhookUrl ? 'Webhook konfiguriert âœ“' : 'âš  Webhook-URL fehlt')}
+                                {ch.type === 'telegram' && `telegram.${ch.telegramInstance ?? '0'}${ch.telegramChatId ? ` · Chat: ${ch.telegramChatId}` : ' · Broadcast'}`}
+                                {ch.type === 'whatsapp' && `whatsapp-cmb.${ch.whatsappInstance ?? '0'} · ${ch.whatsappPhone ?? 'keine Nummer'}`}
+                                {ch.type === 'signal' && `signal-cmb.${ch.signalInstance ?? '0'} · ${ch.signalPhone ?? 'keine Nummer'}`}
+                                {ch.type === 'discord' && (ch.discordWebhookUrl ? 'Webhook konfiguriert ✓' : '⚠ Webhook-URL fehlt')}
                             </div>
                         </div>
                     ))}
@@ -2595,10 +2589,10 @@ const NotificationChannelEditor: React.FC<{
                 </select>
 
                 {ch.type === 'telegram' && (<>
-                    <FieldLabel tip="Instanznummer des Telegram-Adapters, z.B. 0 fÃ¼r telegram.0">Instanz-Nummer</FieldLabel>
+                    <FieldLabel tip="Instanznummer des Telegram-Adapters, z.B. 0 für telegram.0">Instanz-Nummer</FieldLabel>
                     <input style={styles.input} placeholder="0" value={ch.telegramInstance ?? ''}
                         onChange={e => setCh({ ...ch, telegramInstance: e.target.value })} />
-                    <FieldLabel tip="Leer lassen fÃ¼r Broadcast an alle bekannten Chats. Oder Chat-ID / Username eintragen.">Chat-ID (optional)</FieldLabel>
+                    <FieldLabel tip="Leer lassen für Broadcast an alle bekannten Chats. Oder Chat-ID / Username eintragen.">Chat-ID (optional)</FieldLabel>
                     <input style={styles.input} placeholder="Leer = Broadcast" value={ch.telegramChatId ?? ''}
                         onChange={e => setCh({ ...ch, telegramChatId: e.target.value })} />
                 </>)}
@@ -2613,8 +2607,8 @@ const NotificationChannelEditor: React.FC<{
                 </>)}
 
                 {ch.type === 'discord' && (<>
-                    <FieldLabel tip={'Discord â†’ Servereinstellungen â†’ Integrationen â†’ Webhooks â†’ Neuen Webhook erstellen â†’ URL kopieren'}>Webhook-URL</FieldLabel>
-                    <input style={styles.input} placeholder="https://discord.com/api/webhooks/â€¦" value={ch.discordWebhookUrl ?? ''}
+                    <FieldLabel tip={'Discord → Servereinstellungen → Integrationen → Webhooks → Neuen Webhook erstellen → URL kopieren'}>Webhook-URL</FieldLabel>
+                    <input style={styles.input} placeholder="https://discord.com/api/webhooks/…" value={ch.discordWebhookUrl ?? ''}
                         onChange={e => setCh({ ...ch, discordWebhookUrl: e.target.value })} />
                 </>)}
 
@@ -2622,7 +2616,7 @@ const NotificationChannelEditor: React.FC<{
                     <FieldLabel tip="Instanznummer des signal-cmb Adapters">Instanz-Nummer</FieldLabel>
                     <input style={styles.input} placeholder="0" value={ch.signalInstance ?? ''}
                         onChange={e => setCh({ ...ch, signalInstance: e.target.value })} />
-                    <FieldLabel tip="EmpfÃ¤nger-Rufnummer im E.164-Format">Telefonnummer</FieldLabel>
+                    <FieldLabel tip="Empfänger-Rufnummer im E.164-Format">Telefonnummer</FieldLabel>
                     <input style={styles.input} placeholder="+491234567890" value={ch.signalPhone ?? ''}
                         onChange={e => setCh({ ...ch, signalPhone: e.target.value })} />
                 </>)}
@@ -2686,7 +2680,7 @@ const App: React.FC = () => {
     // adapterReady = ioBroker-Bridge ist bereit (loadConfig wurde aufgerufen)
     const [adapterReady, setAdapterReady] = useState(false);
 
-    // ioBroker-Anbindung: config laden sobald loadConfig verfÃ¼gbar
+    // ioBroker-Anbindung: config laden sobald loadConfig verfügbar
     useEffect(() => {
         const load = () => {
             const w = window as Window & { loadConfig?: (cb: (c: GrowManagerConfig) => void) => void };
@@ -2706,10 +2700,10 @@ const App: React.FC = () => {
         return () => window.removeEventListener('iobroker-ready', load);
     }, []);
 
-    // Stabile Referenz der Gruppen-IDs â€” verhindert Neustart des Intervals bei jedem Keystroke
+    // Stabile Referenz der Gruppen-IDs — verhindert Neustart des Intervals bei jedem Keystroke
     const groupIds = config.groups.map(g => g.id).join(',');
 
-    // Live-Polling via sendTo('getGroupState') â€” funktioniert ohne socket.io im iframe
+    // Live-Polling via sendTo('getGroupState') — funktioniert ohne socket.io im iframe
     useEffect(() => {
         if (!adapterReady || !groupIds) return;
         const urlInstance = new URLSearchParams(window.location.search).get('instance') ?? '0';
@@ -2766,7 +2760,7 @@ const App: React.FC = () => {
         const w = window as Window & { saveConfig?: (c: GrowManagerConfig) => Promise<void> };
         if (typeof w.saveConfig !== 'function') {
             setSaveStatus('err');
-            setSaveError('Keine Verbindung zu ioBroker â€“ prÃ¼fe Browser-Konsole (F12)');
+            setSaveError('Keine Verbindung zu ioBroker – prüfe Browser-Konsole (F12)');
             return;
         }
         setSaveStatus('saving');
@@ -2790,7 +2784,7 @@ const App: React.FC = () => {
                     ? prev.groups.map(gr => gr.id === g.id ? g : gr)
                     : [...prev.groups, g],
             };
-            // Direkt speichern â€” kein zweiter "Speichern"-Klick nÃ¶tig
+            // Direkt speichern — kein zweiter "Speichern"-Klick nötig
             setTimeout(() => saveToIoBroker(newConfig), 0);
             return newConfig;
         });
@@ -2804,8 +2798,8 @@ const App: React.FC = () => {
     }, []);
 
     const handleOverride = useCallback((groupId: string, actuatorId: string) => {
-        // Hier wÃ¼rde ein Dialog erscheinen
-        alert(`Override fÃ¼r ${groupId} / ${actuatorId} â€“ Funktion in Vollversion verfÃ¼gbar`);
+        // Hier würde ein Dialog erscheinen
+        alert(`Override für ${groupId} / ${actuatorId} – Funktion in Vollversion verfügbar`);
     }, []);
 
     const renderTab = (): React.ReactNode => {
@@ -2823,7 +2817,7 @@ const App: React.FC = () => {
                         ))}
                         {config.groups.length === 0 && (
                             <div style={styles.emptyState}>
-                                Noch keine Gruppen angelegt. Wechsle zu â€žGruppen" und erstelle deine erste Grow-Gruppe.
+                                Noch keine Gruppen angelegt. Wechsle zu „Gruppen" und erstelle deine erste Grow-Gruppe.
                             </div>
                         )}
                     </div>
@@ -2854,12 +2848,12 @@ const App: React.FC = () => {
                                     <button style={styles.btnSecondary} onClick={() => setEditingGroup(g)}>Bearbeiten</button>
                                     <button style={{ ...styles.btnSecondary, color: '#d32f2f', marginLeft: 8 }}
                                         onClick={() => {
-                                            if (window.confirm(`Gruppe â€ž${g.name}" wirklich lÃ¶schen?`)) {
+                                            if (window.confirm(`Gruppe „${g.name}" wirklich löschen?`)) {
                                                 setConfig(prev => ({ ...prev, groups: prev.groups.filter(gr => gr.id !== g.id) }));
                                                 setDirty(true);
                                             }
                                         }}>
-                                        LÃ¶schen
+                                        Löschen
                                     </button>
                                 </div>
                             </div>
@@ -2887,8 +2881,8 @@ const App: React.FC = () => {
                             return (
                                 <div key={g.id} style={styles.card}>
                                     <h4>{g.name}</h4>
-                                    <p>Degradation: <strong>{ls?.health ?? 'â€“'}</strong></p>
-                                    <p>SensorqualitÃ¤t: {ls?.sensorQuality ?? 'â€“'} %</p>
+                                    <p>Degradation: <strong>{ls?.health ?? '–'}</strong></p>
+                                    <p>Sensorqualität: {ls?.sensorQuality ?? '–'} %</p>
                                     {ls?.lastDecision && <DecisionDisplay raw={ls.lastDecision} />}
                                 </div>
                             );
@@ -2911,22 +2905,22 @@ const App: React.FC = () => {
         <div style={styles.root}>
             {/* Header */}
             <div style={styles.header}>
-                <h2 style={{ margin: 0 }}>ðŸŒ¿ GrowManager</h2>
+                <h2 style={{ margin: 0 }}>🌿 GrowManager</h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <span style={{ fontSize: 11, color: adapterReady ? '#4caf50' : '#f57c00' }}
-                          title={adapterReady ? (window as Window & {_growInstanceId?: string})._growInstanceId ?? '' : 'Warte auf ioBroker-Verbindungâ€¦'}>
-                        {adapterReady ? 'â— Verbunden' : 'â—‹ Verbindeâ€¦'}
+                          title={adapterReady ? (window as Window & {_growInstanceId?: string})._growInstanceId ?? '' : 'Warte auf ioBroker-Verbindung…'}>
+                        {adapterReady ? '● Verbunden' : '○ Verbinde…'}
                     </span>
-                    {saveStatus === 'saving' && <span style={{ fontSize: 13, color: '#888' }}>â³ Speichernâ€¦</span>}
-                    {saveStatus === 'ok' && <span style={{ color: '#4caf50', fontSize: 13 }}>âœ“ Gespeichert</span>}
+                    {saveStatus === 'saving' && <span style={{ fontSize: 13, color: '#888' }}>⏳ Speichern…</span>}
+                    {saveStatus === 'ok' && <span style={{ color: '#4caf50', fontSize: 13 }}>✓ Gespeichert</span>}
                     {saveStatus === 'err' && (
                         <span style={{ color: '#d32f2f', fontSize: 13, cursor: 'help' }} title={saveError}>
-                            âœ— Fehler â€“ F12 fÃ¼r Details
+                            ✗ Fehler – F12 für Details
                         </span>
                     )}
                     {(dirty || saveStatus === 'saving') && (
                         <button style={styles.btnPrimary} onClick={handleSave} disabled={saveStatus === 'saving'}>
-                            ðŸ’¾ Speichern
+                            💾 Speichern
                         </button>
                     )}
                 </div>
