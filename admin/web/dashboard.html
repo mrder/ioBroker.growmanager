@@ -974,15 +974,10 @@ function actIconsHtml(actuators, groupId, manualOverrides) {
   if (!actuators || actuators.length === 0) return '';
   const chips = actuators.map(a => {
     const sollOn = a.command === true || (typeof a.command === 'number' && a.command > 0);
-    let isOn;
-    if (a.windSimNextChangeAt !== undefined && a.windSimIsOn !== undefined) {
-      isOn = a.windSimIsOn;
-    } else {
-      const fb = a.feedback ?? a.effectiveState;
-      isOn = fb !== null && fb !== undefined
-        ? (fb === true || (typeof fb === 'number' && fb > 0) || fb === 'true' || fb === 'on')
-        : sollOn;
-    }
+    const fb = a.feedback ?? a.effectiveState;
+    const isOn = fb !== null && fb !== undefined
+      ? (fb === true || (typeof fb === 'number' && fb > 0) || fb === 'true' || fb === 'on')
+      : sollOn;
     const t = ACT_TYPE[a.type] ?? ACT_TYPE.custom;
     const ov = manualOverrides && manualOverrides[a.id];
     const ovNote = ov ? ` · manuell bis ${new Date(ov.until).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}` : '';
@@ -1064,20 +1059,12 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   const t = ACT_TYPE[a.type] ?? ACT_TYPE.custom;
   const ov = manualOverrides && manualOverrides[a.id];
 
-  // Ist-Zustand: WindSim-Aktoren → windSimIsOn ist die Wahrheit (kein Feedback-Lag)
-  // Sonstige Aktoren: feedback bevorzugt, sonst effectiveState
-  let istOn;
-  let hasFeedback;
-  if (a.windSimNextChangeAt !== undefined && a.windSimIsOn !== undefined) {
-    istOn = a.windSimIsOn;
-    hasFeedback = false; // WindSim hat kein separates IST-Label
-  } else {
-    const fb = a.feedback ?? a.effectiveState;
-    hasFeedback = fb !== null && fb !== undefined;
-    istOn = hasFeedback
-      ? (fb === true || (typeof fb === 'number' && fb > 0) || fb === 'true' || fb === 'on')
-      : sollOn;
-  }
+  // Ist-Zustand: feedback bevorzugt, sonst effectiveState
+  const fb = a.feedback ?? a.effectiveState;
+  const hasFeedback = fb !== null && fb !== undefined;
+  const istOn = hasFeedback
+    ? (fb === true || (typeof fb === 'number' && fb > 0) || fb === 'true' || fb === 'on')
+    : sollOn;
 
   // LED zeigt Ist-Zustand (nicht Soll), damit physisches Ausschalten sichtbar ist
   const ledClass = istOn ? 'on' : 'off';

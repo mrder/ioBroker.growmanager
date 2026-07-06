@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.15",
+    "version": "0.2.16",
     "news": {
+      "0.2.16": {
+        "en": "Revert incorrect wind-sim IST display override; IST always reflects real device feedback",
+        "de": "Revert fehlerhafte WindSim IST-Anzeige-Überschreibung; IST zeigt immer echten Gerätezustand"
+      },
       "0.2.15": {
         "en": "Fix wind-sim IST display: use windSimIsOn as truth instead of delayed device feedback (no more brief EIN spikes during AUS phase)",
         "de": "Fix WindSim IST-Anzeige: windSimIsOn als Wahrheit statt verzögertem Geräte-Feedback (keine kurzen EIN-Peaks mehr während AUS-Phase)"
