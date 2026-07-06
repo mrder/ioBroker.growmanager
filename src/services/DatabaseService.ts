@@ -11,7 +11,7 @@ import type { ILogger } from '../utils/logger';
 
 export interface DailySensorStat {
     date: string;           // 'YYYY-MM-DD'
-    sensors: Record<string, { min: number; max: number; avg: number; samples: number }>;
+    sensors: Record<string, { name: string; min: number; max: number; avg: number; samples: number }>;
 }
 
 export interface DailyEnergyStat {
@@ -46,7 +46,7 @@ export class DatabaseService {
     private readonly irrCache     = new Map<string, IrrigationEvent[]>();
 
     // Akkumulator für laufende Sensorwerte pro Gruppe/Sensor
-    private readonly sensorAcc    = new Map<string, Map<string, { sum: number; min: number; max: number; n: number }>>();
+    private readonly sensorAcc    = new Map<string, Map<string, { sum: number; min: number; max: number; n: number; name: string }>>();
 
     // Akkumulator für laufende Energiewerte pro Gruppe/Aktor
     private readonly energyAcc    = new Map<string, Map<string, { wh: number; runtimeMin: number; name: string; lastOnTs: number }>>();
@@ -71,17 +71,18 @@ export class DatabaseService {
 
     // ---- Sensordaten akkumulieren -----------------------------
 
-    trackSensorValue(groupId: string, sensorId: string, value: number): void {
+    trackSensorValue(groupId: string, sensorId: string, value: number, name?: string): void {
         const group = this.sensorAcc.get(groupId);
         if (!group) return;
         const cur = group.get(sensorId);
         if (!cur) {
-            group.set(sensorId, { sum: value, min: value, max: value, n: 1 });
+            group.set(sensorId, { sum: value, min: value, max: value, n: 1, name: name ?? sensorId });
         } else {
             cur.sum += value;
             cur.n++;
             if (value < cur.min) cur.min = value;
             if (value > cur.max) cur.max = value;
+            if (name) cur.name = name;
         }
     }
 
@@ -150,7 +151,7 @@ export class DatabaseService {
         if (sGroup && sGroup.size > 0) {
             const entry: DailySensorStat = { date: dateStr, sensors: {} };
             for (const [sid, acc] of sGroup) {
-                entry.sensors[sid] = { min: +acc.min.toFixed(2), max: +acc.max.toFixed(2), avg: +(acc.sum / acc.n).toFixed(2), samples: acc.n };
+                entry.sensors[sid] = { name: acc.name, min: +acc.min.toFixed(2), max: +acc.max.toFixed(2), avg: +(acc.sum / acc.n).toFixed(2), samples: acc.n };
             }
             const list = this.statsCache.get(groupId) ?? [];
             const idx = list.findIndex(d => d.date === dateStr);
@@ -203,6 +204,7 @@ export class DatabaseService {
         const todayEntry: DailySensorStat = { date: dateStr + ' (heute)', sensors: {} };
         for (const [sid, acc] of sGroup) {
             todayEntry.sensors[sid] = {
+                name: acc.name,
                 min: +acc.min.toFixed(2),
                 max: +acc.max.toFixed(2),
                 avg: +(acc.sum / acc.n).toFixed(2),

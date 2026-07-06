@@ -34,13 +34,13 @@ class DatabaseService {
         this.energyAcc.set(groupId, new Map());
     }
     // ---- Sensordaten akkumulieren -----------------------------
-    trackSensorValue(groupId, sensorId, value) {
+    trackSensorValue(groupId, sensorId, value, name) {
         const group = this.sensorAcc.get(groupId);
         if (!group)
             return;
         const cur = group.get(sensorId);
         if (!cur) {
-            group.set(sensorId, { sum: value, min: value, max: value, n: 1 });
+            group.set(sensorId, { sum: value, min: value, max: value, n: 1, name: name ?? sensorId });
         }
         else {
             cur.sum += value;
@@ -49,6 +49,8 @@ class DatabaseService {
                 cur.min = value;
             if (value > cur.max)
                 cur.max = value;
+            if (name)
+                cur.name = name;
         }
     }
     // ---- Energiedaten akkumulieren ----------------------------
@@ -115,7 +117,7 @@ class DatabaseService {
         if (sGroup && sGroup.size > 0) {
             const entry = { date: dateStr, sensors: {} };
             for (const [sid, acc] of sGroup) {
-                entry.sensors[sid] = { min: +acc.min.toFixed(2), max: +acc.max.toFixed(2), avg: +(acc.sum / acc.n).toFixed(2), samples: acc.n };
+                entry.sensors[sid] = { name: acc.name, min: +acc.min.toFixed(2), max: +acc.max.toFixed(2), avg: +(acc.sum / acc.n).toFixed(2), samples: acc.n };
             }
             const list = this.statsCache.get(groupId) ?? [];
             const idx = list.findIndex(d => d.date === dateStr);
@@ -174,6 +176,7 @@ class DatabaseService {
         const todayEntry = { date: dateStr + ' (heute)', sensors: {} };
         for (const [sid, acc] of sGroup) {
             todayEntry.sensors[sid] = {
+                name: acc.name,
                 min: +acc.min.toFixed(2),
                 max: +acc.max.toFixed(2),
                 avg: +(acc.sum / acc.n).toFixed(2),

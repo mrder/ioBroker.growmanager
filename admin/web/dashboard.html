@@ -917,8 +917,16 @@ function renderStatsTable(data) {
   if (!data || data.length === 0) return '<p style="color:var(--text-dim);padding:20px">Noch keine Tagesdaten vorhanden.</p>';
   // Alle Sensor-IDs sammeln
   const sensorIds = [...new Set(data.flatMap(d => Object.keys(d.sensors ?? {})))];
+  // Anzeigename: erst aus dem name-Feld des neuesten Eintrags, dann Fallbacks
   const sensorLabels = { temperature:'Temp °C', humidity:'Feuchte %', vpd:'VPD kPa' };
-  const cols = sensorIds.map(id => sensorLabels[id] ?? id);
+  const cols = sensorIds.map(id => {
+    if (sensorLabels[id]) return sensorLabels[id];
+    for (const row of data) {
+      const s = row.sensors?.[id];
+      if (s && s.name && s.name !== id) return s.name;
+    }
+    return id;
+  });
   let html = `<table class="db-table"><thead><tr><th>Datum</th>${cols.map(c=>`<th>${c} Min</th><th>${c} Avg</th><th>${c} Max</th>`).join('')}</tr></thead><tbody>`;
   for (const row of data) {
     html += `<tr><td>${row.date}</td>`;

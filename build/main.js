@@ -1380,20 +1380,20 @@ class GrowManagerAdapter extends utils.Adapter {
         }
         // Sensor-Tagesstatistik akkumulieren
         const sensors = [
-            ['temperature', state.temperature],
-            ['humidity', state.humidity],
-            ['vpd', state.vpd],
+            ['temperature', 'Temperatur', state.temperature],
+            ['humidity', 'Luftfeuchte', state.humidity],
+            ['vpd', 'VPD', state.vpd],
         ];
-        for (const [sid, val] of sensors) {
+        for (const [sid, name, val] of sensors) {
             if (val !== null)
-                this.databaseService.trackSensorValue(config.id, sid, val);
+                this.databaseService.trackSensorValue(config.id, sid, val, name);
         }
         for (const [, ss] of state.sensors) {
             const sVal = typeof ss.processedValue === 'number' ? ss.processedValue : null;
             if (sVal !== null) {
                 const sConf = config.sensors.find(s => s.id === ss.id);
                 if (sConf && sConf.type !== 'door')
-                    this.databaseService.trackSensorValue(config.id, ss.id, sVal);
+                    this.databaseService.trackSensorValue(config.id, ss.id, sVal, sConf.name);
             }
         }
         // Soil-States schreiben (immer, auch wenn keine Zones konfiguriert)

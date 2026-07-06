@@ -1519,19 +1519,19 @@ class GrowManagerAdapter extends utils.Adapter {
         }
 
         // Sensor-Tagesstatistik akkumulieren
-        const sensors: Array<[string, number | null]> = [
-            ['temperature', state.temperature],
-            ['humidity', state.humidity],
-            ['vpd', state.vpd],
+        const sensors: Array<[string, string, number | null]> = [
+            ['temperature', 'Temperatur', state.temperature],
+            ['humidity', 'Luftfeuchte', state.humidity],
+            ['vpd', 'VPD', state.vpd],
         ];
-        for (const [sid, val] of sensors) {
-            if (val !== null) this.databaseService.trackSensorValue(config.id, sid, val);
+        for (const [sid, name, val] of sensors) {
+            if (val !== null) this.databaseService.trackSensorValue(config.id, sid, val, name);
         }
         for (const [, ss] of state.sensors) {
             const sVal = typeof ss.processedValue === 'number' ? ss.processedValue : null;
             if (sVal !== null) {
                 const sConf = config.sensors.find(s => s.id === ss.id);
-                if (sConf && sConf.type !== 'door') this.databaseService.trackSensorValue(config.id, ss.id, sVal);
+                if (sConf && sConf.type !== 'door') this.databaseService.trackSensorValue(config.id, ss.id, sVal, sConf.name);
             }
         }
 

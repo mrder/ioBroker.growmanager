@@ -2,6 +2,7 @@ import type { ILogger } from '../utils/logger';
 export interface DailySensorStat {
     date: string;
     sensors: Record<string, {
+        name: string;
         min: number;
         max: number;
         avg: number;
@@ -40,7 +41,7 @@ export declare class DatabaseService {
     private lastMidnightFlush;
     constructor(log: ILogger, setState: SetStateFn, getState: GetStateFn);
     loadGroup(groupId: string): Promise<void>;
-    trackSensorValue(groupId: string, sensorId: string, value: number): void;
+    trackSensorValue(groupId: string, sensorId: string, value: number, name?: string): void;
     trackActuatorOn(groupId: string, actuatorId: string, name: string): void;
     trackActuatorOff(groupId: string, actuatorId: string, ratedWatts: number): void;
     trackActuatorWh(groupId: string, actuatorId: string, name: string, deltaWh: number, durationMin: number): void;
