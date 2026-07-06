@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.18",
+    "version": "0.2.19",
     "news": {
+      "0.2.19": {
+        "en": "Fix Verlaufsdaten: today's live data visible immediately (no midnight wait); wind-sim fans now tracked in energy; extra Energy/Irrigation buttons removed",
+        "de": "Fix Verlaufsdaten: heutige Daten sofort sichtbar (kein Warten bis Mitternacht); Wind-Sim-Aktoren werden jetzt Energie-getrackt; extra Energie/Bewässerungs-Buttons entfernt"
+      },
       "0.2.18": {
         "en": "Dashboard: live watt display on actuator rows, dedicated Energy/Irrigation buttons, improved energy table with kWh totals and avg watt",
         "de": "Dashboard: Live-Watt auf Aktorzeilen, direkte Energie/Bewässerungs-Buttons, verbesserte Energietabelle mit kWh-Gesamtsummen und Ø-Leistung"

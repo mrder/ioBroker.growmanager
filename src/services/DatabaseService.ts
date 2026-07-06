@@ -193,11 +193,51 @@ export class DatabaseService {
     // ---- Getter für Dashboard-API ----------------------------
 
     getStats(groupId: string): DailySensorStat[] {
-        return this.statsCache.get(groupId) ?? [];
+        const dateStr = this.todayStr();
+        const historical = this.statsCache.get(groupId) ?? [];
+
+        // Heutigen Akkumulator einbauen (live, noch nicht geflusht)
+        const sGroup = this.sensorAcc.get(groupId);
+        if (!sGroup || sGroup.size === 0) return historical;
+
+        const todayEntry: DailySensorStat = { date: dateStr + ' (heute)', sensors: {} };
+        for (const [sid, acc] of sGroup) {
+            todayEntry.sensors[sid] = {
+                min: +acc.min.toFixed(2),
+                max: +acc.max.toFixed(2),
+                avg: +(acc.sum / acc.n).toFixed(2),
+                samples: acc.n,
+            };
+        }
+        // Nicht doppelt einfügen wenn bereits geflusht
+        const filtered = historical.filter(d => d.date !== dateStr && d.date !== todayEntry.date);
+        return [todayEntry, ...filtered];
     }
 
     getEnergy(groupId: string): DailyEnergyStat[] {
-        return this.energyCache.get(groupId) ?? [];
+        const dateStr = this.todayStr();
+        const historical = this.energyCache.get(groupId) ?? [];
+
+        // Heutigen Akkumulator einbauen (live, noch nicht geflusht)
+        const eGroup = this.energyAcc.get(groupId);
+        if (!eGroup || eGroup.size === 0) return historical;
+
+        const now = Date.now();
+        const todayEntry: DailyEnergyStat = { date: dateStr + ' (heute)', actuators: {} };
+        for (const [aid, acc] of eGroup) {
+            const extra = acc.lastOnTs > 0 ? (now - acc.lastOnTs) / 60_000 : 0;
+            const runtimeMin = acc.runtimeMin + extra;
+            // Ø-Watt aus abgeschlossenen Perioden hochrechnen für laufende Periode
+            const avgW = acc.runtimeMin > 0 ? (acc.wh / acc.runtimeMin) * 60 : 0;
+            const wh = acc.wh + (extra > 0 && avgW > 0 ? (avgW * extra / 60) : 0);
+            todayEntry.actuators[aid] = {
+                name: acc.name,
+                wh: +wh.toFixed(1),
+                runtimeMin: +runtimeMin.toFixed(1),
+            };
+        }
+        const filtered = historical.filter(d => d.date !== dateStr && d.date !== todayEntry.date);
+        return [todayEntry, ...filtered];
     }
 
     getIrrigation(groupId: string): IrrigationEvent[] {

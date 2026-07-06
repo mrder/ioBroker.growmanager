@@ -1427,11 +1427,9 @@ function groupCardHtml(g) {
     ${actHtml}
     ${alarmHtml}
     <div data-ls-bar="${g.id}">${lsBarHtml(g.id)}</div>
-    <div style="padding:6px 12px 10px;display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap">
+    <div style="padding:6px 12px 10px;display:flex;justify-content:flex-end;gap:6px">
       <button class="db-btn" onclick="showLs('${gid}','${g.name.replace(/'/g,"\\'")}')">🗓 Kalender</button>
-      <button class="db-btn" onclick="showDb('${gid}','${g.name.replace(/'/g,"\\'")}','energy')">⚡ Energie</button>
-      <button class="db-btn" onclick="showDb('${gid}','${g.name.replace(/'/g,"\\'")}','irrigation')">💧 Bewässerung</button>
-      <button class="db-btn" onclick="showDb('${gid}','${g.name.replace(/'/g,"\\'")}','stats')">📊 Verlaufsdaten</button>
+      <button class="db-btn" onclick="showDb('${gid}','${g.name.replace(/'/g,"\\'")}')">📊 Verlaufsdaten</button>
     </div>
   </div>`;
 }

@@ -1015,6 +1015,11 @@ class GrowManagerAdapter extends utils.Adapter {
                         await this.setActuatorState(act.commandStateId, wantsOn ? act.onValue : act.offValue);
                         this.setActuatorStateWithVerify(act, config.id, wantsOn ? act.onValue as boolean | number : act.offValue as boolean | number);
                         this.log.info(`Umluft ${act.name}: → ${wantsOn ? 'EIN' : 'AUS'} (windSimulator)`);
+                        // Energie-Tracking (Nennleistung)
+                        if (act.energyStateUnit !== 'kWh') {
+                            if (wantsOn) this.databaseService.trackActuatorOn(config.id, act.id, act.name);
+                            else if (act.ratedPowerW) this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW);
+                        }
                     }
                     continue;
                 }
