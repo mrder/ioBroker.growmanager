@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.23",
+    "version": "0.2.24",
     "news": {
+      "0.2.24": {
+        "en": "Fix Admin UI encoding: use closeBundle post-process to reliably escape all non-ASCII to \\uXXXX after Vite writes the IIFE bundle",
+        "de": "Fix Admin-UI-Encoding: closeBundle-Hook schreibt bundle nach Vite um und ersetzt alle Nicht-ASCII-Zeichen durch \\uXXXX"
+      },
       "0.2.23": {
         "en": "Fix Admin UI encoding: all non-ASCII characters escaped to \\uXXXX in bundle so ioBroker's charset-less HTTP header no longer garbles German text and emojis",
         "de": "Fix Admin-UI-Darstellung: alle Nicht-ASCII-Zeichen im Bundle als \\uXXXX kodiert, damit ioBroker ohne charset-Header keine Umlaute und Emojis mehr verstümmelt"
