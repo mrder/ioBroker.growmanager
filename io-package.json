@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.17",
+    "version": "0.2.18",
     "news": {
+      "0.2.18": {
+        "en": "Dashboard: live watt display on actuator rows, dedicated Energy/Irrigation buttons, improved energy table with kWh totals and avg watt",
+        "de": "Dashboard: Live-Watt auf Aktorzeilen, direkte Energie/Bewässerungs-Buttons, verbesserte Energietabelle mit kWh-Gesamtsummen und Ø-Leistung"
+      },
       "0.2.17": {
         "en": "Fix: AirSystemService.computeCirculationCommands no longer overrides windSimulator/schedule fans after tickCirculationActuators",
         "de": "Fix: AirSystemService überschreibt windSimulator/schedule-Lüfter nach tickCirculationActuators nicht mehr — Gerät schaltet jetzt korrekt AUS"

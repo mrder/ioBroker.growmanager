@@ -240,6 +240,8 @@
   .act-soll-label { font-size: 10px; color: var(--text-dim); margin-left: 4px; }
   .act-ist-label  { font-size: 10px; color: var(--text-dim); margin-left: 8px; }
   .act-countdown { font-size: 10px; color: var(--orange); background: rgba(255,152,0,0.1); border: 1px solid rgba(255,152,0,0.35); border-radius: 3px; padding: 1px 6px; margin-left: 6px; font-variant-numeric: tabular-nums; cursor: help; }
+  .act-power { font-size: 10px; color: var(--green-light); background: rgba(102,187,106,0.1); border: 1px solid rgba(102,187,106,0.35); border-radius: 3px; padding: 1px 6px; margin-left: 6px; font-variant-numeric: tabular-nums; }
+  .act-power-rated { color: var(--text-dim); background: rgba(128,128,128,0.08); border-color: rgba(128,128,128,0.25); }
   .act-manual-lock { font-size: 10px; color: var(--yellow); background: rgba(251,192,45,0.1); border: 1px solid rgba(251,192,45,0.35); border-radius: 3px; padding: 1px 6px; margin-left: 6px; }
   .act-toggle {
     background: none; border: 1px solid var(--border); border-radius: 4px;
@@ -859,11 +861,11 @@ let dbCurrentGroup = null;
 let dbCurrentTab = 'stats';
 let dbCurrentData = [];
 
-async function showDb(groupId, groupName) {
+async function showDb(groupId, groupName, tab = 'stats') {
   dbCurrentGroup = groupId;
   document.getElementById('dbTitle').textContent = `Verlaufsdaten – ${groupName}`;
   document.getElementById('dbPopup').classList.add('visible');
-  await dbSwitchTab('stats');
+  await dbSwitchTab(tab);
 }
 function closeDb() {
   document.getElementById('dbPopup').classList.remove('visible');
@@ -913,18 +915,50 @@ function renderEnergyTable(data) {
   const actIds = [...new Set(data.flatMap(d => Object.keys(d.actuators ?? {})))];
   const names = {};
   data.forEach(d => Object.entries(d.actuators ?? {}).forEach(([id,a]) => { names[id] = a.name; }));
-  let html = `<table class="db-table"><thead><tr><th>Datum</th>${actIds.map(id=>`<th>${names[id]??id} Wh</th><th>Laufzeit</th>`).join('')}</tr></thead><tbody>`;
+
+  // Gesamtsummen pro Aktor berechnen
+  const totals = {};
+  actIds.forEach(id => { totals[id] = { wh: 0, runtimeMin: 0 }; });
+  data.forEach(d => actIds.forEach(id => {
+    const a = d.actuators?.[id];
+    if (a) { totals[id].wh += a.wh; totals[id].runtimeMin += a.runtimeMin; }
+  }));
+
+  const fmtRuntime = min => {
+    const h = Math.floor(min/60), m = Math.round(min%60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
+  const fmtAvgW = (wh, runtimeMin) => runtimeMin > 0 ? (wh / (runtimeMin/60)).toFixed(0) + ' W' : '–';
+
+  let html = `<table class="db-table"><thead><tr><th>Datum</th>`;
+  actIds.forEach(id => {
+    html += `<th>${names[id]??id}<br><small style="color:var(--text-dim);font-weight:400">Wh / kWh</small></th>`;
+    html += `<th><small style="color:var(--text-dim);font-weight:400">Laufzeit / Ø W</small></th>`;
+  });
+  html += '</tr></thead><tbody>';
+
   for (const row of data) {
     html += `<tr><td>${row.date}</td>`;
     for (const id of actIds) {
       const a = row.actuators?.[id];
       if (a) {
-        const h = Math.floor(a.runtimeMin/60), m = Math.round(a.runtimeMin%60);
-        html += `<td>${a.wh.toFixed(0)} Wh</td><td>${h}h ${m}m</td>`;
+        const kwh = (a.wh / 1000).toFixed(3);
+        html += `<td>${a.wh.toFixed(0)} Wh<br><small style="color:var(--text-dim)">${kwh} kWh</small></td>`;
+        html += `<td>${fmtRuntime(a.runtimeMin)}<br><small style="color:var(--text-dim)">${fmtAvgW(a.wh, a.runtimeMin)}</small></td>`;
       } else html += `<td colspan="2" style="color:var(--text-dim)">–</td>`;
     }
     html += '</tr>';
   }
+
+  // Summenzeile
+  html += `<tr style="font-weight:600;border-top:2px solid var(--border)"><td>Gesamt (${data.length} Tage)</td>`;
+  actIds.forEach(id => {
+    const t = totals[id];
+    html += `<td>${t.wh.toFixed(0)} Wh<br><small style="color:var(--accent)">${(t.wh/1000).toFixed(3)} kWh</small></td>`;
+    html += `<td>${fmtRuntime(t.runtimeMin)}<br><small style="color:var(--text-dim)">${fmtAvgW(t.wh, t.runtimeMin)}</small></td>`;
+  });
+  html += '</tr>';
+
   return html + '</tbody></table>';
 }
 
@@ -1122,10 +1156,16 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
     ? `<span class="act-shared-badge" title="Geteilt mit ${a.sharedParticipants.length} Gruppe(n) · ${a.sharedVotingMode ?? 'any'}">⇄ ${a.sharedParticipants.length}</span>`
     : '';
 
+  const powerHtml = (a.power !== null && a.power !== undefined)
+    ? `<span class="act-power" title="Live-Leistung">⚡${a.power.toFixed(0)} W</span>`
+    : (a.ratedPowerW && istOn)
+      ? `<span class="act-power act-power-rated" title="Nennleistung (geschätzt)">~${a.ratedPowerW} W</span>`
+      : '';
+
   return `<div class="actuator-row${unreachable ? ' act-unreachable' : ''}">
     <div class="act-dot ${ledClass}"></div>
     <span class="act-name">${t.icon} ${a.name}</span>
-    ${sharedBadge}${healthIcon}${modeBadge}${sollHtml}${istHtml}${countdownHtml}
+    ${sharedBadge}${healthIcon}${modeBadge}${sollHtml}${istHtml}${countdownHtml}${powerHtml}
     ${ctrlBtns}
   </div>`;
 }
@@ -1387,9 +1427,11 @@ function groupCardHtml(g) {
     ${actHtml}
     ${alarmHtml}
     <div data-ls-bar="${g.id}">${lsBarHtml(g.id)}</div>
-    <div style="padding:6px 12px 10px;display:flex;justify-content:flex-end;gap:6px">
+    <div style="padding:6px 12px 10px;display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap">
       <button class="db-btn" onclick="showLs('${gid}','${g.name.replace(/'/g,"\\'")}')">🗓 Kalender</button>
-      <button class="db-btn" onclick="showDb('${gid}','${g.name.replace(/'/g,"\\'")}')">📊 Verlaufsdaten</button>
+      <button class="db-btn" onclick="showDb('${gid}','${g.name.replace(/'/g,"\\'")}','energy')">⚡ Energie</button>
+      <button class="db-btn" onclick="showDb('${gid}','${g.name.replace(/'/g,"\\'")}','irrigation')">💧 Bewässerung</button>
+      <button class="db-btn" onclick="showDb('${gid}','${g.name.replace(/'/g,"\\'")}','stats')">📊 Verlaufsdaten</button>
     </div>
   </div>`;
 }

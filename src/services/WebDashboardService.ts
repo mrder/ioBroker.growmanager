@@ -28,6 +28,8 @@ export interface DashboardActuatorState {
     blockSecondsLeft?: number;
     windSimIsOn?: boolean;
     windSimNextChangeAt?: number;
+    power?: number | null;
+    ratedPowerW?: number;
 }
 
 export interface DashboardAlarm {

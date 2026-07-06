@@ -1308,6 +1308,8 @@ class GrowManagerAdapter extends utils.Adapter {
                             blockSecondsLeft: blockSecondsLeft && blockSecondsLeft > 0 ? blockSecondsLeft : undefined,
                             windSimIsOn: wsInfo?.isOn,
                             windSimNextChangeAt: wsInfo?.nextChangeAt,
+                            power: as?.power ?? null,
+                            ratedPowerW: a.ratedPowerW,
                         };
                     });
 
