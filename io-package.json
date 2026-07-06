@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.20",
+    "version": "0.2.21",
     "news": {
+      "0.2.21": {
+        "en": "Fix: actuator IST state correctly initialized on adapter start (feedbackStateId + powerStateId read at startup); admin bundle rebuilt clean",
+        "de": "Fix: Aktor IST-Zustand beim Adapter-Start korrekt initialisiert (feedbackStateId + powerStateId werden beim Start einmalig gelesen); Admin-Bundle sauber neu gebaut"
+      },
       "0.2.20": {
         "en": "Camera: snapshot thumbnail (128×128) with hover-popup in dashboard, camera config tab per group in admin; Plant.id AI analysis with manual image upload and crop tool; Plant.id API key in global settings",
         "de": "Kamera: Snapshot-Thumbnail (128×128) mit Hover-Popup im Dashboard, Kamera-Konfigurations-Tab pro Gruppe im Admin; Plant.id KI-Analyse mit manuellem Bild-Upload und Crop-Tool; Plant.id API-Key in globalen Einstellungen"
