@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.14",
+    "version": "0.2.15",
     "news": {
+      "0.2.15": {
+        "en": "Fix wind-sim IST display: use windSimIsOn as truth instead of delayed device feedback (no more brief EIN spikes during AUS phase)",
+        "de": "Fix WindSim IST-Anzeige: windSimIsOn als Wahrheit statt verzögertem Geräte-Feedback (keine kurzen EIN-Peaks mehr während AUS-Phase)"
+      },
       "0.2.14": {
         "en": "SharedActor 'any' mode: soft owner veto — owner OFF blocks participants unless urgency >= 0.7 (critical need wins)",
         "de": "SharedAktor 'any'-Modus: weiches Eigentümer-Veto — Eigentümer-AUS sperrt Teilnehmer, außer bei kritischem Bedarf (urgency >= 0.7)"
