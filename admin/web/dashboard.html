@@ -1570,18 +1570,20 @@ function refreshCamThumb(groupId, url) {
   if (!el) return;
   const tmp = new Image();
   tmp.onload = () => { el.src = tmp.src; };
-  // onerror: alte Bild bleibt stehen (kein Flash)
+  // onerror: altes Bild bleibt stehen (kein Flash bei laufender Snapshot-Generierung)
   tmp.src = url + '?t=' + Date.now();
 }
 
-// Initialer Ladeversuch für alle Thumbnails nach Render
+// Nach re-render: nur Thumbnails laden die noch kein Bild haben
 function initCamThumbs() {
   for (const [gid, url] of Object.entries(camUrls)) {
-    refreshCamThumb(gid, url);
+    const el = document.getElementById('cam-thumb-' + gid);
+    // Nur laden wenn src-Attribut noch leer (frisch gerendert)
+    if (el && !el.getAttribute('src')) refreshCamThumb(gid, url);
   }
 }
 
-// Auto-Refresh alle 10 Sekunden
+// Auto-Refresh alle 10 Sekunden (unabhängig von SSE re-renders)
 setInterval(() => {
   for (const [gid, url] of Object.entries(camUrls)) {
     refreshCamThumb(gid, url);
@@ -1647,26 +1649,26 @@ function cropClearSelection() {
   if (cropOverlay) cropOverlay.style.display = 'none';
 }
 
-function loadImageOntoCanvas(src, label, onDone) {
-  buildCropModal();
+function loadImageOntoCanvas(src, label, isCrossOrigin) {
   const statusEl = cropModal.querySelector('#crop-status');
   statusEl.textContent = 'Bild wird geladen...';
   if (label) cropModal.querySelector('#crop-filename').textContent = label;
+  cropCanvas.width = 10; cropCanvas.height = 10; // Reset
+  cropRect = null;
+  if (cropOverlay) cropOverlay.style.display = 'none';
+
   const img = new Image();
-  img.crossOrigin = 'anonymous';
+  if (isCrossOrigin) img.crossOrigin = 'anonymous';
   img.onload = () => {
-    const maxW = Math.min(img.naturalWidth, window.innerWidth * 0.85);
+    const maxW = Math.min(img.naturalWidth, Math.floor(window.innerWidth * 0.85));
     const scale = maxW / img.naturalWidth;
-    cropCanvas.width = img.naturalWidth * scale;
-    cropCanvas.height = img.naturalHeight * scale;
+    cropCanvas.width = Math.floor(img.naturalWidth * scale);
+    cropCanvas.height = Math.floor(img.naturalHeight * scale);
     cropCtx.drawImage(img, 0, 0, cropCanvas.width, cropCanvas.height);
-    cropRect = null;
-    cropOverlay.style.display = 'none';
-    statusEl.textContent = '';
-    if (onDone) onDone();
+    statusEl.textContent = isCrossOrigin ? '' : 'Tipp: Ohne CORS-Header kann kein Ausschnitt exportiert werden — lade stattdessen ein Foto hoch.';
   };
   img.onerror = () => {
-    statusEl.textContent = 'Bild konnte nicht geladen werden.';
+    statusEl.textContent = 'Bild konnte nicht geladen werden. Bitte Foto hochladen.';
   };
   img.src = src;
 }
@@ -1674,10 +1676,11 @@ function loadImageOntoCanvas(src, label, onDone) {
 function openAnalysisModal(groupId, url) {
   cropGroupId = groupId;
   buildCropModal();
+  // Modal sofort öffnen — nicht auf Bildladevorgang warten
+  cropModal.classList.add('open');
   const ts = new Date().toLocaleTimeString('de-DE');
-  loadImageOntoCanvas(url + '?t=' + Date.now(), 'Kamera-Snapshot ' + ts, () => {
-    cropModal.classList.add('open');
-  });
+  // Erst ohne crossOrigin versuchen (lokale Kameras haben oft keine CORS-Header)
+  loadImageOntoCanvas(url + '?t=' + Date.now(), 'Kamera-Snapshot ' + ts, false);
 }
 
 function cropUploadFile() {
@@ -1689,9 +1692,8 @@ function cropUploadFile() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
-      loadImageOntoCanvas(ev.target.result, file.name, () => {
-        // modal already open
-      });
+      // data-URL from FileReader: same-origin, crossOrigin=true so toDataURL works
+      loadImageOntoCanvas(ev.target.result, file.name, true);
     };
     reader.readAsDataURL(file);
   };
@@ -1721,7 +1723,11 @@ async function doCropAnalyze() {
     }
     base64 = offscreen.toDataURL('image/jpeg', 0.85);
   } catch(e) {
-    statusEl.textContent = '⚠ Bild konnte nicht verarbeitet werden: ' + e;
+    // SecurityError: canvas tainted by cross-origin image (no CORS headers on camera)
+    const isCors = String(e).toLowerCase().includes('security') || String(e).toLowerCase().includes('taint');
+    statusEl.textContent = isCors
+      ? '⚠ Kamera-URL hat keine CORS-Erlaubnis. Bitte Foto hochladen (📂 Anderes Bild laden).'
+      : '⚠ Fehler: ' + e;
     cropModal.querySelector('#crop-analyze-btn').disabled = false;
     return;
   }

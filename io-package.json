@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.26",
+    "version": "0.2.27",
     "news": {
+      "0.2.27": {
+        "en": "Fix dashboard camera: modal opens immediately on click; thumbnail only reloads when src empty (no flicker on SSE re-render); CORS-safe canvas with clear upload fallback message",
+        "de": "Fix Dashboard Kamera: Modal oeffnet sofort beim Klick; Thumbnail laedt nur neu wenn src leer (kein Flackern bei SSE re-render); CORS-sicheres Canvas mit klarer Upload-Fallback-Meldung"
+      },
       "0.2.26": {
         "en": "Dashboard camera: click thumbnail to open analysis modal with crop selection and file upload; buffered auto-refresh every 10s (no flash on snapshot generation)",
         "de": "Dashboard Kamera: Thumbnail klicken oeffnet Analyse-Modal mit Bereichsauswahl und Datei-Upload; gepufferter Auto-Refresh alle 10s (kein Flackern waehrend Snapshot-Erstellung)"
