@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.25",
+    "version": "0.2.26",
     "news": {
+      "0.2.26": {
+        "en": "Dashboard camera: click thumbnail to open analysis modal with crop selection and file upload; buffered auto-refresh every 10s (no flash on snapshot generation)",
+        "de": "Dashboard Kamera: Thumbnail klicken oeffnet Analyse-Modal mit Bereichsauswahl und Datei-Upload; gepufferter Auto-Refresh alle 10s (kein Flackern waehrend Snapshot-Erstellung)"
+      },
       "0.2.25": {
         "en": "Fix Admin UI: restore clean UTF-8 source (camera commit double-encoded entire App.tsx), re-add camera tab and Plant.id key with ASCII-safe strings, verified bundle is pure ASCII with correct \\uXXXX escaping",
         "de": "Fix Admin-UI: sauberes UTF-8 wiederhergestellt (Kamera-Commit hatte gesamtes App.tsx doppelt-enkodiert), Kamera-Tab und Plant.id-Key neu eingefuegt mit ASCII-sicheren Strings, Bundle verifiziert rein-ASCII mit korrekten \\uXXXX-Escapes"
