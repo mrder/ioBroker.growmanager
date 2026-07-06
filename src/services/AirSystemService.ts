@@ -209,7 +209,11 @@ export class AirSystemService {
         afterIrrigation: boolean
     ): Map<string, boolean> {
         const commands = new Map<string, boolean>();
-        const circulationFans = config.actuators.filter(a => a.type === 'circulationFan' && a.enabled);
+        // windSimulator/schedule-Fans werden von tickCirculationActuators gesteuert — hier überspringen
+        const circulationFans = config.actuators.filter(
+            a => a.type === 'circulationFan' && a.enabled &&
+                (!a.circulationMode || a.circulationMode === 'alwaysOn')
+        );
 
         if (circulationFans.length === 0) return commands;
 
