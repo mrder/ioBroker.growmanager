@@ -66,6 +66,7 @@ class GrowManagerAdapter extends utils.Adapter {
 
     // Laufzeit-Zustände
     private readonly groupStates = new Map<string, GroupState>();
+    private readonly votingResults = new Map<string, boolean | number>(); // letzte Voting-Entscheidung je Aktor-ID
     private readonly lightChangeTimes = new Map<string, number>();
     private readonly subscribedStateIds = new Set<string>();
 
@@ -756,6 +757,9 @@ class GrowManagerAdapter extends utils.Adapter {
                         currentCommand,
                     );
 
+                    // Voting-Ergebnis für Dashboard-Anzeige speichern (unabhängig von canSwitch)
+                    this.votingResults.set(actuatorConfig.id, finalCommand);
+
                     const can = this.actuatorService.canSwitch(actuatorConfig, finalCommand);
                     if (can.allowed) {
                         const changed = this.actuatorService.recordCommand(actuatorConfig, finalCommand);
@@ -1337,11 +1341,15 @@ class GrowManagerAdapter extends utils.Adapter {
                         const wsInfo = a.circulationMode === 'windSimulator'
                             ? this.actuatorService.getWindSimInfo(a.id)
                             : undefined;
+                        // Für shared Aktoren mit Teilnehmern: Voting-Ergebnis als Soll anzeigen
+                        const displayCommand = (a.shared && a.sharedParticipants?.length)
+                            ? (this.votingResults.get(a.id) ?? as?.requested ?? null)
+                            : (as?.requested ?? null);
                         return {
                             id: a.id,
                             name: a.name,
                             type: a.type,
-                            command: as?.requested ?? null,
+                            command: displayCommand,
                             effectiveState: as?.effectiveState ?? null,
                             feedback: as?.feedback ?? null,
                             health: as?.health ?? 'unknown',

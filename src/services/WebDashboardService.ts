@@ -256,6 +256,10 @@ export class WebDashboardService {
     start(port: number, bindAddress: string): void {
         const htmlPath = path.join(this.adapterDir, 'admin', 'web', 'dashboard.html');
         this.strainsFilePath = path.join(this.adapterDir, 'strains.json');
+        // Standardsorten beim Start anlegen wenn noch keine Datei existiert
+        if (!fs.existsSync(this.strainsFilePath)) {
+            this.loadStrains();
+        }
         try {
             this.dashboardHtml = fs.readFileSync(htmlPath, 'utf-8');
         } catch {
@@ -273,10 +277,22 @@ export class WebDashboardService {
     private loadStrains(): StrainEntry[] {
         try {
             if (fs.existsSync(this.strainsFilePath)) {
-                return JSON.parse(fs.readFileSync(this.strainsFilePath, 'utf-8')) as StrainEntry[];
+                const parsed = JSON.parse(fs.readFileSync(this.strainsFilePath, 'utf-8')) as StrainEntry[];
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
             }
         } catch { /* ignore */ }
-        // Erste Nutzung: Standardsorten anlegen
+        // Erste Nutzung: mitgelieferte strains.json aus Adapter-Verzeichnis probieren
+        const bundledPath = path.join(this.adapterDir, 'strains.json');
+        if (bundledPath !== this.strainsFilePath && fs.existsSync(bundledPath)) {
+            try {
+                const parsed = JSON.parse(fs.readFileSync(bundledPath, 'utf-8')) as StrainEntry[];
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    this.saveStrains(parsed);
+                    return parsed;
+                }
+            } catch { /* ignore */ }
+        }
+        // Fallback: hardcodierte Defaults
         const now = Date.now();
         const seeded = DEFAULT_STRAINS.map(s => ({ ...s, createdAt: now, updatedAt: now }));
         this.saveStrains(seeded);

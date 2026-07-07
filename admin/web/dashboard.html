@@ -618,7 +618,6 @@
 <div class="header">
   <div class="header-title">🌿 GrowManager</div>
   <div class="header-status">
-    <button class="wiki-btn" onclick="wikiOpen()">📖 Sortenwiki</button>
     <span class="last-update" id="lastUpdate">–</span>
     <span id="connDot" class="conn-dot"></span>
     <span id="connLabel">Verbinde…</span>
@@ -1669,7 +1668,8 @@ function renderStats(state) {
     <div class="stat-chip"><span class="label">Alarme</span>
       <span class="value" style="color:${state.activeAlarms>0?'var(--red)':'var(--green-light)'}">${state.activeAlarms}</span></div>
     <div class="stat-chip"><span class="label">Version</span>
-      <span class="value" style="color:var(--text-dim)">${state.adapterVersion}</span></div>`;
+      <span class="value" style="color:var(--text-dim)">${state.adapterVersion}</span></div>
+    <button class="wiki-btn" onclick="wikiOpen()">📖 Sortenwiki</button>`;
 }
 
 function renderAlarmBanner(state) {

@@ -1,15 +1,19 @@
-{
+﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.40",
+    "version": "0.2.41",
     "news": {
+      "0.2.41": {
+        "en": "Fix shared actuator Soll display (voting result shown, not owner's local command); Wiki button moved to stats bar next to Version; strains.json seeded on adapter start and bundled in repo",
+        "de": "Fix geteilter Aktor Soll-Anzeige (Voting-Ergebnis statt Eigentuemerbefehl); Wiki-Button in Stats-Leiste neben Version verschoben; strains.json wird beim Adapter-Start angelegt und liegt im Repo"
+      },
       "0.2.40": {
         "en": "Security fixes: XSS prevention in Sortenwiki (esc() helper applied to all user-controlled innerHTML); event delegation replaces inline onclick for strain list items; wikiLoad/wikiDelete now check HTTP response status; wikiStrains array guard; numeric field null-guards in strain detail view; importConfig sends callback before restart(); WebDashboardService PUT returns 404 for unknown strain IDs; DEFAULT_STRAINS timestamps consistent at first seed",
         "de": "Sicherheitsfixes: XSS-Schutz in Sortenwiki (esc()-Helper fuer alle nutzergesteuerten innerHTML-Einfuegungen); Event-Delegation ersetzt inline onclick fuer Sorten-Listenelemente; wikiLoad/wikiDelete pruefen jetzt HTTP-Status; wikiStrains-Array-Guard; Null-Guards fuer numerische Felder in der Sortendetailansicht; importConfig sendet Callback vor restart(); WebDashboardService PUT gibt 404 fuer unbekannte Sorten-IDs zurueck; DEFAULT_STRAINS Timestamps konsistent beim ersten Seed"
       },
       "0.2.39": {
-        "en": "Sortenwiki: global strain database accessible via header button — add/edit/delete strains with growth/bloom times, temp/humidity/VPD targets, aroma, effect, THC/CBD. Pre-loaded: Dante Inferno, Purple Punch, Seriousa. Stored in strains.json on the adapter host.",
-        "de": "Sortenwiki: globale Sortendatenbank ueber Header-Button erreichbar — Sorten anlegen/bearbeiten/loeschen mit Wuchs-/Bluetezeiten, Temp/Feuchte/VPD-Zielwerten, Aroma, Wirkung, THC/CBD. Vorbelegt mit: Dante Inferno, Purple Punch, Seriousa. Gespeichert in strains.json auf dem Adapter-Host."
+        "en": "Sortenwiki: global strain database accessible via header button â€” add/edit/delete strains with growth/bloom times, temp/humidity/VPD targets, aroma, effect, THC/CBD. Pre-loaded: Dante Inferno, Purple Punch, Seriousa. Stored in strains.json on the adapter host.",
+        "de": "Sortenwiki: globale Sortendatenbank ueber Header-Button erreichbar â€” Sorten anlegen/bearbeiten/loeschen mit Wuchs-/Bluetezeiten, Temp/Feuchte/VPD-Zielwerten, Aroma, Wirkung, THC/CBD. Vorbelegt mit: Dante Inferno, Purple Punch, Seriousa. Gespeichert in strains.json auf dem Adapter-Host."
       },
       "0.2.38": {
         "en": "Fix actuator sync after restart: shared supply/exhaust fans now controlled exclusively via voting (no double-command with air system); owner vote now uses current climate need instead of stale requested; air system adds setActuatorStateWithVerify for non-shared fans; supplyCommand=false no longer skips the supply fan OFF command",
@@ -29,7 +33,7 @@
       },
       "0.2.34": {
         "en": "Fix Admin dashboard live data: use iobSendTo instead of legacy sendTo, convert Map to plain object in getGroupState, show actuator states and alarm severity; fix actuator sync on restart via needsSync flag",
-        "de": "Admin-Dashboard Live-Daten: iobSendTo statt veraltetem sendTo, Map-Serialisierung in getGroupState gefixt, Aktor-Zustände und Alarme werden angezeigt; Aktor-Sync nach Neustart via needsSync-Flag"
+        "de": "Admin-Dashboard Live-Daten: iobSendTo statt veraltetem sendTo, Map-Serialisierung in getGroupState gefixt, Aktor-ZustÃ¤nde und Alarme werden angezeigt; Aktor-Sync nach Neustart via needsSync-Flag"
       },
       "0.2.33": {
         "en": "Dashboard: camera thumbnail and plant analysis moved below actuator list",
@@ -73,7 +77,7 @@
       },
       "0.2.23": {
         "en": "Fix Admin UI encoding: all non-ASCII characters escaped to \\uXXXX in bundle so ioBroker's charset-less HTTP header no longer garbles German text and emojis",
-        "de": "Fix Admin-UI-Darstellung: alle Nicht-ASCII-Zeichen im Bundle als \\uXXXX kodiert, damit ioBroker ohne charset-Header keine Umlaute und Emojis mehr verstümmelt"
+        "de": "Fix Admin-UI-Darstellung: alle Nicht-ASCII-Zeichen im Bundle als \\uXXXX kodiert, damit ioBroker ohne charset-Header keine Umlaute und Emojis mehr verstÃ¼mmelt"
       },
       "0.2.22": {
         "en": "Fix energy tracking: actuators already ON at startup now tracked immediately; W-type power sensors (load_power) accumulate real Wh per sample; all actuators appear in energy table",
@@ -84,64 +88,64 @@
         "de": "Fix: Aktor IST-Zustand beim Adapter-Start korrekt initialisiert (feedbackStateId + powerStateId werden beim Start einmalig gelesen); Admin-Bundle sauber neu gebaut"
       },
       "0.2.20": {
-        "en": "Camera: snapshot thumbnail (128×128) with hover-popup in dashboard, camera config tab per group in admin; Plant.id AI analysis with manual image upload and crop tool; Plant.id API key in global settings",
-        "de": "Kamera: Snapshot-Thumbnail (128×128) mit Hover-Popup im Dashboard, Kamera-Konfigurations-Tab pro Gruppe im Admin; Plant.id KI-Analyse mit manuellem Bild-Upload und Crop-Tool; Plant.id API-Key in globalen Einstellungen"
+        "en": "Camera: snapshot thumbnail (128Ã—128) with hover-popup in dashboard, camera config tab per group in admin; Plant.id AI analysis with manual image upload and crop tool; Plant.id API key in global settings",
+        "de": "Kamera: Snapshot-Thumbnail (128Ã—128) mit Hover-Popup im Dashboard, Kamera-Konfigurations-Tab pro Gruppe im Admin; Plant.id KI-Analyse mit manuellem Bild-Upload und Crop-Tool; Plant.id API-Key in globalen Einstellungen"
       },
       "0.2.19": {
         "en": "Fix Verlaufsdaten: today's live data visible immediately (no midnight wait); wind-sim fans now tracked in energy; extra Energy/Irrigation buttons removed",
-        "de": "Fix Verlaufsdaten: heutige Daten sofort sichtbar (kein Warten bis Mitternacht); Wind-Sim-Aktoren werden jetzt Energie-getrackt; extra Energie/Bewässerungs-Buttons entfernt"
+        "de": "Fix Verlaufsdaten: heutige Daten sofort sichtbar (kein Warten bis Mitternacht); Wind-Sim-Aktoren werden jetzt Energie-getrackt; extra Energie/BewÃ¤sserungs-Buttons entfernt"
       },
       "0.2.18": {
         "en": "Dashboard: live watt display on actuator rows, dedicated Energy/Irrigation buttons, improved energy table with kWh totals and avg watt",
-        "de": "Dashboard: Live-Watt auf Aktorzeilen, direkte Energie/Bewässerungs-Buttons, verbesserte Energietabelle mit kWh-Gesamtsummen und Ø-Leistung"
+        "de": "Dashboard: Live-Watt auf Aktorzeilen, direkte Energie/BewÃ¤sserungs-Buttons, verbesserte Energietabelle mit kWh-Gesamtsummen und Ã˜-Leistung"
       },
       "0.2.17": {
         "en": "Fix: AirSystemService.computeCirculationCommands no longer overrides windSimulator/schedule fans after tickCirculationActuators",
-        "de": "Fix: AirSystemService überschreibt windSimulator/schedule-Lüfter nach tickCirculationActuators nicht mehr — Gerät schaltet jetzt korrekt AUS"
+        "de": "Fix: AirSystemService Ã¼berschreibt windSimulator/schedule-LÃ¼fter nach tickCirculationActuators nicht mehr â€” GerÃ¤t schaltet jetzt korrekt AUS"
       },
       "0.2.16": {
         "en": "Revert incorrect wind-sim IST display override; IST always reflects real device feedback",
-        "de": "Revert fehlerhafte WindSim IST-Anzeige-Überschreibung; IST zeigt immer echten Gerätezustand"
+        "de": "Revert fehlerhafte WindSim IST-Anzeige-Ãœberschreibung; IST zeigt immer echten GerÃ¤tezustand"
       },
       "0.2.15": {
         "en": "Fix wind-sim IST display: use windSimIsOn as truth instead of delayed device feedback (no more brief EIN spikes during AUS phase)",
-        "de": "Fix WindSim IST-Anzeige: windSimIsOn als Wahrheit statt verzögertem Geräte-Feedback (keine kurzen EIN-Peaks mehr während AUS-Phase)"
+        "de": "Fix WindSim IST-Anzeige: windSimIsOn als Wahrheit statt verzÃ¶gertem GerÃ¤te-Feedback (keine kurzen EIN-Peaks mehr wÃ¤hrend AUS-Phase)"
       },
       "0.2.14": {
-        "en": "SharedActor 'any' mode: soft owner veto — owner OFF blocks participants unless urgency >= 0.7 (critical need wins)",
-        "de": "SharedAktor 'any'-Modus: weiches Eigentümer-Veto — Eigentümer-AUS sperrt Teilnehmer, außer bei kritischem Bedarf (urgency >= 0.7)"
+        "en": "SharedActor 'any' mode: soft owner veto â€” owner OFF blocks participants unless urgency >= 0.7 (critical need wins)",
+        "de": "SharedAktor 'any'-Modus: weiches EigentÃ¼mer-Veto â€” EigentÃ¼mer-AUS sperrt Teilnehmer, auÃŸer bei kritischem Bedarf (urgency >= 0.7)"
       },
       "0.2.13": {
-        "en": "SharedActor 'any' mode: owner veto — owner's OFF decision overrides all participant ON votes",
-        "de": "SharedAktor 'any'-Modus: Eigentümer-Veto — Eigentümer-AUS überstimmt alle Teilnehmer-EIN-Stimmen"
+        "en": "SharedActor 'any' mode: owner veto â€” owner's OFF decision overrides all participant ON votes",
+        "de": "SharedAktor 'any'-Modus: EigentÃ¼mer-Veto â€” EigentÃ¼mer-AUS Ã¼berstimmt alle Teilnehmer-EIN-Stimmen"
       },
       "0.2.12": {
         "en": "Dehumidifier temperature guard: only runs when temp <= setpoint (cold side); if temp too high, exhaust fan handles VPD instead",
-        "de": "Entfeuchter Temperatur-Guard: läuft nur wenn Temp ≤ Solltemperatur; bei Übertemperatur übernimmt Abluft die VPD-Regelung"
+        "de": "Entfeuchter Temperatur-Guard: lÃ¤uft nur wenn Temp â‰¤ Solltemperatur; bei Ãœbertemperatur Ã¼bernimmt Abluft die VPD-Regelung"
       },
       "0.2.11": {
         "en": "Fix: dehumidifier no longer runs when VPD is too high (would worsen it); only runs when VPD is too low",
-        "de": "Fix: Entfeuchter läuft nicht mehr wenn VPD zu hoch ist (würde es verschlimmern); läuft nur noch wenn VPD zu niedrig"
+        "de": "Fix: Entfeuchter lÃ¤uft nicht mehr wenn VPD zu hoch ist (wÃ¼rde es verschlimmern); lÃ¤uft nur noch wenn VPD zu niedrig"
       },
       "0.2.10": {
-        "en": "Fix Tag/Nacht display: transition phase shown as '⇄ Übergang' instead of 'Tag'; isDay now only true for actual day",
-        "de": "Tag/Nacht-Anzeige korrigiert: Übergangsphase zeigt '⇄ Übergang' statt 'Tag'; isDay ist nur noch bei echtem Tag true"
+        "en": "Fix Tag/Nacht display: transition phase shown as 'â‡„ Ãœbergang' instead of 'Tag'; isDay now only true for actual day",
+        "de": "Tag/Nacht-Anzeige korrigiert: Ãœbergangsphase zeigt 'â‡„ Ãœbergang' statt 'Tag'; isDay ist nur noch bei echtem Tag true"
       },
       "0.2.9": {
         "en": "Fix: climate controller no longer overrides wind-sim/schedule circulation fans via executeDecision",
-        "de": "Fix: Klimaregler überschreibt Umluft-Aktoren im Windsimulator-/Zeitfenster-Modus nicht mehr über executeDecision"
+        "de": "Fix: Klimaregler Ã¼berschreibt Umluft-Aktoren im Windsimulator-/Zeitfenster-Modus nicht mehr Ã¼ber executeDecision"
       },
       "0.2.8": {
         "en": "Fix wind-sim countdown: show correct time immediately on render, no '...' placeholder",
-        "de": "Windsimulator-Countdown zeigt sofort beim Render die korrekte Zeit — kein '...' Platzhalter mehr"
+        "de": "Windsimulator-Countdown zeigt sofort beim Render die korrekte Zeit â€” kein '...' Platzhalter mehr"
       },
       "0.2.7": {
         "en": "Dashboard: wind simulator countdown ticks live every second (no SSE dependency)",
-        "de": "Dashboard: Windsimulator-Countdown tickt sekündlich im Browser — unabhängig vom SSE-Zyklus"
+        "de": "Dashboard: Windsimulator-Countdown tickt sekÃ¼ndlich im Browser â€” unabhÃ¤ngig vom SSE-Zyklus"
       },
       "0.2.6": {
         "en": "Wind simulator: bypass minimumOn/OffSeconds, phase countdown in dashboard, hide irrelevant timing fields in admin",
-        "de": "Windsimulator: minimumOn/OffSeconds werden übersprungen, Phasen-Countdown im Dashboard, irrelevante Zeitfelder im Admin ausgeblendet"
+        "de": "Windsimulator: minimumOn/OffSeconds werden Ã¼bersprungen, Phasen-Countdown im Dashboard, irrelevante Zeitfelder im Admin ausgeblendet"
       },
       "0.2.5": {
         "en": "Fix WhatsApp-cmb notification: use 'text' field instead of 'message'",
@@ -149,35 +153,35 @@
       },
       "0.2.4": {
         "en": "Database: daily sensor stats, energy tracking (kWh/ratedPower), irrigation log with CSV export; Grow calendar with phase countdown in dashboard; soilMoisture/CO2 trend fix; energy tracking bugs fixed",
-        "de": "Datenbank: Tages-Sensorstatistiken, Energie-Tracking (kWh/Nennleistung), Bewässerungsprotokoll mit CSV-Export; Grow-Kalender mit Phasen-Countdown im Dashboard; Bodenfeuchte/CO₂-Trend-Fix; Energie-Tracking-Bugs behoben"
+        "de": "Datenbank: Tages-Sensorstatistiken, Energie-Tracking (kWh/Nennleistung), BewÃ¤sserungsprotokoll mit CSV-Export; Grow-Kalender mit Phasen-Countdown im Dashboard; Bodenfeuchte/COâ‚‚-Trend-Fix; Energie-Tracking-Bugs behoben"
       },
       "0.2.3": {
         "en": "Fix trend chart for soilMoisture and CO2: correct state paths, server route extended, CO2 now written as ioBroker state; energy double-counting guard for kWh actuators",
-        "de": "Trend-Chart für Bodenfeuchte und CO₂ behoben: korrekte State-Pfade, Server-Route erweitert, CO₂ wird jetzt als ioBroker-State geschrieben; Doppelzählung bei kWh-Aktoren verhindert"
+        "de": "Trend-Chart fÃ¼r Bodenfeuchte und COâ‚‚ behoben: korrekte State-Pfade, Server-Route erweitert, COâ‚‚ wird jetzt als ioBroker-State geschrieben; DoppelzÃ¤hlung bei kWh-Aktoren verhindert"
       },
       "0.2.2": {
-        "en": "feat: Staged climate control (escalationStage 1/2) — fans first, HVAC/heating only after configurable delay",
-        "de": "feat: Stufenregelung (escalationStage 1/2) — Lüftung zuerst, Klimagerät/Heizung erst nach konfigurierbarer Wartezeit"
+        "en": "feat: Staged climate control (escalationStage 1/2) â€” fans first, HVAC/heating only after configurable delay",
+        "de": "feat: Stufenregelung (escalationStage 1/2) â€” LÃ¼ftung zuerst, KlimagerÃ¤t/Heizung erst nach konfigurierbarer Wartezeit"
       },
       "0.2.1": {
         "en": "feat: Wind simulator and schedule mode for circulation fans (circulationMode: windSimulator / schedule / alwaysOn)",
-        "de": "feat: Windsimulator und Zeitfenster-Modus für Umluftlüfter (circulationMode: windSimulator / schedule / alwaysOn)"
+        "de": "feat: Windsimulator und Zeitfenster-Modus fÃ¼r UmluftlÃ¼fter (circulationMode: windSimulator / schedule / alwaysOn)"
       },
       "0.2.0": {
         "en": "Stable release: 6 audit rounds completed, all bugs fixed. Features: shared actuators, command verification with retry and alarm, VPD control mode, air system management, irrigation service, camera service, diagnostics engine, notification service, safety service, shadow/maintenance mode, multi-group scheduling, dashboard SSE, admin SPA",
-        "de": "Stabiles Release: 6 Audit-Durchläufe abgeschlossen, alle Bugs behoben. Features: geteilte Aktoren, Befehlsverifizierung mit Retry und Alarm, VPD-Regelungsmodus, Luftstrommanagement, Bewässerungsservice, Kameraservice, Diagnostik-Engine, Benachrichtigungsservice, Sicherheitsservice, Shadow-/Wartungsmodus, Gruppen-Zeitpläne, Dashboard-SSE, Admin-SPA"
+        "de": "Stabiles Release: 6 Audit-DurchlÃ¤ufe abgeschlossen, alle Bugs behoben. Features: geteilte Aktoren, Befehlsverifizierung mit Retry und Alarm, VPD-Regelungsmodus, Luftstrommanagement, BewÃ¤sserungsservice, Kameraservice, Diagnostik-Engine, Benachrichtigungsservice, Sicherheitsservice, Shadow-/Wartungsmodus, Gruppen-ZeitplÃ¤ne, Dashboard-SSE, Admin-SPA"
       },
       "0.1.56": {
         "en": "Bugfix batch 5: ScheduleService transition detection for transitionMinutes>60, NotificationService cooldown after successful send, History adapter fallback chain, lightChangeTimes dashboard fallback",
-        "de": "Bugfix-Batch 5: ScheduleService Übergangs-Erkennung für transitionMinutes>60 korrigiert, NotificationService Cooldown erst nach erfolgreichem Versand, History-Adapter Fallback-Kette, lightChangeTimes Dashboard-Fallback"
+        "de": "Bugfix-Batch 5: ScheduleService Ãœbergangs-Erkennung fÃ¼r transitionMinutes>60 korrigiert, NotificationService Cooldown erst nach erfolgreichem Versand, History-Adapter Fallback-Kette, lightChangeTimes Dashboard-Fallback"
       },
       "0.1.55": {
         "en": "Bugfix batch 4: dewPoint NaN guard, curveInterpolate dx=0, transitionProgress guard, SharedActorManager ON/OFF priority + max value, CameraService interval min 1, setOverride error callback, redundant setpoint calls",
-        "de": "Bugfix-Batch 4: dewPoint NaN-Guard, curveInterpolate dx=0, transitionProgress Guard, SharedActorManager ON/OFF-Priorität + Max-Wert, CameraService Intervall Min 1, setOverride Fehler-Callback, redundante Setpoint-Aufrufe"
+        "de": "Bugfix-Batch 4: dewPoint NaN-Guard, curveInterpolate dx=0, transitionProgress Guard, SharedActorManager ON/OFF-PrioritÃ¤t + Max-Wert, CameraService Intervall Min 1, setOverride Fehler-Callback, redundante Setpoint-Aufrufe"
       },
       "0.1.54": {
         "en": "Bugfix batch 3: SensorService weights sync after outlier removal, WebDashboard POST body limit, ConfigurationService undefined guards",
-        "de": "Bugfix-Batch 3: SensorService Gewichte synchron nach Ausreißerfilter, WebDashboard POST-Body-Limit 64KB, ConfigurationService undefined-Guards"
+        "de": "Bugfix-Batch 3: SensorService Gewichte synchron nach AusreiÃŸerfilter, WebDashboard POST-Body-Limit 64KB, ConfigurationService undefined-Guards"
       },
       "0.1.53": {
         "en": "Bugfix batch 2: Flow accumulation delta fix, override duration validation, VPD band minimum, ratioPoints null guard, manualLock expiry, effectChecks cleanup",
@@ -189,11 +193,11 @@
       },
       "0.1.51": {
         "en": "Command verification: after 10s check if actuator responded, retry once, then raise alarm",
-        "de": "Befehlsverifikation: nach 10s prüfen ob Aktor reagiert hat, 1x Retry, dann Alarm"
+        "de": "Befehlsverifikation: nach 10s prÃ¼fen ob Aktor reagiert hat, 1x Retry, dann Alarm"
       },
       "0.1.50": {
         "en": "Bugfix: Dashboard now shows actual device state (ack feedback) instead of last commanded value",
-        "de": "Bugfix: Dashboard zeigt jetzt den echten Gerätezustand (ack-Feedback) statt den zuletzt gesendeten Befehl"
+        "de": "Bugfix: Dashboard zeigt jetzt den echten GerÃ¤tezustand (ack-Feedback) statt den zuletzt gesendeten Befehl"
       },
       "0.1.49": {
         "en": "Bugfix: Light actuators now always follow their schedule, even in monitorOnly/maintenance mode or shadow mode",
@@ -201,7 +205,7 @@
       },
       "0.1.48": {
         "en": "Bugfix: In VPD mode, dehumidifiers/humidifiers/fans now use VPD as control target instead of absolute humidity/temperature",
-        "de": "Bugfix: Im VPD-Modus regeln Entfeuchter/Befeuchter/Lüfter jetzt über VPD statt absolute Feuchte/Temperatur"
+        "de": "Bugfix: Im VPD-Modus regeln Entfeuchter/Befeuchter/LÃ¼fter jetzt Ã¼ber VPD statt absolute Feuchte/Temperatur"
       },
       "0.1.47": {
         "en": "Push notifications: Telegram, WhatsApp, Discord webhook, Signal with cooldown and quiet hours",
@@ -209,79 +213,79 @@
       },
       "0.1.46": {
         "en": "Improved influence-% tooltip with concrete examples and mode explanations",
-        "de": "Einfluss-%-Tooltip verbessert mit konkreten Beispielen und Modus-Erklärungen"
+        "de": "Einfluss-%-Tooltip verbessert mit konkreten Beispielen und Modus-ErklÃ¤rungen"
       },
       "0.1.45": {
         "en": "Actuator countdown timer for min-on/off blocking times; manual lock indicator; influence factor tooltip in admin UI",
-        "de": "Countdown-Anzeige für Mindestlauf-/Sperrzeiten; Manuell-Sperr-Badge; Einfluss-%-Erklärung im Admin per Hover-Tooltip"
+        "de": "Countdown-Anzeige fÃ¼r Mindestlauf-/Sperrzeiten; Manuell-Sperr-Badge; Einfluss-%-ErklÃ¤rung im Admin per Hover-Tooltip"
       },
       "0.1.44": {
         "en": "Manual override propagation for shared actuators; VPD-based participant voting; Admin UI shows shared actuators in participant group",
-        "de": "Manual-Override Propagation für geteilte Aktoren; VPD-Abstimmung für Teilnehmer; Admin zeigt geteilte Aktoren in Teilnehmer-Gruppe"
+        "de": "Manual-Override Propagation fÃ¼r geteilte Aktoren; VPD-Abstimmung fÃ¼r Teilnehmer; Admin zeigt geteilte Aktoren in Teilnehmer-Gruppe"
       },
       "0.1.43": {
-        "en": "Shared actuators now auto-appear in participant group dashboards — no double configuration needed; owner group manages all settings",
-        "de": "Geteilte Aktoren erscheinen automatisch im Dashboard der Teilnehmer-Gruppe — keine Doppelkonfiguration nötig; Eigentümer-Gruppe verwaltet alle Einstellungen"
+        "en": "Shared actuators now auto-appear in participant group dashboards â€” no double configuration needed; owner group manages all settings",
+        "de": "Geteilte Aktoren erscheinen automatisch im Dashboard der Teilnehmer-Gruppe â€” keine Doppelkonfiguration nÃ¶tig; EigentÃ¼mer-Gruppe verwaltet alle Einstellungen"
       },
       "0.1.42": {
         "en": "Fix shared actuator not turning on: supplyFan added to participant need, owner state updated before voting; Q% badge now shows per-sensor quality tooltip on hover",
-        "de": "Bugfix geteilter Aktor schaltet nicht EIN: supplyFan in Teilnehmer-Bedarfsermittlung ergänzt, Eigentümer-State vor Abstimmung aktualisiert; Q%-Badge zeigt Sensor-Qualitäts-Tooltip beim Hover"
+        "de": "Bugfix geteilter Aktor schaltet nicht EIN: supplyFan in Teilnehmer-Bedarfsermittlung ergÃ¤nzt, EigentÃ¼mer-State vor Abstimmung aktualisiert; Q%-Badge zeigt Sensor-QualitÃ¤ts-Tooltip beim Hover"
       },
       "0.1.41": {
         "en": "Fix shared actuator voting: owner vote now correctly counted; suppress false ACTUATOR_STUCK_ON alarm when another group holds actuator on",
-        "de": "Bugfix geteilte Abstimmung: Eigentümer-Stimme wird jetzt korrekt gezählt; falscher ACTUATOR_STUCK_ON-Alarm unterdrückt wenn andere Gruppe den Aktor hält"
+        "de": "Bugfix geteilte Abstimmung: EigentÃ¼mer-Stimme wird jetzt korrekt gezÃ¤hlt; falscher ACTUATOR_STUCK_ON-Alarm unterdrÃ¼ckt wenn andere Gruppe den Aktor hÃ¤lt"
       },
       "0.1.40": {
         "en": "Dashboard shows additional sensor values: soil moisture, CO2 and leaf temperature appear in the climate row when sensors are configured in the group",
-        "de": "Dashboard zeigt zusätzliche Sensorwerte: Bodenfeuchte, CO₂ und Blatttemperatur erscheinen in der Klimazeile wenn Sensoren in der Gruppe konfiguriert sind"
+        "de": "Dashboard zeigt zusÃ¤tzliche Sensorwerte: Bodenfeuchte, COâ‚‚ und Blatttemperatur erscheinen in der Klimazeile wenn Sensoren in der Gruppe konfiguriert sind"
       },
       "0.1.39": {
         "en": "Per-actuator switch threshold (actuatorHysteresis): configurable minimum deviation from setpoint before switching, independent of climate profile tolerance",
-        "de": "Per-Aktor Schaltschwelle (actuatorHysteresis): konfigurierbare Mindestabweichung vom Sollwert vor dem Schalten, unabhängig von der Klimaprofil-Toleranz"
+        "de": "Per-Aktor Schaltschwelle (actuatorHysteresis): konfigurierbare Mindestabweichung vom Sollwert vor dem Schalten, unabhÃ¤ngig von der Klimaprofil-Toleranz"
       },
       "0.1.38": {
         "en": "Shared actuator voting: multiple groups can vote on shared actuators with configurable voting mode (any/majority/primary), influence factor per group, and vote stability hysteresis",
-        "de": "Geteilte Aktor-Abstimmung: mehrere Gruppen können auf gemeinsame Aktoren abstimmen mit konfigurierbarem Abstimmungsmodus (beliebig/Mehrheit/Eigentümer), Einflussfaktor pro Gruppe und Stimm-Hysterese"
+        "de": "Geteilte Aktor-Abstimmung: mehrere Gruppen kÃ¶nnen auf gemeinsame Aktoren abstimmen mit konfigurierbarem Abstimmungsmodus (beliebig/Mehrheit/EigentÃ¼mer), Einflussfaktor pro Gruppe und Stimm-Hysterese"
       },
       "0.1.37": {
         "en": "Actuator unreachable: health state now updates ActuatorState, raises ACTUATOR_UNREACHABLE alarm, shows error icon in dashboard row and icon strip",
-        "de": "Aktor nicht erreichbar: Health-State aktualisiert ActuatorState, löst ACTUATOR_UNREACHABLE-Alarm aus, zeigt Fehler-Icon in Aktor-Zeile und Icon-Strip"
+        "de": "Aktor nicht erreichbar: Health-State aktualisiert ActuatorState, lÃ¶st ACTUATOR_UNREACHABLE-Alarm aus, zeigt Fehler-Icon in Aktor-Zeile und Icon-Strip"
       },
       "0.1.36": {
         "en": "Trend chart data: query ioBroker history adapter (history/influxdb/sql) for persistent 48h data; fallback to in-memory hourly buffer if no history adapter available",
-        "de": "Trend-Daten: ioBroker History-Adapter (history/influxdb/sql) für persistente 48h-Daten; Fallback auf internen Stundenpuffer wenn kein History-Adapter vorhanden"
+        "de": "Trend-Daten: ioBroker History-Adapter (history/influxdb/sql) fÃ¼r persistente 48h-Daten; Fallback auf internen Stundenpuffer wenn kein History-Adapter vorhanden"
       },
       "0.1.35": {
         "en": "Dashboard: actuator LED now reflects actual state (feedback); Soll/Ist labels instead of arrow; LED goes off when device is physically switched off",
-        "de": "Dashboard: Aktor-LED zeigt jetzt den Ist-Zustand (Feedback); Soll/Ist-Beschriftung statt Pfeil; LED geht aus wenn Gerät physisch ausgeschaltet wird"
+        "de": "Dashboard: Aktor-LED zeigt jetzt den Ist-Zustand (Feedback); Soll/Ist-Beschriftung statt Pfeil; LED geht aus wenn GerÃ¤t physisch ausgeschaltet wird"
       },
       "0.1.34": {
         "en": "Fix actuator LED stays on: recordCommand now compares requested state (not effectiveState), ensuring setActuatorState fires correctly even when feedback state is configured",
-        "de": "Aktor-LED bleibt grün behoben: recordCommand vergleicht jetzt requested-State (nicht effectiveState), sodass setActuatorState auch bei konfiguriertem Feedback-State korrekt feuert"
+        "de": "Aktor-LED bleibt grÃ¼n behoben: recordCommand vergleicht jetzt requested-State (nicht effectiveState), sodass setActuatorState auch bei konfiguriertem Feedback-State korrekt feuert"
       },
       "0.1.33": {
         "en": "Fix actuator manual override: LED now shows actual state; AUTO resume triggers immediate cycle and actuator returns to correct state; manualLock blocks auto cycle while override active",
-        "de": "Manueller Aktor-Override behoben: LED zeigt jetzt den tatsächlichen Zustand; AUTO-Rückkehr triggert sofortigen Zyklus und Aktor kehrt in korrekten Zustand zurück; manualLock sperrt Auto-Zyklus während Override aktiv"
+        "de": "Manueller Aktor-Override behoben: LED zeigt jetzt den tatsÃ¤chlichen Zustand; AUTO-RÃ¼ckkehr triggert sofortigen Zyklus und Aktor kehrt in korrekten Zustand zurÃ¼ck; manualLock sperrt Auto-Zyklus wÃ¤hrend Override aktiv"
       },
       "0.1.32": {
-        "en": "Fix admin dashboard live data: replace broken socket.io polling with sendTo('getGroupState') — works reliably in ioBroker admin iframe without socket.io",
-        "de": "Admin-Dashboard Livedaten behoben: kaputtes socket.io-Polling durch sendTo('getGroupState') ersetzt — funktioniert zuverlässig im ioBroker-Admin-Iframe ohne socket.io"
+        "en": "Fix admin dashboard live data: replace broken socket.io polling with sendTo('getGroupState') â€” works reliably in ioBroker admin iframe without socket.io",
+        "de": "Admin-Dashboard Livedaten behoben: kaputtes socket.io-Polling durch sendTo('getGroupState') ersetzt â€” funktioniert zuverlÃ¤ssig im ioBroker-Admin-Iframe ohne socket.io"
       },
       "0.1.31": {
         "en": "Admin UI: info tooltips (i) on all key fields; clearer separation of health state (reachability), feedback state (actual switch state) and command state",
-        "de": "Admin-UI: Info-Tooltips (i) an allen wichtigen Feldern; klarere Trennung von Gerätestatus (Erreichbarkeit), Rückmelde-State (Ist-Zustand) und Befehls-State"
+        "de": "Admin-UI: Info-Tooltips (i) an allen wichtigen Feldern; klarere Trennung von GerÃ¤testatus (Erreichbarkeit), RÃ¼ckmelde-State (Ist-Zustand) und Befehls-State"
       },
       "0.1.30": {
         "en": "Dashboard: per-actuator AUTO/MANUAL badge (click to reset group to AUTO); actuator feedback/effectiveState display; outdoor temp+humidity in group card; 48h trend popup with SVG chart for temperature, humidity and VPD",
-        "de": "Dashboard: AUTO/MANUELL-Badge pro Aktor (klicken für Gruppen-Reset auf AUTO); Aktor-Feedback/Ist-Zustand-Anzeige; Außentemperatur+Feuchte in Gruppenkarte; 48h-Trend-Popup mit SVG-Chart für Temperatur, Feuchte und VPD"
+        "de": "Dashboard: AUTO/MANUELL-Badge pro Aktor (klicken fÃ¼r Gruppen-Reset auf AUTO); Aktor-Feedback/Ist-Zustand-Anzeige; AuÃŸentemperatur+Feuchte in Gruppenkarte; 48h-Trend-Popup mit SVG-Chart fÃ¼r Temperatur, Feuchte und VPD"
       },
       "0.1.29": {
         "en": "Fix admin live data: re-add socket bridge (window.io.connect) removed during index.html cleanup; emitSocket now tries direct method calls before raw emit",
-        "de": "Admin-Livedaten behoben: Socket-Bridge (window.io.connect) wieder hinzugefügt die beim index.html-Umbau entfernt wurde; emitSocket versucht jetzt direkte Methodenaufrufe vor raw emit"
+        "de": "Admin-Livedaten behoben: Socket-Bridge (window.io.connect) wieder hinzugefÃ¼gt die beim index.html-Umbau entfernt wurde; emitSocket versucht jetzt direkte Methodenaufrufe vor raw emit"
       },
       "0.1.28": {
         "en": "Fix alive-state stale logic: when healthStateId is set and alive=true, timestamp check is skipped entirely (not just used as fallback)",
-        "de": "Alive-State Stale-Logik korrigiert: wenn healthStateId gesetzt und alive=true, wird der Timestamp-Check komplett übersprungen statt nur als Fallback genutzt"
+        "de": "Alive-State Stale-Logik korrigiert: wenn healthStateId gesetzt und alive=true, wird der Timestamp-Check komplett Ã¼bersprungen statt nur als Fallback genutzt"
       },
       "0.1.27": {
         "en": "Fix admin live dashboard: wire window.socket as _growSocket so getState calls work; extract instance ID from URL param",
@@ -289,27 +293,27 @@
       },
       "0.1.26": {
         "en": "Smarter stale detection: alive state overrides timestamp check; multi-value sensors on same device share liveness; default staleAfterSeconds raised to 1200s",
-        "de": "Intelligentere Stale-Erkennung: alive-State überschreibt Timestamp-Check; Sensoren desselben Geräts teilen Aktualität; Standard staleAfterSeconds auf 1200s erhöht"
+        "de": "Intelligentere Stale-Erkennung: alive-State Ã¼berschreibt Timestamp-Check; Sensoren desselben GerÃ¤ts teilen AktualitÃ¤t; Standard staleAfterSeconds auf 1200s erhÃ¶ht"
       },
       "0.1.25": {
         "en": "Fix admin dashboard showing --- and Fault on startup; fix sensor quality 0% after adapter restart due to stale timestamp handling",
-        "de": "Admin-Dashboard zeigt nicht mehr --- und Fault beim Start; Sensorqualität 0% nach Adapter-Neustart durch korrektes Timestamp-Handling behoben"
+        "de": "Admin-Dashboard zeigt nicht mehr --- und Fault beim Start; SensorqualitÃ¤t 0% nach Adapter-Neustart durch korrektes Timestamp-Handling behoben"
       },
       "0.1.24": {
         "en": "ObjectPicker nested folder navigation; climate profile presets for all plant phases; fix feedbackMissingBehavior invalid option; fix CameraConfig type in admin",
-        "de": "ObjectPicker Unterordner-Navigation; Klimaprofil-Presets für alle Pflanzenphasen; feedbackMissingBehavior ungültige Option behoben; CameraConfig Typ in Admin korrigiert"
+        "de": "ObjectPicker Unterordner-Navigation; Klimaprofil-Presets fÃ¼r alle Pflanzenphasen; feedbackMissingBehavior ungÃ¼ltige Option behoben; CameraConfig Typ in Admin korrigiert"
       },
       "0.1.23": {
         "en": "Per-actuator control targets (controlTarget/controlDirection); outdoor air guard sensor per group; full climate profile editor with CO2 and soil moisture setpoints",
-        "de": "Per-Aktor Regelziel (controlTarget/controlDirection); Außenluft-Vergleichssensor pro Gruppe; vollständiger Klimaprofil-Editor mit CO₂- und Bodenfeuchte-Sollwerten"
+        "de": "Per-Aktor Regelziel (controlTarget/controlDirection); AuÃŸenluft-Vergleichssensor pro Gruppe; vollstÃ¤ndiger Klimaprofil-Editor mit COâ‚‚- und Bodenfeuchte-Sollwerten"
       },
       "0.1.22": {
         "en": "Dashboard: AUTO/MANUAL mode toggle per group; EIN/AUS actuator buttons only active in MANUAL mode; PIN protected mode switch",
-        "de": "Dashboard: AUTO/MANUELL-Umschalter pro Gruppe; EIN/AUS-Aktor-Buttons nur im MANUELL-Modus aktiv; PIN-geschützter Moduswechsel"
+        "de": "Dashboard: AUTO/MANUELL-Umschalter pro Gruppe; EIN/AUS-Aktor-Buttons nur im MANUELL-Modus aktiv; PIN-geschÃ¼tzter Moduswechsel"
       },
       "0.1.21": {
         "en": "Dashboard: mode-aware setpoint bars for VPD/temp/humidity; active actuator icon strip with pulse animation; improved visual hierarchy",
-        "de": "Dashboard: modusabhängige Sollwert-Balken für VPD/Temp/Feuchte; aktive Geräte-Icon-Leiste mit Puls-Animation; verbesserte visuelle Hierarchie"
+        "de": "Dashboard: modusabhÃ¤ngige Sollwert-Balken fÃ¼r VPD/Temp/Feuchte; aktive GerÃ¤te-Icon-Leiste mit Puls-Animation; verbesserte visuelle Hierarchie"
       },
       "0.1.20": {
         "en": "Dashboard: fix duplicate mode tag bug; manual actuator control with PIN; setpoint display; camera image; monitor-sensor info tooltip",
@@ -317,28 +321,28 @@
       },
       "0.1.19": {
         "en": "Sensor roles: primary/backup/monitor with priority ordering; backup sensors activate automatically when all primaries fail",
-        "de": "Sensor-Rollen: primär/backup/überwachung mit Priorität; Backup-Sensoren aktivieren automatisch wenn alle primären ausfallen"
+        "de": "Sensor-Rollen: primÃ¤r/backup/Ã¼berwachung mit PrioritÃ¤t; Backup-Sensoren aktivieren automatisch wenn alle primÃ¤ren ausfallen"
       },
       "0.1.18": {
         "en": "Fix blank admin UI: switch from ES module to IIFE bundle for compatibility with ioBroker admin iframe",
-        "de": "Leere Admin-UI behoben: von ES-Modul auf IIFE-Bundle umgestellt für Kompatibilität mit ioBroker Admin-iframe"
+        "de": "Leere Admin-UI behoben: von ES-Modul auf IIFE-Bundle umgestellt fÃ¼r KompatibilitÃ¤t mit ioBroker Admin-iframe"
       },
       "0.1.17": {
         "en": "Isolate group errors so one group cannot crash the adapter; configurable sensor disagreement threshold per group (default 5)",
-        "de": "Gruppenfehler isoliert — ein Fehler in einer Gruppe crasht nicht den Adapter; konfigurierbarer Sensor-Abweichungsalarm pro Gruppe (Standard 5)"
+        "de": "Gruppenfehler isoliert â€” ein Fehler in einer Gruppe crasht nicht den Adapter; konfigurierbarer Sensor-Abweichungsalarm pro Gruppe (Standard 5)"
       },
-      "0.1.16": { "en": "Fix blank admin UI: add missing script tag in index.html", "de": "Leere Admin-UI behoben: fehlender Script-Tag in index.html ergänzt" },
+      "0.1.16": { "en": "Fix blank admin UI: add missing script tag in index.html", "de": "Leere Admin-UI behoben: fehlender Script-Tag in index.html ergÃ¤nzt" },
       "0.1.15": {
         "en": "Fix admin UI render failure: switch from IIFE to ES module format in Vite build",
         "de": "Admin-UI-Render-Fehler behoben: Vite-Build von IIFE auf ES-Modul-Format umgestellt"
       },
       "0.1.14": {
         "en": "Dynamic staleness check per cycle; staleAfterSeconds default 900s; first-read uses Date.now() as ts; device health state support (available/link_quality/alive) for sensors and actuators",
-        "de": "Dynamischer Stale-Check je Zyklus; staleAfterSeconds Standard 900s; Erstlesen nutzt Date.now() als Timestamp; Gerätestatus-State (available/link_quality/alive) für Sensoren und Aktoren"
+        "de": "Dynamischer Stale-Check je Zyklus; staleAfterSeconds Standard 900s; Erstlesen nutzt Date.now() als Timestamp; GerÃ¤testatus-State (available/link_quality/alive) fÃ¼r Sensoren und Aktoren"
       },
       "0.1.13": {
-        "en": "Fix sensor quality 0%: staleAfterSeconds default 300→3600; fix lc/q parameter bug on startup; add live polling in admin dashboard; add collapsible adapter categories in object picker",
-        "de": "Sensorqualität 0% behoben: staleAfterSeconds Standard 300→3600; lc/q-Parameter-Bug beim Start behoben; Live-Polling im Admin-Dashboard; aufklappbare Adapter-Kategorien im Objektpicker"
+        "en": "Fix sensor quality 0%: staleAfterSeconds default 300â†’3600; fix lc/q parameter bug on startup; add live polling in admin dashboard; add collapsible adapter categories in object picker",
+        "de": "SensorqualitÃ¤t 0% behoben: staleAfterSeconds Standard 300â†’3600; lc/q-Parameter-Bug beim Start behoben; Live-Polling im Admin-Dashboard; aufklappbare Adapter-Kategorien im Objektpicker"
       },
       "0.1.12": {
         "en": "Fix recurring build bug: switch to fixed bundle filename so index.html never needs updating",
@@ -346,19 +350,19 @@
       },
       "0.1.11": {
         "en": "Read sensor initial values on startup; redesigned object picker with table, type tabs and room/function columns",
-        "de": "Sensor-Startwerte beim Start einlesen; Objektpicker komplett Ã¼berarbeitet mit Tabelle, Typ-Tabs und Raum/Funktion-Spalten"
+        "de": "Sensor-Startwerte beim Start einlesen; Objektpicker komplett ÃƒÂ¼berarbeitet mit Tabelle, Typ-Tabs und Raum/Funktion-Spalten"
       },
       "0.1.10": {
         "en": "Fix crash when opening group editor with missing climateProfiles in saved config",
-        "de": "Absturz beim Ã–ffnen des Gruppen-Editors behoben wenn climateProfiles in gespeicherter Config fehlt"
+        "de": "Absturz beim Ãƒâ€“ffnen des Gruppen-Editors behoben wenn climateProfiles in gespeicherter Config fehlt"
       },
       "0.1.9": {
         "en": "Fix build: reset index.html to TypeScript source entry; previous builds repackaged old bundle",
-        "de": "Build-Fehler behoben: index.html auf TypeScript-Quelle zurÃ¼ckgesetzt; vorherige Builds hatten altes Bundle neu verpackt"
+        "de": "Build-Fehler behoben: index.html auf TypeScript-Quelle zurÃƒÂ¼ckgesetzt; vorherige Builds hatten altes Bundle neu verpackt"
       },
       "0.1.8": {
         "en": "Robust socket bridge: check window.io immediately + polling fallback if onload does not fire",
-        "de": "Robuste Socket-Bridge: window.io sofort prÃ¼fen + Polling-Fallback falls onload ausbleibt"
+        "de": "Robuste Socket-Bridge: window.io sofort prÃƒÂ¼fen + Polling-Fallback falls onload ausbleibt"
       },
       "0.1.7": {
         "en": "Fix ioBroker WebSockets v3 API (io.connect instead of io())",
@@ -388,7 +392,7 @@
     },
     "desc": {
       "en": "Modular adapter for monitoring and controlling grow tents, rooms and irrigation zones.",
-      "de": "Modularer Adapter zur Ãœberwachung und Regelung von Growzelten, RÃ¤umen und BewÃ¤sserungszonen."
+      "de": "Modularer Adapter zur ÃƒÅ“berwachung und Regelung von Growzelten, RÃƒÂ¤umen und BewÃƒÂ¤sserungszonen."
     },
     "authors": [
       "mrder <mrder@hotmail.de>"
@@ -625,3 +629,4 @@
     }
   ]
 }
+
