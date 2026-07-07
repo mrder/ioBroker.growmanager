@@ -271,7 +271,7 @@ export class WebDashboardService {
             }
             if (req.method === 'POST') {
                 let body = '';
-                req.on('data', chunk => { body += chunk; if (body.length > 4096) req.destroy(); });
+                req.on('data', chunk => { body += chunk; if (body.length > 4096) { if (!res.headersSent) { res.writeHead(413, { 'Content-Type': 'application/json' }); res.end('{"error":"too large"}'); } req.destroy(); } });
                 req.on('error', () => { /* ignore */ });
                 req.on('end', async () => {
                     try {

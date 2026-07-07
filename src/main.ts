@@ -1574,7 +1574,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     soilMoistureSum += zs.currentMoisture;
                     soilMoistureCount++;
                 }
-                if (zs.running || (zs.currentMoisture !== null && zs.currentMoisture < zone.startMoisture)) {
+                if (zone.enabled !== false && (zs.running || (zs.currentMoisture !== null && zs.currentMoisture < zone.startMoisture))) {
                     irrigationRequired = true;
                 }
             }
@@ -1896,6 +1896,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     if (importResult.config) {
                         this.growConfig = importResult.config;
                         this.log.info('Konfiguration importiert');
+                        this.restart();
                     }
                     if (obj.callback) {
                         this.sendTo(obj.from, obj.command, importResult.result as unknown as ioBroker.MessagePayload, obj.callback);
@@ -1956,7 +1957,7 @@ class GrowManagerAdapter extends utils.Adapter {
                         try {
                             const adapterObj = await this.getForeignObjectAsync(`system.adapter.${id}`);
                             if (adapterObj) {
-                                detected.push({ type: check.type, instance: id.split('.').pop() ?? '0' });
+                                detected.push({ type: check.type, instance: id });
                                 break; // Erste gefundene Instanz reicht
                             }
                         } catch { /* nicht installiert */ }

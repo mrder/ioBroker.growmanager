@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.35",
+    "version": "0.2.36",
     "news": {
+      "0.2.36": {
+        "en": "Round 2 review fixes: _plantPanelOpen ReferenceError fixed (declaration moved before first use), dbSwitchTab null guard, SSE reconnect timer leak fixed, fallback fetch guard against overwriting live data, IrrigationService dry-run alarm only fires when flow sensor configured, importConfig triggers adapter restart, detectAdapters uses full instance id, body-limit returns 413 before destroying request, irrigationRequired skips disabled zones, soilMoisture sensor name escaping in onclick",
+        "de": "Runde 2 Review Fixes: _plantPanelOpen ReferenceError behoben (Deklaration vor erster Verwendung verschoben), dbSwitchTab Null-Guard, SSE Reconnect Timer-Leak behoben, Fallback-Fetch schreibt keine neueren SSE-Daten ueber, IrrigationService Trockenlaeufer-Alarm nur bei konfiguriertem Durchfluss-Sensor, importConfig loest Adapter-Neustart aus, detectAdapters nutzt vollstaendige Instanz-ID, Body-Limit sendet 413 vor Request-Abbruch, irrigationRequired ignoriert deaktivierte Zonen, Bodenfeuchte-Sensorname wird im onclick escaped"
+      },
       "0.2.35": {
         "en": "Code review fixes: onStateChange guard before growConfig init, cycle timer try-catch prevents permanent stop, correct multi-zone soil moisture average, processFeedback null-val guard, deviceHealthMap moved to instance scope, alarm hysteresis for TEMPERATURE_LOW, dashboard CSS variables --warn/--accent/--muted added, stats table null-safe toFixed, cameraUrl escaping in onclick, toggleHistoryList null-guards",
         "de": "Code-Review Fixes: onStateChange Guard vor growConfig-Init, Zyklus-Timer try-catch verhindert dauerhaften Stopp, korrekter Bodenfeuchte-Durchschnitt bei mehreren Zonen, processFeedback Null-Guard, deviceHealthMap als Instanzvariable, Alarm-Hysterese fuer TEMPERATURE_LOW, CSS-Variablen --warn/--accent/--muted ergaenzt, Stats-Tabelle null-sicheres toFixed, cameraUrl-Escaping im onclick, toggleHistoryList Null-Guards"

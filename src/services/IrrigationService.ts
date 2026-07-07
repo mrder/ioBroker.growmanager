@@ -146,7 +146,7 @@ export class IrrigationService {
         // Maximale Laufzeit
         if (elapsed > zone.maxRunSeconds) {
             this.stopZone(zone, state, 'Maximale Laufzeit erreicht', groupId);
-            if (zone.dryRunProtection && (state.flowRate === null || state.flowRate < 0.1)) {
+            if (zone.dryRunProtection && zone.flowStateId && (state.flowRate === null || state.flowRate < 0.1)) {
                 this.alarmService.raise(
                     ALARM_CODES.IRRIGATION_DRY_RUN,
                     groupId,

@@ -921,6 +921,7 @@ function closeDb() {
 }
 
 async function dbSwitchTab(tab) {
+  if (!dbCurrentGroup) return;
   dbCurrentTab = tab;
   document.getElementById('dbTabStats')?.classList.toggle('active', tab === 'stats');
   document.getElementById('dbTabEnergy')?.classList.toggle('active', tab === 'energy');
@@ -1390,10 +1391,11 @@ function groupCardHtml(g) {
   let soilHtml = '';
   if (g.soilSensors && g.soilSensors.length > 1) {
     // Mehrere Bodenfeuchtesensoren → jeden einzeln anzeigen
-    soilHtml = g.soilSensors.map(s =>
-      `<div onclick="showTrend('${gid}','soilMoisture','${s.name}','%',${soilMin},${soilMax})" style="cursor:pointer" title="Trend anzeigen">${
-        climateValHtml(s.value, '%', s.name, isCtrlSoil, soilMin, soilMax, null, 0)}</div>`
-    ).join('');
+    soilHtml = g.soilSensors.map(s => {
+      const esc = s.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      return `<div onclick="showTrend('${gid}','soilMoisture','${esc}','%',${soilMin},${soilMax})" style="cursor:pointer" title="Trend anzeigen">${
+        climateValHtml(s.value, '%', s.name, isCtrlSoil, soilMin, soilMax, null, 0)}</div>`;
+    }).join('');
   } else if (g.soilMoisture !== null && g.soilMoisture !== undefined) {
     const label = g.soilSensors && g.soilSensors.length === 1 ? g.soilSensors[0].name : 'Bodenfeuchte';
     soilHtml = `<div onclick="showTrend('${gid}','soilMoisture','Bodenfeuchte','%',${soilMin},${soilMax})" style="cursor:pointer" title="Trend anzeigen">${
@@ -1560,13 +1562,14 @@ function connect() {
   };
   eventSource.onerror = () => {
     setConnected(false); eventSource.close(); eventSource = null;
+    clearTimeout(reconnectTimer);
     reconnectTimer = setTimeout(connect, 3000);
   };
 }
 
 connect();
 setInterval(() => {
-  if (!connected) fetch('/api/state').then(r=>r.json()).then(s=>{render(s);updateTimestamp();setConnected(true);}).catch(()=>{});
+  if (!connected) fetch('/api/state').then(r=>r.json()).then(s=>{ if (!connected) { render(s); updateTimestamp(); setConnected(true); } }).catch(()=>{});
 }, 15000);
 
 // Wind-Sim Countdown: tickt sekündlich im Browser — unabhängig vom SSE-Zyklus
@@ -1804,6 +1807,9 @@ function closeCropModal() {
   if (cropModal) cropModal.classList.remove('open');
 }
 
+// Tracks which group panels are currently expanded (survives SSE re-renders)
+const _plantPanelOpen = new Set();
+
 async function doCropAnalyze() {
   const statusEl = cropModal.querySelector('#crop-status');
   statusEl.textContent = '⏳ Analyse läuft...';
@@ -1994,9 +2000,6 @@ function buildResultHtml(data, compact) {
   }
   return html;
 }
-
-// Tracks which group panels are currently expanded (survives SSE re-renders)
-const _plantPanelOpen = new Set();
 
 // Rendert das neueste Ergebnis + History-Liste für eine Gruppe in den DOM.
 // Wird nach jedem Analyse-Abschluss UND nach jedem SSE-Re-render aufgerufen.
