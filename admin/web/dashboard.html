@@ -1634,6 +1634,25 @@ setInterval(() => {
 // ---- Analyse-Modal ----
 let cropModal = null, cropCanvas = null, cropCtx = null, cropOverlay = null;
 let cropStart = null, cropRect = null, cropGroupId = null;
+let cropZoom = 1.0;
+const ZOOM_MIN = 0.2, ZOOM_MAX = 5.0, ZOOM_STEP = 0.25;
+
+function setCropZoom(z) {
+  cropZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+  if (!cropCanvas) return;
+  const cssW = Math.round(cropCanvas.width  * cropZoom);
+  const cssH = Math.round(cropCanvas.height * cropZoom);
+  cropCanvas.style.width  = cssW + 'px';
+  cropCanvas.style.height = cssH + 'px';
+  // crop-canvas-wrap muss genauso groß sein damit Overlay korrekt passt
+  const wrap = document.getElementById('crop-wrap');
+  if (wrap) { wrap.style.width = cssW + 'px'; wrap.style.height = cssH + 'px'; }
+  const btn = document.getElementById('crop-zoom-label');
+  if (btn) btn.textContent = Math.round(cropZoom * 100) + '%';
+  // Auswahl-Overlay zurücksetzen (Koordinaten stimmen nicht mehr nach Zoom)
+  cropRect = null;
+  if (cropOverlay) cropOverlay.style.display = 'none';
+}
 
 function buildCropModal() {
   if (cropModal) return;
@@ -1649,6 +1668,13 @@ function buildCropModal() {
       <div class="crop-toolbar">
         <button class="crop-btn crop-btn-upload" onclick="cropUploadFile()">📂 Anderes Bild laden</button>
         <span id="crop-filename" style="font-size:11px;color:#888"></span>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:4px">
+          <button class="crop-btn crop-btn-secondary" onclick="setCropZoom(cropZoom - ZOOM_STEP)" style="padding:3px 9px;font-size:15px;line-height:1">−</button>
+          <span id="crop-zoom-label" style="font-size:12px;min-width:38px;text-align:center">100%</span>
+          <button class="crop-btn crop-btn-secondary" onclick="setCropZoom(cropZoom + ZOOM_STEP)" style="padding:3px 9px;font-size:15px;line-height:1">+</button>
+          <button class="crop-btn crop-btn-secondary" onclick="setCropZoom(1)" style="padding:3px 8px;font-size:11px">1:1</button>
+          <button class="crop-btn crop-btn-secondary" onclick="fitZoom()" style="padding:3px 8px;font-size:11px">Fit</button>
+        </div>
       </div>
       <div class="crop-canvas-scroll">
         <div class="crop-canvas-wrap" id="crop-wrap">
@@ -1695,6 +1721,16 @@ function cropClearSelection() {
   if (cropOverlay) cropOverlay.style.display = 'none';
 }
 
+function fitZoom() {
+  if (!cropCanvas || !cropCanvas.width) return;
+  const scroll = cropModal.querySelector('.crop-canvas-scroll');
+  if (!scroll) return;
+  const availW = scroll.clientWidth - 4;
+  const availH = scroll.clientHeight - 4;
+  const z = Math.min(availW / cropCanvas.width, availH / cropCanvas.height, 1.0);
+  setCropZoom(z);
+}
+
 function loadImageOntoCanvas(src, label, isCrossOrigin) {
   const statusEl = cropModal.querySelector('#crop-status');
   statusEl.textContent = 'Bild wird geladen...';
@@ -1706,11 +1742,15 @@ function loadImageOntoCanvas(src, label, isCrossOrigin) {
   const img = new Image();
   if (isCrossOrigin) img.crossOrigin = 'anonymous';
   img.onload = () => {
-    const maxW = Math.min(img.naturalWidth, Math.floor(window.innerWidth * 0.85));
-    const scale = maxW / img.naturalWidth;
-    cropCanvas.width = Math.floor(img.naturalWidth * scale);
+    // Canvas auf native Auflösung zeichnen (max 1920px breit für Performance)
+    const maxNative = 1920;
+    const scale = img.naturalWidth > maxNative ? maxNative / img.naturalWidth : 1;
+    cropCanvas.width  = Math.floor(img.naturalWidth  * scale);
     cropCanvas.height = Math.floor(img.naturalHeight * scale);
     cropCtx.drawImage(img, 0, 0, cropCanvas.width, cropCanvas.height);
+    // Zoom zurücksetzen und Fit berechnen
+    cropZoom = 1.0;
+    fitZoom();
     statusEl.textContent = isCrossOrigin ? '' : 'Tipp: Ohne CORS-Header kann kein Ausschnitt exportiert werden — lade stattdessen ein Foto hoch.';
   };
   img.onerror = () => {
@@ -1765,8 +1805,11 @@ async function doCropAnalyze() {
   try {
     const offscreen = document.createElement('canvas');
     if (cropRect && cropRect.w > 10 && cropRect.h > 10) {
-      offscreen.width = cropRect.w; offscreen.height = cropRect.h;
-      offscreen.getContext('2d').drawImage(cropCanvas, cropRect.x, cropRect.y, cropRect.w, cropRect.h, 0, 0, cropRect.w, cropRect.h);
+      // cropRect ist in CSS-Pixeln → in Canvas-Pixel umrechnen
+      const sx = Math.round(cropRect.x / cropZoom), sy = Math.round(cropRect.y / cropZoom);
+      const sw = Math.round(cropRect.w / cropZoom), sh = Math.round(cropRect.h / cropZoom);
+      offscreen.width = sw; offscreen.height = sh;
+      offscreen.getContext('2d').drawImage(cropCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
     } else {
       offscreen.width = cropCanvas.width; offscreen.height = cropCanvas.height;
       offscreen.getContext('2d').drawImage(cropCanvas, 0, 0);

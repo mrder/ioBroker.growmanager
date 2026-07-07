@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.29",
+    "version": "0.2.30",
     "news": {
+      "0.2.30": {
+        "en": "Analysis modal: zoom in/out (+/-/1:1/Fit buttons), canvas scales via CSS, crop coordinates auto-corrected for zoom level, image fits modal on load",
+        "de": "Analyse-Modal: Zoom rein/raus (+/-/1:1/Fit-Buttons), Canvas skaliert per CSS, Ausschnitt-Koordinaten werden automatisch zoom-korrigiert, Bild passt sich beim Laden ans Modal an"
+      },
       "0.2.29": {
         "en": "Analysis modal: max 55vh canvas scroll, buttons always visible; Plant.id results persist across SSE re-renders via localStorage; analysis history per group: last 10 + unlimited starred entries with toggle and delete",
         "de": "Analyse-Modal: max 55vh Canvas-Scroll, Buttons immer sichtbar; Plant.id-Ergebnisse ueberleben SSE-Rerender via localStorage; Analyse-Verlauf pro Gruppe: letzte 10 + unbegrenzt gestirnte Eintraege mit Stern-Toggle und Loeschen"
