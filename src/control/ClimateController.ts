@@ -139,7 +139,8 @@ export class ClimateController {
             primaryReason = `Untertemperatur ${temp.toFixed(1)} °C – Heizung`;
             this.requestByTarget(config, 'temperature', 'up', actions, true, 0, primaryReason, null, null);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
-        } else if (temp !== null) {
+        } else if (temp !== null && temp >= setpoint.temperatureMin - 1) {
+            // Hysterese: Alarm erst löschen wenn 2°C über Auslöseschwelle
             this.alarmService.clear(ALARM_CODES.TEMPERATURE_LOW, config.id, 'climate');
         }
 

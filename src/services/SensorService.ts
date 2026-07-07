@@ -13,13 +13,6 @@ import {
 import { isStale } from '../utils/time';
 import type { ILogger } from '../utils/logger';
 
-// Device-health state registry: stateId → true(healthy)/false(unhealthy)
-const deviceHealthMap = new Map<string, boolean>();
-
-export function setDeviceHealth(stateId: string, healthy: boolean): void {
-    deviceHealthMap.set(stateId, healthy);
-}
-
 /** Strip last dot-segment to get the physical device key (e.g. "zigbee.0.abc123.temp" → "zigbee.0.abc123"). */
 function deviceKey(stateId: string): string {
     const idx = stateId.lastIndexOf('.');
@@ -29,6 +22,8 @@ function deviceKey(stateId: string): string {
 export class SensorService {
     private readonly states = new Map<string, SensorState>();
     private readonly emaValues = new Map<string, number>();
+    /** Device-health state registry: stateId → true(healthy)/false(unhealthy) — instance-scoped to avoid cross-test contamination */
+    private readonly deviceHealthMap = new Map<string, boolean>();
     /** Sensor-IDs die sich gerade in der Recovery-Phase befinden → Zeitstempel bis wann */
     private readonly recoveringUntil = new Map<string, number>();
     /**
@@ -39,6 +34,10 @@ export class SensorService {
     private readonly deviceLastSeen = new Map<string, number>();
 
     constructor(private readonly log: ILogger) {}
+
+    setDeviceHealth(stateId: string, healthy: boolean): void {
+        this.deviceHealthMap.set(stateId, healthy);
+    }
 
     /**
      * Verarbeitet einen neuen Rohwert für einen Sensor.
@@ -92,7 +91,7 @@ export class SensorService {
         // - alive state configured + alive=false → device offline → always stale
         // - no alive state configured            → fall back to timestamp check
         const aliveKnown = config.healthStateId !== undefined
-            ? (deviceHealthMap.get(config.healthStateId) ?? true)
+            ? (this.deviceHealthMap.get(config.healthStateId) ?? true)
             : null; // null = no alive state, use timestamp
 
         const stale = aliveKnown === false ? true
@@ -230,7 +229,7 @@ export class SensorService {
                 const dk = deviceKey(cfg.stateId);
                 const effectiveTs = Math.max(s.lastTs, this.deviceLastSeen.get(dk) ?? s.lastTs);
                 const aliveKnown = cfg.healthStateId !== undefined
-                    ? (deviceHealthMap.get(cfg.healthStateId) ?? true)
+                    ? (this.deviceHealthMap.get(cfg.healthStateId) ?? true)
                     : null;
                 if (aliveKnown === false) return false;
                 if (aliveKnown === null && isStale(effectiveTs, cfg.staleAfterSeconds)) return false;

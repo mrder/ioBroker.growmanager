@@ -378,7 +378,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 await this.subscribeForeignStatesAsync(actuator.commandStateId);
                 this.subscribedStateIds.add(actuator.commandStateId);
                 const current = await this.getForeignStateAsync(actuator.commandStateId);
-                if (current?.ack)
+                if (current?.ack && current.val !== null && current.val !== undefined)
                     this.actuatorService.processFeedback(actuator, current.val);
             }
             if (actuator.powerStateId && !this.subscribedStateIds.has(actuator.powerStateId)) {
@@ -478,6 +478,8 @@ class GrowManagerAdapter extends utils.Adapter {
     onStateChange(id, state) {
         if (!state)
             return;
+        if (!this.growConfig)
+            return;
         // Eigene Steuer-States verarbeiten
         if (id.startsWith(`${this.namespace}.control.`)) {
             this.handleControlState(id, state);
@@ -562,7 +564,7 @@ class GrowManagerAdapter extends utils.Adapter {
             // boolean (default): true/1/"true" = healthy
             healthy = val === true || val === 1 || val === 'true';
         }
-        (0, SensorService_1.setDeviceHealth)(stateId, healthy);
+        this.sensorService.setDeviceHealth(stateId, healthy);
         // Für Aktoren: ActuatorState.health aktualisieren + Alarm
         for (const group of this.growConfig.groups) {
             for (const actuator of group.actuators) {
@@ -613,7 +615,12 @@ class GrowManagerAdapter extends utils.Adapter {
     scheduleNextCycle() {
         const interval = (this.growConfig.controlCycleSeconds ?? 10) * 1000;
         this.cycleTimer = this.setTimeout(async () => {
-            await this.runCycle();
+            try {
+                await this.runCycle();
+            }
+            catch (e) {
+                this.log.error(`Unbehandelter Fehler im Regelzyklus: ${e}`);
+            }
             this.scheduleNextCycle();
         }, interval);
     }
@@ -1421,21 +1428,22 @@ class GrowManagerAdapter extends utils.Adapter {
             }
         }
         // Soil-States schreiben (immer, auch wenn keine Zones konfiguriert)
-        let soilMoisture = null;
+        let soilMoistureSum = 0;
+        let soilMoistureCount = 0;
         let irrigationRequired = false;
         for (const zone of config.irrigationZones) {
             const zs = this.irrigationService.getState(zone.id);
             if (zs) {
                 if (zs.currentMoisture !== null) {
-                    soilMoisture = soilMoisture === null
-                        ? zs.currentMoisture
-                        : (soilMoisture + zs.currentMoisture) / 2;
+                    soilMoistureSum += zs.currentMoisture;
+                    soilMoistureCount++;
                 }
                 if (zs.running || (zs.currentMoisture !== null && zs.currentMoisture < zone.startMoisture)) {
                     irrigationRequired = true;
                 }
             }
         }
+        const soilMoisture = soilMoistureCount > 0 ? soilMoistureSum / soilMoistureCount : null;
         await this.setStateAsync(`${base}.soil.moisture`, { val: soilMoisture, ack: true });
         await this.setStateAsync(`${base}.soil.irrigationRequired`, { val: irrigationRequired, ack: true });
         // Aktorzustände

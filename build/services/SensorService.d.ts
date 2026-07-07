@@ -1,10 +1,11 @@
 import type { SensorConfig, SensorState, SensorType } from '../models/config';
 import type { ILogger } from '../utils/logger';
-export declare function setDeviceHealth(stateId: string, healthy: boolean): void;
 export declare class SensorService {
     private readonly log;
     private readonly states;
     private readonly emaValues;
+    /** Device-health state registry: stateId → true(healthy)/false(unhealthy) — instance-scoped to avoid cross-test contamination */
+    private readonly deviceHealthMap;
     /** Sensor-IDs die sich gerade in der Recovery-Phase befinden → Zeitstempel bis wann */
     private readonly recoveringUntil;
     /**
@@ -14,6 +15,7 @@ export declare class SensorService {
      */
     private readonly deviceLastSeen;
     constructor(log: ILogger);
+    setDeviceHealth(stateId: string, healthy: boolean): void;
     /**
      * Verarbeitet einen neuen Rohwert für einen Sensor.
      */

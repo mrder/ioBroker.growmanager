@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.34",
+    "version": "0.2.35",
     "news": {
+      "0.2.35": {
+        "en": "Code review fixes: onStateChange guard before growConfig init, cycle timer try-catch prevents permanent stop, correct multi-zone soil moisture average, processFeedback null-val guard, deviceHealthMap moved to instance scope, alarm hysteresis for TEMPERATURE_LOW, dashboard CSS variables --warn/--accent/--muted added, stats table null-safe toFixed, cameraUrl escaping in onclick, toggleHistoryList null-guards",
+        "de": "Code-Review Fixes: onStateChange Guard vor growConfig-Init, Zyklus-Timer try-catch verhindert dauerhaften Stopp, korrekter Bodenfeuchte-Durchschnitt bei mehreren Zonen, processFeedback Null-Guard, deviceHealthMap als Instanzvariable, Alarm-Hysterese fuer TEMPERATURE_LOW, CSS-Variablen --warn/--accent/--muted ergaenzt, Stats-Tabelle null-sicheres toFixed, cameraUrl-Escaping im onclick, toggleHistoryList Null-Guards"
+      },
       "0.2.34": {
         "en": "Fix Admin dashboard live data: use iobSendTo instead of legacy sendTo, convert Map to plain object in getGroupState, show actuator states and alarm severity; fix actuator sync on restart via needsSync flag",
         "de": "Admin-Dashboard Live-Daten: iobSendTo statt veraltetem sendTo, Map-Serialisierung in getGroupState gefixt, Aktor-Zustände und Alarme werden angezeigt; Aktor-Sync nach Neustart via needsSync-Flag"

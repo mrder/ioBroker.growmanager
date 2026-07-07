@@ -12,6 +12,7 @@
     --red: #ef5350; --orange: #ff9800; --yellow: #fbc02d; --blue: #42a5f5; --purple: #ce93d8;
     --full: #4caf50; --limited: #fbc02d; --fallback: #ff9800;
     --monitor: #42a5f5; --safe: #9e9e9e; --fault: #ef5350;
+    --warn: #ff9800; --accent: #4caf50; --muted: #666;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Roboto', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
@@ -957,7 +958,7 @@ function renderStatsTable(data) {
     html += `<tr><td>${row.date}</td>`;
     for (const id of sensorIds) {
       const s = row.sensors?.[id];
-      if (s) html += `<td>${s.min.toFixed(1)}</td><td style="font-weight:600">${s.avg.toFixed(1)}</td><td>${s.max.toFixed(1)}</td>`;
+      if (s) html += `<td>${s.min != null ? s.min.toFixed(1) : '–'}</td><td style="font-weight:600">${s.avg != null ? s.avg.toFixed(1) : '–'}</td><td>${s.max != null ? s.max.toFixed(1) : '–'}</td>`;
       else   html += `<td colspan="3" style="color:var(--text-dim)">–</td>`;
     }
     html += '</tr>';
@@ -1440,7 +1441,7 @@ function groupCardHtml(g) {
   const camSrc = camCache[g.id] || '';
   const cameraHtml = g.cameraUrl
     ? `<div class="card-camera">
-        <div class="cam-thumb-wrap" onclick="openAnalysisModal('${g.id}','${g.cameraUrl}')">
+        <div class="cam-thumb-wrap" onclick="openAnalysisModal('${g.id}','${g.cameraUrl.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">
           <img class="cam-thumb" id="cam-thumb-${g.id}"
             src="${camSrc}" alt="📷"
             style="${camSrc ? '' : 'opacity:0.3'}" />
@@ -2049,9 +2050,11 @@ function togglePlantPanel(groupId) {
 
 function toggleHistoryList(titleEl) {
   const list = titleEl.nextElementSibling;
+  if (!list) return;
   const open = list.style.display !== 'none';
   list.style.display = open ? 'none' : 'flex';
-  titleEl.querySelector('span').textContent = open ? '▼ ausklappen' : '▲ einklappen';
+  const arrow = titleEl.querySelector('span');
+  if (arrow) arrow.textContent = open ? '▼ ausklappen' : '▲ einklappen';
 }
 
 // Nach SSE-Re-render: alle Gruppen mit History neu rendern
