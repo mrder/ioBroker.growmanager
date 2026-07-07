@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.39",
+    "version": "0.2.40",
     "news": {
+      "0.2.40": {
+        "en": "Security fixes: XSS prevention in Sortenwiki (esc() helper applied to all user-controlled innerHTML); event delegation replaces inline onclick for strain list items; wikiLoad/wikiDelete now check HTTP response status; wikiStrains array guard; numeric field null-guards in strain detail view; importConfig sends callback before restart(); WebDashboardService PUT returns 404 for unknown strain IDs; DEFAULT_STRAINS timestamps consistent at first seed",
+        "de": "Sicherheitsfixes: XSS-Schutz in Sortenwiki (esc()-Helper fuer alle nutzergesteuerten innerHTML-Einfuegungen); Event-Delegation ersetzt inline onclick fuer Sorten-Listenelemente; wikiLoad/wikiDelete pruefen jetzt HTTP-Status; wikiStrains-Array-Guard; Null-Guards fuer numerische Felder in der Sortendetailansicht; importConfig sendet Callback vor restart(); WebDashboardService PUT gibt 404 fuer unbekannte Sorten-IDs zurueck; DEFAULT_STRAINS Timestamps konsistent beim ersten Seed"
+      },
       "0.2.39": {
         "en": "Sortenwiki: global strain database accessible via header button — add/edit/delete strains with growth/bloom times, temp/humidity/VPD targets, aroma, effect, THC/CBD. Pre-loaded: Dante Inferno, Purple Punch, Seriousa. Stored in strains.json on the adapter host.",
         "de": "Sortenwiki: globale Sortendatenbank ueber Header-Button erreichbar — Sorten anlegen/bearbeiten/loeschen mit Wuchs-/Bluetezeiten, Temp/Feuchte/VPD-Zielwerten, Aroma, Wirkung, THC/CBD. Vorbelegt mit: Dante Inferno, Purple Punch, Seriousa. Gespeichert in strains.json auf dem Adapter-Host."

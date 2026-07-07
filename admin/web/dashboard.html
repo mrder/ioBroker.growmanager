@@ -1733,8 +1733,20 @@ function connect() {
 let wikiStrains = [];
 let wikiSelected = null; // id der aktuell angezeigten Sorte
 
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 async function wikiOpen() {
-  document.getElementById('wikiOverlay').classList.add('open');
+  const overlay = document.getElementById('wikiOverlay');
+  if (!overlay.dataset.listenerAdded) {
+    document.getElementById('wikiList').addEventListener('click', e => {
+      const item = e.target.closest('[data-strain-id]');
+      if (item) wikiShowDetail(item.dataset.strainId);
+    });
+    overlay.dataset.listenerAdded = '1';
+  }
+  overlay.classList.add('open');
   await wikiLoad();
 }
 function wikiClose() {
@@ -1744,7 +1756,9 @@ function wikiClose() {
 async function wikiLoad() {
   try {
     const r = await fetch('/api/strains');
-    wikiStrains = await r.json();
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    wikiStrains = Array.isArray(data) ? data : [];
   } catch(e) {
     wikiStrains = [];
   }
@@ -1775,7 +1789,7 @@ function wikiDiffBadge(s) {
 
 function wikiRenderList() {
   const q = (document.getElementById('wikiSearch').value || '').toLowerCase();
-  const filtered = wikiStrains.filter(s => s.name.toLowerCase().includes(q) || (s.breeder||'').toLowerCase().includes(q));
+  const filtered = wikiStrains.filter(s => (s.name||'').toLowerCase().includes(q) || (s.breeder||'').toLowerCase().includes(q));
   const listEl = document.getElementById('wikiList');
   if (!filtered.length) {
     listEl.innerHTML = `<div style="padding:20px;color:var(--text-dim);font-size:13px;text-align:center">Keine Ergebnisse</div>`;
@@ -1784,9 +1798,9 @@ function wikiRenderList() {
   listEl.innerHTML = filtered.map(s => {
     const totalW = (s.growWeeks||0) + (s.bloomWeeks||0);
     const active = s.id === wikiSelected ? ' active' : '';
-    return `<div class="wiki-list-item${active}" onclick="wikiShowDetail('${s.id}')">
-      <div class="wiki-list-name">${s.name}</div>
-      <div class="wiki-list-sub">${s.breeder ? s.breeder + ' · ' : ''}${totalW}W gesamt</div>
+    return `<div class="wiki-list-item${active}" data-strain-id="${esc(s.id)}">
+      <div class="wiki-list-name">${esc(s.name)}</div>
+      <div class="wiki-list-sub">${s.breeder ? esc(s.breeder) + ' · ' : ''}${totalW}W gesamt</div>
       <div class="wiki-list-badges">${wikiTypeBadge(s)}${wikiDiffBadge(s)}${s.thcPercent != null ? `<span class="wiki-badge" style="background:rgba(255,152,0,0.15);color:#ff9800">THC ${s.thcPercent}%</span>` : ''}</div>
     </div>`;
   }).join('');
@@ -1798,51 +1812,52 @@ function wikiShowDetail(id) {
   if (!s) return;
   wikiRenderList(); // aktives Item aktualisieren
 
-  const aromas = (s.aroma||[]).map(a => `<span class="wiki-tag">🍃 ${a}</span>`).join('');
-  const effects = (s.effect||[]).map(e => `<span class="wiki-tag">✨ ${e}</span>`).join('');
-  const typeLabel = { sativa:'Sativa', indica:'Indica', hybrid:'Hybrid' }[s.type] ?? s.type;
+  const aromas = (s.aroma||[]).map(a => `<span class="wiki-tag">🍃 ${esc(a)}</span>`).join('');
+  const effects = (s.effect||[]).map(e => `<span class="wiki-tag">✨ ${esc(e)}</span>`).join('');
+  const sativaPercent = s.sativaPercent ?? 50;
   const sativaBar = s.type === 'hybrid'
     ? `<div style="margin-top:4px;height:6px;border-radius:3px;background:var(--surface2);overflow:hidden">
-        <div style="height:100%;width:${s.sativaPercent}%;background:linear-gradient(90deg,#42a5f5,#ce93d8)"></div>
+        <div style="height:100%;width:${+sativaPercent}%;background:linear-gradient(90deg,#42a5f5,#ce93d8)"></div>
        </div>
-       <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-top:2px"><span>Sativa ${s.sativaPercent}%</span><span>Indica ${100-s.sativaPercent}%</span></div>`
+       <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-top:2px"><span>Sativa ${+sativaPercent}%</span><span>Indica ${100-sativaPercent}%</span></div>`
     : '';
+  const safeId = esc(id);
 
   document.getElementById('wikiDetail').innerHTML = `
     <div class="wiki-detail-header">
       <div>
-        <div class="wiki-detail-name">${s.name}</div>
-        <div class="wiki-detail-breeder">${s.breeder || '–'}</div>
+        <div class="wiki-detail-name">${esc(s.name)}</div>
+        <div class="wiki-detail-breeder">${esc(s.breeder || '–')}</div>
         <div class="wiki-list-badges" style="margin-top:6px">${wikiTypeBadge(s)}${wikiDiffBadge(s)}</div>
         ${sativaBar}
       </div>
       <div class="wiki-detail-actions">
-        <button class="wiki-edit-btn" onclick="wikiShowForm('${id}')">✏️ Bearbeiten</button>
-        <button class="wiki-del-btn" onclick="wikiDelete('${id}')">🗑 Löschen</button>
+        <button class="wiki-edit-btn" onclick="wikiShowForm('${safeId}')">✏️ Bearbeiten</button>
+        <button class="wiki-del-btn" onclick="wikiDelete('${safeId}')">🗑 Löschen</button>
       </div>
     </div>
 
     <div class="wiki-sections">
       <div class="wiki-section">
         <div class="wiki-section-title">⏱ Zeiten</div>
-        <div class="wiki-row"><span class="wiki-row-label">Wachstum</span><span class="wiki-row-val">${s.growWeeks} Wochen</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">Blüte</span><span class="wiki-row-val">${s.bloomWeeks} Wochen</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Wachstum</span><span class="wiki-row-val">${s.growWeeks ?? '–'} Wochen</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Blüte</span><span class="wiki-row-val">${s.bloomWeeks ?? '–'} Wochen</span></div>
         <div class="wiki-row"><span class="wiki-row-label">Gesamt</span><span class="wiki-row-val">${(s.growWeeks||0)+(s.bloomWeeks||0)} Wochen</span></div>
         ${s.yieldGramsPerM2 != null ? `<div class="wiki-row"><span class="wiki-row-label">Ertrag</span><span class="wiki-row-val">${s.yieldGramsPerM2} g/m²</span></div>` : ''}
-        <div class="wiki-row"><span class="wiki-row-label">Wuchshöhe</span><span class="wiki-row-val">${s.height}</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Wuchshöhe</span><span class="wiki-row-val">${esc(s.height || '–')}</span></div>
       </div>
 
       <div class="wiki-section">
         <div class="wiki-section-title">🌡 Temperatur</div>
-        <div class="wiki-row"><span class="wiki-row-label">Tag (Min–Max)</span><span class="wiki-row-val">${s.tempDayMin}–${s.tempDayMax} °C</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">Nacht (Min–Max)</span><span class="wiki-row-val">${s.tempNightMin}–${s.tempNightMax} °C</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Tag (Min–Max)</span><span class="wiki-row-val">${s.tempDayMin ?? '–'}–${s.tempDayMax ?? '–'} °C</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Nacht (Min–Max)</span><span class="wiki-row-val">${s.tempNightMin ?? '–'}–${s.tempNightMax ?? '–'} °C</span></div>
       </div>
 
       <div class="wiki-section">
         <div class="wiki-section-title">💧 Feuchte & VPD</div>
-        <div class="wiki-row"><span class="wiki-row-label">Feuchte Wachstum</span><span class="wiki-row-val">${s.humidityVeg} %</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">Feuchte Blüte</span><span class="wiki-row-val">${s.humidityBloom} %</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">VPD-Bereich</span><span class="wiki-row-val">${s.vpdMin}–${s.vpdMax} kPa</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Feuchte Wachstum</span><span class="wiki-row-val">${s.humidityVeg ?? '–'} %</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Feuchte Blüte</span><span class="wiki-row-val">${s.humidityBloom ?? '–'} %</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">VPD-Bereich</span><span class="wiki-row-val">${s.vpdMin ?? '–'}–${s.vpdMax ?? '–'} kPa</span></div>
       </div>
 
       <div class="wiki-section">
@@ -1862,7 +1877,7 @@ function wikiShowDetail(id) {
       </div>
     </div>
 
-    ${s.notes ? `<div class="wiki-notes">📝 ${s.notes}</div>` : ''}
+    ${s.notes ? `<div class="wiki-notes">📝 ${esc(s.notes)}</div>` : ''}
   `;
 }
 
@@ -1878,7 +1893,7 @@ function wikiShowForm(id) {
 
         <div class="wiki-field wiki-form-full">
           <label>Sortenname *</label>
-          <input id="wf-name" value="${v('name')}" placeholder="z.B. Northern Lights" />
+          <input id="wf-name" value="${esc(v('name'))}" placeholder="z.B. Northern Lights" />
         </div>
 
         <div class="wiki-field">
@@ -1897,7 +1912,7 @@ function wikiShowForm(id) {
 
         <div class="wiki-field">
           <label>Züchter / Breeder</label>
-          <input id="wf-breeder" value="${v('breeder')}" placeholder="z.B. RQS" />
+          <input id="wf-breeder" value="${esc(v('breeder'))}" placeholder="z.B. RQS" />
         </div>
 
         <div class="wiki-field">
@@ -1989,17 +2004,17 @@ function wikiShowForm(id) {
 
         <div class="wiki-field wiki-form-full">
           <label>Aroma <span style="color:var(--text-dim)">(kommagetrennt)</span></label>
-          <input id="wf-aroma" value="${vArr('aroma')}" placeholder="z.B. erdig, süß, zitrus" />
+          <input id="wf-aroma" value="${esc(vArr('aroma'))}" placeholder="z.B. erdig, süß, zitrus" />
         </div>
 
         <div class="wiki-field wiki-form-full">
           <label>Wirkung <span style="color:var(--text-dim)">(kommagetrennt)</span></label>
-          <input id="wf-effect" value="${vArr('effect')}" placeholder="z.B. entspannend, euphorisch" />
+          <input id="wf-effect" value="${esc(vArr('effect'))}" placeholder="z.B. entspannend, euphorisch" />
         </div>
 
         <div class="wiki-field wiki-form-full">
           <label>Notizen</label>
-          <textarea id="wf-notes">${v('notes')}</textarea>
+          <textarea id="wf-notes">${esc(v('notes'))}</textarea>
         </div>
 
       </div>
@@ -2059,7 +2074,8 @@ async function wikiDelete(id) {
   const s = wikiStrains.find(x => x.id === id);
   if (!confirm(`Sorte "${s?.name}" wirklich löschen?`)) return;
   try {
-    await fetch(`/api/strains/${id}`, { method: 'DELETE' });
+    const r = await fetch(`/api/strains/${id}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     wikiSelected = null;
     await wikiLoad();
   } catch(e) {

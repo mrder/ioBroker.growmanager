@@ -1904,13 +1904,13 @@ class GrowManagerAdapter extends utils.Adapter {
             case 'importConfig':
                 if (obj.message && typeof obj.message === 'object' && 'json' in obj.message) {
                     const importResult = this.configurationService.importConfig((obj.message as { json: string }).json);
+                    if (obj.callback) {
+                        this.sendTo(obj.from, obj.command, importResult.result as unknown as ioBroker.MessagePayload, obj.callback);
+                    }
                     if (importResult.config) {
                         this.growConfig = importResult.config;
                         this.log.info('Konfiguration importiert');
                         this.restart();
-                    }
-                    if (obj.callback) {
-                        this.sendTo(obj.from, obj.command, importResult.result as unknown as ioBroker.MessagePayload, obj.callback);
                     }
                 }
                 break;

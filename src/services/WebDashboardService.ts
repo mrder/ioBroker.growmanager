@@ -277,8 +277,10 @@ export class WebDashboardService {
             }
         } catch { /* ignore */ }
         // Erste Nutzung: Standardsorten anlegen
-        this.saveStrains(DEFAULT_STRAINS);
-        return DEFAULT_STRAINS.map(s => ({ ...s, createdAt: Date.now(), updatedAt: Date.now() }));
+        const now = Date.now();
+        const seeded = DEFAULT_STRAINS.map(s => ({ ...s, createdAt: now, updatedAt: now }));
+        this.saveStrains(seeded);
+        return seeded;
     }
 
     private saveStrains(strains: StrainEntry[]): void {
@@ -339,7 +341,8 @@ export class WebDashboardService {
                         const updated = JSON.parse(body) as StrainEntry;
                         updated.id = strainId;
                         updated.updatedAt = Date.now();
-                        if (idx >= 0) { strains[idx] = updated; } else { strains.push(updated); }
+                        if (idx < 0) { json({ error: 'Nicht gefunden' }, 404); return; }
+                        strains[idx] = updated;
                         this.saveStrains(strains);
                         json(updated);
                     } catch (e) { json({ error: String(e) }, 400); }
