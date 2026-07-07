@@ -100,6 +100,118 @@ export type ModeCommand = {
     mode: string;
 };
 
+export interface StrainEntry {
+    id: string;
+    name: string;
+    type: 'sativa' | 'indica' | 'hybrid';
+    sativaPercent: number;
+    growWeeks: number;
+    bloomWeeks: number;
+    yieldGramsPerM2?: number;
+    height: 'klein' | 'mittel' | 'groß' | 'sehr groß';
+    tempDayMin: number;
+    tempDayMax: number;
+    tempNightMin: number;
+    tempNightMax: number;
+    humidityVeg: number;
+    humidityBloom: number;
+    vpdMin: number;
+    vpdMax: number;
+    aroma: string[];
+    effect: string[];
+    thcPercent?: number;
+    cbdPercent?: number;
+    difficulty: 'einfach' | 'mittel' | 'schwer';
+    breeder?: string;
+    notes?: string;
+    createdAt: number;
+    updatedAt: number;
+}
+
+const DEFAULT_STRAINS: StrainEntry[] = [
+    {
+        id: 'strain-dante-inferno',
+        name: 'Dante Inferno',
+        type: 'hybrid',
+        sativaPercent: 50,
+        growWeeks: 4,
+        bloomWeeks: 9,
+        yieldGramsPerM2: 450,
+        height: 'mittel',
+        tempDayMin: 22,
+        tempDayMax: 28,
+        tempNightMin: 18,
+        tempNightMax: 22,
+        humidityVeg: 65,
+        humidityBloom: 50,
+        vpdMin: 0.8,
+        vpdMax: 1.4,
+        aroma: ['tropisch', 'zitrus', 'süß', 'exotisch'],
+        effect: ['euphorisch', 'entspannend', 'kreativ'],
+        thcPercent: 22,
+        cbdPercent: 0.5,
+        difficulty: 'mittel',
+        breeder: 'Unbekannt',
+        notes: 'Intensive tropische Aromen, gute Indoor-Performer.',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+    },
+    {
+        id: 'strain-purple-punch',
+        name: 'Purple Punch',
+        type: 'indica',
+        sativaPercent: 20,
+        growWeeks: 4,
+        bloomWeeks: 8,
+        yieldGramsPerM2: 400,
+        height: 'klein',
+        tempDayMin: 20,
+        tempDayMax: 26,
+        tempNightMin: 17,
+        tempNightMax: 21,
+        humidityVeg: 60,
+        humidityBloom: 45,
+        vpdMin: 0.9,
+        vpdMax: 1.3,
+        aroma: ['traube', 'beere', 'süß', 'vanille'],
+        effect: ['entspannend', 'schläfrig', 'glücklich'],
+        thcPercent: 20,
+        cbdPercent: 0.5,
+        difficulty: 'einfach',
+        breeder: 'Supernova Gardens',
+        notes: 'Starke lila Färbung bei kühlen Nachttemperaturen (15-18°C). Kurze kompakte Pflanzen.',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+    },
+    {
+        id: 'strain-seriousa',
+        name: 'Seriousa',
+        type: 'hybrid',
+        sativaPercent: 40,
+        growWeeks: 5,
+        bloomWeeks: 9,
+        yieldGramsPerM2: 500,
+        height: 'groß',
+        tempDayMin: 22,
+        tempDayMax: 28,
+        tempNightMin: 18,
+        tempNightMax: 23,
+        humidityVeg: 65,
+        humidityBloom: 50,
+        vpdMin: 0.8,
+        vpdMax: 1.5,
+        aroma: ['erdig', 'kiefern', 'würzig', 'holzig'],
+        effect: ['entspannend', 'euphorisch', 'fokussiert'],
+        thcPercent: 18,
+        cbdPercent: 1.0,
+        difficulty: 'mittel',
+        breeder: 'Serious Seeds',
+        notes: 'Robuste Sorte mit gutem Ertrag. Gute Resistenz gegen Schimmel und Schädlinge.',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+    },
+];
+
 export class WebDashboardService {
     private server: http.Server | null = null;
     private readonly sseClients = new Set<http.ServerResponse>();
@@ -119,6 +231,7 @@ export class WebDashboardService {
     private lifestyleGetCallback: ((groupId: string) => Promise<unknown>) | null = null;
     private lifestyleSetCallback: ((groupId: string, data: unknown) => Promise<void>) | null = null;
     private plantIdApiKey = '';
+    private strainsFilePath = '';
 
     constructor(
         private readonly log: {
@@ -142,6 +255,7 @@ export class WebDashboardService {
 
     start(port: number, bindAddress: string): void {
         const htmlPath = path.join(this.adapterDir, 'admin', 'web', 'dashboard.html');
+        this.strainsFilePath = path.join(this.adapterDir, 'strains.json');
         try {
             this.dashboardHtml = fs.readFileSync(htmlPath, 'utf-8');
         } catch {
@@ -154,6 +268,94 @@ export class WebDashboardService {
         this.server.listen(port, bindAddress, () => {
             this.log.info(`GrowManager Dashboard erreichbar unter http://${bindAddress}:${port}/`);
         });
+    }
+
+    private loadStrains(): StrainEntry[] {
+        try {
+            if (fs.existsSync(this.strainsFilePath)) {
+                return JSON.parse(fs.readFileSync(this.strainsFilePath, 'utf-8')) as StrainEntry[];
+            }
+        } catch { /* ignore */ }
+        // Erste Nutzung: Standardsorten anlegen
+        this.saveStrains(DEFAULT_STRAINS);
+        return DEFAULT_STRAINS.map(s => ({ ...s, createdAt: Date.now(), updatedAt: Date.now() }));
+    }
+
+    private saveStrains(strains: StrainEntry[]): void {
+        try {
+            fs.writeFileSync(this.strainsFilePath, JSON.stringify(strains, null, 2), 'utf-8');
+        } catch (e) {
+            this.log.error(`Strains speichern fehlgeschlagen: ${e}`);
+        }
+    }
+
+    private handleStrains(req: http.IncomingMessage, res: http.ServerResponse, strainId?: string): void {
+        const json = (data: unknown, status = 200) => {
+            if (res.headersSent) return;
+            res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify(data));
+        };
+
+        if (!strainId) {
+            // GET /api/strains
+            if (req.method === 'GET') { json(this.loadStrains()); return; }
+
+            // POST /api/strains
+            if (req.method === 'POST') {
+                let body = '';
+                req.on('data', chunk => { body += chunk; if (body.length > 32768) { if (!res.headersSent) { res.writeHead(413); res.end(); } req.destroy(); } });
+                req.on('error', () => { /* ignore */ });
+                req.on('end', () => {
+                    try {
+                        const strain = JSON.parse(body) as StrainEntry;
+                        strain.id = `strain-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                        strain.createdAt = Date.now();
+                        strain.updatedAt = Date.now();
+                        const strains = this.loadStrains();
+                        strains.push(strain);
+                        this.saveStrains(strains);
+                        json(strain, 201);
+                    } catch (e) { json({ error: String(e) }, 400); }
+                });
+                return;
+            }
+        } else {
+            const strains = this.loadStrains();
+            const idx = strains.findIndex(s => s.id === strainId);
+
+            // GET /api/strains/:id
+            if (req.method === 'GET') {
+                if (idx < 0) { json({ error: 'Nicht gefunden' }, 404); return; }
+                json(strains[idx]); return;
+            }
+
+            // PUT /api/strains/:id
+            if (req.method === 'PUT') {
+                let body = '';
+                req.on('data', chunk => { body += chunk; if (body.length > 32768) { if (!res.headersSent) { res.writeHead(413); res.end(); } req.destroy(); } });
+                req.on('error', () => { /* ignore */ });
+                req.on('end', () => {
+                    try {
+                        const updated = JSON.parse(body) as StrainEntry;
+                        updated.id = strainId;
+                        updated.updatedAt = Date.now();
+                        if (idx >= 0) { strains[idx] = updated; } else { strains.push(updated); }
+                        this.saveStrains(strains);
+                        json(updated);
+                    } catch (e) { json({ error: String(e) }, 400); }
+                });
+                return;
+            }
+
+            // DELETE /api/strains/:id
+            if (req.method === 'DELETE') {
+                if (idx < 0) { json({ error: 'Nicht gefunden' }, 404); return; }
+                strains.splice(idx, 1);
+                this.saveStrains(strains);
+                json({ ok: true }); return;
+            }
+        }
+        json({ error: 'Method not allowed' }, 405);
     }
 
     stop(): void {
@@ -291,6 +493,17 @@ export class WebDashboardService {
 
         if (url === '/api/plant-analysis' && req.method === 'POST') {
             this.handlePlantAnalysis(req, res);
+            return;
+        }
+
+        // Sortenwiki API
+        if (url === '/api/strains') {
+            this.handleStrains(req, res);
+            return;
+        }
+        const strainIdMatch = url.match(/^\/api\/strains\/([^/]+)$/);
+        if (strainIdMatch) {
+            this.handleStrains(req, res, strainIdMatch[1]);
             return;
         }
 

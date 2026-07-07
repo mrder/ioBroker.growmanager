@@ -14,6 +14,144 @@
     --monitor: #42a5f5; --safe: #9e9e9e; --fault: #ef5350;
     --warn: #ff9800; --accent: #4caf50; --muted: #666;
   }
+
+  /* ---- Sortenwiki ---- */
+  .wiki-btn {
+    background: var(--green); border: none; color: #fff; cursor: pointer;
+    border-radius: 6px; padding: 6px 14px; font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; gap: 6px; transition: background 0.2s;
+  }
+  .wiki-btn:hover { background: var(--green-light); }
+
+  .wiki-overlay {
+    display: none; position: fixed; inset: 0; z-index: 9200;
+    background: var(--bg); flex-direction: column;
+  }
+  .wiki-overlay.open { display: flex; }
+
+  .wiki-topbar {
+    background: var(--green-dark); padding: 12px 20px;
+    display: flex; align-items: center; gap: 16px;
+    border-bottom: 2px solid var(--green); flex-shrink: 0;
+  }
+  .wiki-topbar-title { font-size: 18px; font-weight: 700; flex: 1; }
+  .wiki-close-btn {
+    background: rgba(255,255,255,0.15); border: none; color: #fff;
+    border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 14px;
+  }
+  .wiki-close-btn:hover { background: rgba(255,255,255,0.25); }
+  .wiki-add-btn {
+    background: var(--green); border: none; color: #fff; cursor: pointer;
+    border-radius: 6px; padding: 6px 14px; font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .wiki-add-btn:hover { background: var(--green-light); }
+  .wiki-search {
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+    color: #fff; border-radius: 6px; padding: 6px 12px; font-size: 13px; width: 220px;
+  }
+  .wiki-search::placeholder { color: rgba(255,255,255,0.5); }
+
+  .wiki-body {
+    display: flex; flex: 1; overflow: hidden;
+  }
+
+  /* Linke Spalte: Sortenliste */
+  .wiki-list {
+    width: 280px; flex-shrink: 0; border-right: 1px solid var(--border);
+    overflow-y: auto; padding: 12px 8px;
+  }
+  .wiki-list-item {
+    padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px;
+    border: 1px solid transparent; transition: all 0.15s;
+  }
+  .wiki-list-item:hover { background: var(--surface2); border-color: var(--border); }
+  .wiki-list-item.active { background: rgba(46,125,50,0.2); border-color: var(--green); }
+  .wiki-list-name { font-weight: 600; font-size: 14px; }
+  .wiki-list-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .wiki-list-badges { display: flex; gap: 4px; margin-top: 5px; flex-wrap: wrap; }
+  .wiki-badge {
+    font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: 600;
+  }
+  .wiki-badge.sativa  { background: rgba(66,165,245,0.2); color: #42a5f5; }
+  .wiki-badge.indica  { background: rgba(206,147,216,0.2); color: #ce93d8; }
+  .wiki-badge.hybrid  { background: rgba(76,175,80,0.2);  color: #81c784; }
+  .wiki-badge.easy    { background: rgba(76,175,80,0.2);  color: #81c784; }
+  .wiki-badge.medium  { background: rgba(251,192,45,0.2); color: #fbc02d; }
+  .wiki-badge.hard    { background: rgba(239,83,80,0.2);  color: #ef5350; }
+
+  /* Rechte Seite: Detail / Formular */
+  .wiki-detail {
+    flex: 1; overflow-y: auto; padding: 24px 28px;
+  }
+  .wiki-empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; color: var(--text-dim); gap: 12px; font-size: 15px;
+  }
+  .wiki-detail-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 20px; gap: 12px;
+  }
+  .wiki-detail-name { font-size: 24px; font-weight: 700; }
+  .wiki-detail-breeder { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+  .wiki-detail-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .wiki-edit-btn, .wiki-del-btn {
+    border: none; cursor: pointer; border-radius: 6px; padding: 7px 14px; font-size: 13px; font-weight: 600;
+  }
+  .wiki-edit-btn { background: var(--surface2); color: var(--text); }
+  .wiki-edit-btn:hover { background: var(--border); }
+  .wiki-del-btn  { background: rgba(239,83,80,0.15); color: var(--red); }
+  .wiki-del-btn:hover  { background: rgba(239,83,80,0.3); }
+
+  .wiki-sections { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .wiki-section {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+  }
+  .wiki-section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--text-dim); margin-bottom: 10px;
+  }
+  .wiki-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 13px; }
+  .wiki-row-label { color: var(--text-dim); }
+  .wiki-row-val { font-weight: 600; }
+  .wiki-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+  .wiki-tag {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 3px 9px; font-size: 12px;
+  }
+  .wiki-notes {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; font-size: 13px; color: var(--text-dim); margin-top: 14px; line-height: 1.6;
+  }
+
+  /* Formular */
+  .wiki-form { max-width: 700px; }
+  .wiki-form-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+  .wiki-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .wiki-form-full { grid-column: 1 / -1; }
+  .wiki-field label { display: block; font-size: 11px; color: var(--text-dim); margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .wiki-field input, .wiki-field select, .wiki-field textarea {
+    width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit;
+  }
+  .wiki-field input:focus, .wiki-field select:focus, .wiki-field textarea:focus {
+    outline: none; border-color: var(--green);
+  }
+  .wiki-field textarea { resize: vertical; min-height: 70px; }
+  .wiki-range-row { display: flex; align-items: center; gap: 8px; }
+  .wiki-range-row input { flex: 1; }
+  .wiki-range-sep { color: var(--text-dim); font-size: 13px; flex-shrink: 0; }
+  .wiki-form-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .wiki-save-btn {
+    background: var(--green); border: none; color: #fff; cursor: pointer;
+    border-radius: 6px; padding: 9px 20px; font-size: 14px; font-weight: 600;
+  }
+  .wiki-save-btn:hover { background: var(--green-light); }
+  .wiki-cancel-btn {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    cursor: pointer; border-radius: 6px; padding: 9px 16px; font-size: 14px;
+  }
+  .wiki-section-divider { grid-column: 1/-1; border: none; border-top: 1px solid var(--border); margin: 4px 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Roboto', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
@@ -480,9 +618,31 @@
 <div class="header">
   <div class="header-title">🌿 GrowManager</div>
   <div class="header-status">
+    <button class="wiki-btn" onclick="wikiOpen()">📖 Sortenwiki</button>
     <span class="last-update" id="lastUpdate">–</span>
     <span id="connDot" class="conn-dot"></span>
     <span id="connLabel">Verbinde…</span>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SORTENWIKI OVERLAY                                           -->
+<!-- ============================================================ -->
+<div class="wiki-overlay" id="wikiOverlay">
+  <div class="wiki-topbar">
+    <span class="wiki-topbar-title">📖 Sortenwiki</span>
+    <input class="wiki-search" id="wikiSearch" placeholder="Sorte suchen…" oninput="wikiRenderList()" />
+    <button class="wiki-add-btn" onclick="wikiShowForm(null)">＋ Neue Sorte</button>
+    <button class="wiki-close-btn" onclick="wikiClose()">✕ Schließen</button>
+  </div>
+  <div class="wiki-body">
+    <div class="wiki-list" id="wikiList"></div>
+    <div class="wiki-detail" id="wikiDetail">
+      <div class="wiki-empty-state">
+        <span style="font-size:48px">🌿</span>
+        <p>Sorte auswählen oder neue anlegen</p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1565,6 +1725,346 @@ function connect() {
     clearTimeout(reconnectTimer);
     reconnectTimer = setTimeout(connect, 3000);
   };
+}
+
+// ============================================================
+// SORTENWIKI
+// ============================================================
+let wikiStrains = [];
+let wikiSelected = null; // id der aktuell angezeigten Sorte
+
+async function wikiOpen() {
+  document.getElementById('wikiOverlay').classList.add('open');
+  await wikiLoad();
+}
+function wikiClose() {
+  document.getElementById('wikiOverlay').classList.remove('open');
+}
+
+async function wikiLoad() {
+  try {
+    const r = await fetch('/api/strains');
+    wikiStrains = await r.json();
+  } catch(e) {
+    wikiStrains = [];
+  }
+  wikiRenderList();
+  if (wikiSelected) {
+    const still = wikiStrains.find(s => s.id === wikiSelected);
+    if (still) wikiShowDetail(wikiSelected);
+    else { wikiSelected = null; wikiRenderEmpty(); }
+  } else {
+    wikiRenderEmpty();
+  }
+}
+
+function wikiRenderEmpty() {
+  document.getElementById('wikiDetail').innerHTML =
+    `<div class="wiki-empty-state"><span style="font-size:48px">🌿</span><p>Sorte auswählen oder neue anlegen</p></div>`;
+}
+
+function wikiTypeBadge(s) {
+  const map = { sativa:'Sativa', indica:'Indica', hybrid:'Hybrid' };
+  return `<span class="wiki-badge ${s.type}">${map[s.type] ?? s.type}</span>`;
+}
+function wikiDiffBadge(s) {
+  const map = { einfach:['easy','Einfach'], mittel:['medium','Mittel'], schwer:['hard','Schwer'] };
+  const [cls, label] = map[s.difficulty] ?? ['medium','Mittel'];
+  return `<span class="wiki-badge ${cls}">${label}</span>`;
+}
+
+function wikiRenderList() {
+  const q = (document.getElementById('wikiSearch').value || '').toLowerCase();
+  const filtered = wikiStrains.filter(s => s.name.toLowerCase().includes(q) || (s.breeder||'').toLowerCase().includes(q));
+  const listEl = document.getElementById('wikiList');
+  if (!filtered.length) {
+    listEl.innerHTML = `<div style="padding:20px;color:var(--text-dim);font-size:13px;text-align:center">Keine Ergebnisse</div>`;
+    return;
+  }
+  listEl.innerHTML = filtered.map(s => {
+    const totalW = (s.growWeeks||0) + (s.bloomWeeks||0);
+    const active = s.id === wikiSelected ? ' active' : '';
+    return `<div class="wiki-list-item${active}" onclick="wikiShowDetail('${s.id}')">
+      <div class="wiki-list-name">${s.name}</div>
+      <div class="wiki-list-sub">${s.breeder ? s.breeder + ' · ' : ''}${totalW}W gesamt</div>
+      <div class="wiki-list-badges">${wikiTypeBadge(s)}${wikiDiffBadge(s)}${s.thcPercent != null ? `<span class="wiki-badge" style="background:rgba(255,152,0,0.15);color:#ff9800">THC ${s.thcPercent}%</span>` : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function wikiShowDetail(id) {
+  wikiSelected = id;
+  const s = wikiStrains.find(x => x.id === id);
+  if (!s) return;
+  wikiRenderList(); // aktives Item aktualisieren
+
+  const aromas = (s.aroma||[]).map(a => `<span class="wiki-tag">🍃 ${a}</span>`).join('');
+  const effects = (s.effect||[]).map(e => `<span class="wiki-tag">✨ ${e}</span>`).join('');
+  const typeLabel = { sativa:'Sativa', indica:'Indica', hybrid:'Hybrid' }[s.type] ?? s.type;
+  const sativaBar = s.type === 'hybrid'
+    ? `<div style="margin-top:4px;height:6px;border-radius:3px;background:var(--surface2);overflow:hidden">
+        <div style="height:100%;width:${s.sativaPercent}%;background:linear-gradient(90deg,#42a5f5,#ce93d8)"></div>
+       </div>
+       <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-top:2px"><span>Sativa ${s.sativaPercent}%</span><span>Indica ${100-s.sativaPercent}%</span></div>`
+    : '';
+
+  document.getElementById('wikiDetail').innerHTML = `
+    <div class="wiki-detail-header">
+      <div>
+        <div class="wiki-detail-name">${s.name}</div>
+        <div class="wiki-detail-breeder">${s.breeder || '–'}</div>
+        <div class="wiki-list-badges" style="margin-top:6px">${wikiTypeBadge(s)}${wikiDiffBadge(s)}</div>
+        ${sativaBar}
+      </div>
+      <div class="wiki-detail-actions">
+        <button class="wiki-edit-btn" onclick="wikiShowForm('${id}')">✏️ Bearbeiten</button>
+        <button class="wiki-del-btn" onclick="wikiDelete('${id}')">🗑 Löschen</button>
+      </div>
+    </div>
+
+    <div class="wiki-sections">
+      <div class="wiki-section">
+        <div class="wiki-section-title">⏱ Zeiten</div>
+        <div class="wiki-row"><span class="wiki-row-label">Wachstum</span><span class="wiki-row-val">${s.growWeeks} Wochen</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Blüte</span><span class="wiki-row-val">${s.bloomWeeks} Wochen</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Gesamt</span><span class="wiki-row-val">${(s.growWeeks||0)+(s.bloomWeeks||0)} Wochen</span></div>
+        ${s.yieldGramsPerM2 != null ? `<div class="wiki-row"><span class="wiki-row-label">Ertrag</span><span class="wiki-row-val">${s.yieldGramsPerM2} g/m²</span></div>` : ''}
+        <div class="wiki-row"><span class="wiki-row-label">Wuchshöhe</span><span class="wiki-row-val">${s.height}</span></div>
+      </div>
+
+      <div class="wiki-section">
+        <div class="wiki-section-title">🌡 Temperatur</div>
+        <div class="wiki-row"><span class="wiki-row-label">Tag (Min–Max)</span><span class="wiki-row-val">${s.tempDayMin}–${s.tempDayMax} °C</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Nacht (Min–Max)</span><span class="wiki-row-val">${s.tempNightMin}–${s.tempNightMax} °C</span></div>
+      </div>
+
+      <div class="wiki-section">
+        <div class="wiki-section-title">💧 Feuchte & VPD</div>
+        <div class="wiki-row"><span class="wiki-row-label">Feuchte Wachstum</span><span class="wiki-row-val">${s.humidityVeg} %</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Feuchte Blüte</span><span class="wiki-row-val">${s.humidityBloom} %</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">VPD-Bereich</span><span class="wiki-row-val">${s.vpdMin}–${s.vpdMax} kPa</span></div>
+      </div>
+
+      <div class="wiki-section">
+        <div class="wiki-section-title">🧪 Wirkstoffe</div>
+        <div class="wiki-row"><span class="wiki-row-label">THC</span><span class="wiki-row-val">${s.thcPercent != null ? s.thcPercent + ' %' : '–'}</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">CBD</span><span class="wiki-row-val">${s.cbdPercent != null ? s.cbdPercent + ' %' : '–'}</span></div>
+      </div>
+
+      <div class="wiki-section wiki-form-full">
+        <div class="wiki-section-title">🍃 Aroma</div>
+        <div class="wiki-tags">${aromas || '<span style="color:var(--text-dim)">–</span>'}</div>
+      </div>
+
+      <div class="wiki-section wiki-form-full">
+        <div class="wiki-section-title">✨ Wirkung</div>
+        <div class="wiki-tags">${effects || '<span style="color:var(--text-dim)">–</span>'}</div>
+      </div>
+    </div>
+
+    ${s.notes ? `<div class="wiki-notes">📝 ${s.notes}</div>` : ''}
+  `;
+}
+
+function wikiShowForm(id) {
+  const s = id ? wikiStrains.find(x => x.id === id) : null;
+  const v = (field, def='') => s ? (s[field] ?? def) : def;
+  const vArr = (field) => (s ? (s[field] || []) : []).join(', ');
+
+  document.getElementById('wikiDetail').innerHTML = `
+    <div class="wiki-form">
+      <div class="wiki-form-title">${s ? '✏️ Sorte bearbeiten' : '➕ Neue Sorte anlegen'}</div>
+      <div class="wiki-form-grid">
+
+        <div class="wiki-field wiki-form-full">
+          <label>Sortenname *</label>
+          <input id="wf-name" value="${v('name')}" placeholder="z.B. Northern Lights" />
+        </div>
+
+        <div class="wiki-field">
+          <label>Typ</label>
+          <select id="wf-type">
+            <option value="sativa" ${v('type')==='sativa'?'selected':''}>Sativa</option>
+            <option value="indica" ${v('type')==='indica'?'selected':''}>Indica</option>
+            <option value="hybrid" ${v('type','hybrid')==='hybrid'?'selected':''}>Hybrid</option>
+          </select>
+        </div>
+
+        <div class="wiki-field">
+          <label>Sativa-Anteil (%) <span style="color:var(--text-dim)">bei Hybrid</span></label>
+          <input id="wf-sativa" type="number" min="0" max="100" value="${v('sativaPercent',50)}" />
+        </div>
+
+        <div class="wiki-field">
+          <label>Züchter / Breeder</label>
+          <input id="wf-breeder" value="${v('breeder')}" placeholder="z.B. RQS" />
+        </div>
+
+        <div class="wiki-field">
+          <label>Schwierigkeit</label>
+          <select id="wf-difficulty">
+            <option value="einfach" ${v('difficulty')==='einfach'?'selected':''}>Einfach</option>
+            <option value="mittel"  ${v('difficulty','mittel')==='mittel'?'selected':''}>Mittel</option>
+            <option value="schwer"  ${v('difficulty')==='schwer'?'selected':''}>Schwer</option>
+          </select>
+        </div>
+
+        <hr class="wiki-section-divider">
+
+        <div class="wiki-field">
+          <label>Wachstumswochen</label>
+          <input id="wf-grow" type="number" min="1" max="52" value="${v('growWeeks',4)}" />
+        </div>
+
+        <div class="wiki-field">
+          <label>Blütewochen</label>
+          <input id="wf-bloom" type="number" min="1" max="52" value="${v('bloomWeeks',8)}" />
+        </div>
+
+        <div class="wiki-field">
+          <label>Ertrag (g/m²)</label>
+          <input id="wf-yield" type="number" min="0" value="${v('yieldGramsPerM2','')}" placeholder="optional" />
+        </div>
+
+        <div class="wiki-field">
+          <label>Wuchshöhe</label>
+          <select id="wf-height">
+            <option value="klein"     ${v('height')==='klein'?'selected':''}>Klein</option>
+            <option value="mittel"    ${v('height','mittel')==='mittel'?'selected':''}>Mittel</option>
+            <option value="groß"      ${v('height')==='groß'?'selected':''}>Groß</option>
+            <option value="sehr groß" ${v('height')==='sehr groß'?'selected':''}>Sehr groß</option>
+          </select>
+        </div>
+
+        <hr class="wiki-section-divider">
+
+        <div class="wiki-field">
+          <label>Temperatur Tag (°C)</label>
+          <div class="wiki-range-row">
+            <input id="wf-tDayMin" type="number" value="${v('tempDayMin',20)}" placeholder="Min" />
+            <span class="wiki-range-sep">–</span>
+            <input id="wf-tDayMax" type="number" value="${v('tempDayMax',28)}" placeholder="Max" />
+          </div>
+        </div>
+
+        <div class="wiki-field">
+          <label>Temperatur Nacht (°C)</label>
+          <div class="wiki-range-row">
+            <input id="wf-tNightMin" type="number" value="${v('tempNightMin',17)}" placeholder="Min" />
+            <span class="wiki-range-sep">–</span>
+            <input id="wf-tNightMax" type="number" value="${v('tempNightMax',22)}" placeholder="Max" />
+          </div>
+        </div>
+
+        <div class="wiki-field">
+          <label>Feuchte Wachstum (%)</label>
+          <input id="wf-humVeg" type="number" min="0" max="100" value="${v('humidityVeg',65)}" />
+        </div>
+
+        <div class="wiki-field">
+          <label>Feuchte Blüte (%)</label>
+          <input id="wf-humBloom" type="number" min="0" max="100" value="${v('humidityBloom',50)}" />
+        </div>
+
+        <div class="wiki-field">
+          <label>VPD-Bereich (kPa)</label>
+          <div class="wiki-range-row">
+            <input id="wf-vpdMin" type="number" step="0.1" value="${v('vpdMin',0.8)}" placeholder="Min" />
+            <span class="wiki-range-sep">–</span>
+            <input id="wf-vpdMax" type="number" step="0.1" value="${v('vpdMax',1.4)}" placeholder="Max" />
+          </div>
+        </div>
+
+        <hr class="wiki-section-divider">
+
+        <div class="wiki-field">
+          <label>THC (%)</label>
+          <input id="wf-thc" type="number" step="0.1" value="${v('thcPercent','')}" placeholder="optional" />
+        </div>
+
+        <div class="wiki-field">
+          <label>CBD (%)</label>
+          <input id="wf-cbd" type="number" step="0.1" value="${v('cbdPercent','')}" placeholder="optional" />
+        </div>
+
+        <div class="wiki-field wiki-form-full">
+          <label>Aroma <span style="color:var(--text-dim)">(kommagetrennt)</span></label>
+          <input id="wf-aroma" value="${vArr('aroma')}" placeholder="z.B. erdig, süß, zitrus" />
+        </div>
+
+        <div class="wiki-field wiki-form-full">
+          <label>Wirkung <span style="color:var(--text-dim)">(kommagetrennt)</span></label>
+          <input id="wf-effect" value="${vArr('effect')}" placeholder="z.B. entspannend, euphorisch" />
+        </div>
+
+        <div class="wiki-field wiki-form-full">
+          <label>Notizen</label>
+          <textarea id="wf-notes">${v('notes')}</textarea>
+        </div>
+
+      </div>
+      <div class="wiki-form-actions">
+        <button class="wiki-save-btn" onclick="wikiSave(${id ? `'${id}'` : 'null'})">💾 Speichern</button>
+        <button class="wiki-cancel-btn" onclick="${id ? `wikiShowDetail('${id}')` : 'wikiRenderEmpty()'}">Abbrechen</button>
+      </div>
+    </div>
+  `;
+}
+
+async function wikiSave(id) {
+  const g = (elId) => document.getElementById(elId);
+  const name = g('wf-name').value.trim();
+  if (!name) { alert('Bitte Sortennamen eingeben.'); return; }
+  const tags = (val) => val.split(',').map(s => s.trim()).filter(Boolean);
+
+  const payload = {
+    name,
+    type: g('wf-type').value,
+    sativaPercent: +g('wf-sativa').value || 50,
+    breeder: g('wf-breeder').value.trim(),
+    difficulty: g('wf-difficulty').value,
+    growWeeks: +g('wf-grow').value || 4,
+    bloomWeeks: +g('wf-bloom').value || 8,
+    yieldGramsPerM2: g('wf-yield').value !== '' ? +g('wf-yield').value : undefined,
+    height: g('wf-height').value,
+    tempDayMin: +g('wf-tDayMin').value,
+    tempDayMax: +g('wf-tDayMax').value,
+    tempNightMin: +g('wf-tNightMin').value,
+    tempNightMax: +g('wf-tNightMax').value,
+    humidityVeg: +g('wf-humVeg').value,
+    humidityBloom: +g('wf-humBloom').value,
+    vpdMin: +g('wf-vpdMin').value,
+    vpdMax: +g('wf-vpdMax').value,
+    thcPercent: g('wf-thc').value !== '' ? +g('wf-thc').value : undefined,
+    cbdPercent: g('wf-cbd').value !== '' ? +g('wf-cbd').value : undefined,
+    aroma: tags(g('wf-aroma').value),
+    effect: tags(g('wf-effect').value),
+    notes: g('wf-notes').value.trim(),
+  };
+
+  try {
+    const url = id ? `/api/strains/${id}` : '/api/strains';
+    const method = id ? 'PUT' : 'POST';
+    const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!r.ok) throw new Error(await r.text());
+    const saved = await r.json();
+    wikiSelected = saved.id;
+    await wikiLoad();
+  } catch(e) {
+    alert('Fehler beim Speichern: ' + e);
+  }
+}
+
+async function wikiDelete(id) {
+  const s = wikiStrains.find(x => x.id === id);
+  if (!confirm(`Sorte "${s?.name}" wirklich löschen?`)) return;
+  try {
+    await fetch(`/api/strains/${id}`, { method: 'DELETE' });
+    wikiSelected = null;
+    await wikiLoad();
+  } catch(e) {
+    alert('Fehler beim Löschen: ' + e);
+  }
 }
 
 connect();

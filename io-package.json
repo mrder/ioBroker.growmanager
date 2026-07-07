@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.38",
+    "version": "0.2.39",
     "news": {
+      "0.2.39": {
+        "en": "Sortenwiki: global strain database accessible via header button — add/edit/delete strains with growth/bloom times, temp/humidity/VPD targets, aroma, effect, THC/CBD. Pre-loaded: Dante Inferno, Purple Punch, Seriousa. Stored in strains.json on the adapter host.",
+        "de": "Sortenwiki: globale Sortendatenbank ueber Header-Button erreichbar — Sorten anlegen/bearbeiten/loeschen mit Wuchs-/Bluetezeiten, Temp/Feuchte/VPD-Zielwerten, Aroma, Wirkung, THC/CBD. Vorbelegt mit: Dante Inferno, Purple Punch, Seriousa. Gespeichert in strains.json auf dem Adapter-Host."
+      },
       "0.2.38": {
         "en": "Fix actuator sync after restart: shared supply/exhaust fans now controlled exclusively via voting (no double-command with air system); owner vote now uses current climate need instead of stale requested; air system adds setActuatorStateWithVerify for non-shared fans; supplyCommand=false no longer skips the supply fan OFF command",
         "de": "Fix Aktor-Sync nach Neustart: geteilte Zu-/Abluft-Aktoren werden ausschliesslich per Voting gesteuert (keine Doppelsteuerung mit Air-System); Eigentuemer-Stimme nutzt aktuellen Klimabedarf statt alten Sollwert; Air-System-Pfad erhaelt setActuatorStateWithVerify fuer nicht-geteilte Aktoren; supplyCommand=false blockiert AUS-Befehl nicht mehr"
