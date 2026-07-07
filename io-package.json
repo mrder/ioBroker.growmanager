@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.30",
+    "version": "0.2.31",
     "news": {
+      "0.2.31": {
+        "en": "Fix adapter crash: cam-proxy error handlers now guard against ERR_HTTP_HEADERS_SENT; analysis results hidden behind collapsible toggle button on dashboard cards",
+        "de": "Crash-Fix: Cam-Proxy-Fehlerbehandlung verhindert ERR_HTTP_HEADERS_SENT; Analyse-Ergebnisse auf Dashboard-Karten hinter eingeklapptem Toggle-Button versteckt"
+      },
       "0.2.30": {
         "en": "Analysis modal: zoom in/out (+/-/1:1/Fit buttons), canvas scales via CSS, crop coordinates auto-corrected for zoom level, image fits modal on load",
         "de": "Analyse-Modal: Zoom rein/raus (+/-/1:1/Fit-Buttons), Canvas skaliert per CSS, Ausschnitt-Koordinaten werden automatisch zoom-korrigiert, Bild passt sich beim Laden ans Modal an"

@@ -295,8 +295,16 @@
   .crop-btn-secondary { background:#eee; color:#333; }
   .crop-btn-secondary:hover { background:#ddd; }
   .crop-btn-upload { background:transparent; color:var(--accent,#4caf50); border:1px solid currentColor; padding:5px 12px; }
-  /* Analyse-Ergebnis */
-  .plant-result { margin-top: 8px; border-radius: 6px; border: 1px solid var(--border);
+  /* Analyse-Ergebnis (Toggle-Button) */
+  .plant-result { margin-top: 8px; font-size: 13px; }
+  .plant-result-toggle {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 20px;
+    padding: 4px 12px; font-size: 12px; color: var(--text-dim); user-select: none;
+    transition: background 0.15s;
+  }
+  .plant-result-toggle:hover { background: #333; color: var(--text); }
+  .plant-result-panel { margin-top: 6px; border-radius: 6px; border: 1px solid var(--border);
     padding: 10px 12px; font-size: 13px; background: var(--bg-card); }
   .plant-result-title { font-weight: 600; margin-bottom: 6px; }
   .plant-disease-row { display:flex; align-items:center; gap: 8px; margin: 4px 0; }
@@ -305,7 +313,6 @@
   .plant-conf-fill.medium { background: #ff9800; }
   .plant-conf-fill.low { background: #f44336; }
   /* Analyse-Historie */
-  .analysis-history { margin: 0 16px 12px; }
   .analysis-history-title { font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;
     display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
   .analysis-history-list { display:flex; flex-direction:column; gap:6px; }
@@ -1832,6 +1839,7 @@ async function doCropAnalyze() {
     const data = await resp.json();
     closeCropModal();
     addAnalysisToHistory(cropGroupId, data);
+    _plantPanelOpen.add(cropGroupId);
     renderPlantResult(cropGroupId);
   } catch(e) {
     statusEl.textContent = '⚠ Netzwerkfehler: ' + e;
@@ -1922,6 +1930,9 @@ function buildResultHtml(data, compact) {
   return html;
 }
 
+// Tracks which group panels are currently expanded (survives SSE re-renders)
+const _plantPanelOpen = new Set();
+
 // Rendert das neueste Ergebnis + History-Liste für eine Gruppe in den DOM.
 // Wird nach jedem Analyse-Abschluss UND nach jedem SSE-Re-render aufgerufen.
 function renderPlantResult(groupId) {
@@ -1931,33 +1942,45 @@ function renderPlantResult(groupId) {
   if (list.length === 0) { container.style.display = 'none'; return; }
 
   const latest = list[0];
+  const starred = list.filter(e => e.starred).length;
+  const dt = new Date(latest.ts).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+  const isOpen = _plantPanelOpen.has(groupId);
+
   const historyRows = list.map((e, idx) => {
-    const dt = new Date(e.ts).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+    const edt = new Date(e.ts).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
     const starIcon = e.starred ? '⭐' : '☆';
     const label = idx === 0 ? '<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;border-radius:3px;padding:1px 5px;margin-left:4px">NEU</span>' : '';
     return `<div class="analysis-entry ${e.starred ? 'analysis-entry-starred' : ''}">
       <span class="analysis-entry-star" onclick="toggleStar(${e.id})" title="${e.starred ? 'Stern entfernen' : 'Als wichtig markieren'}">${starIcon}</span>
       <div class="analysis-entry-body">
-        <div class="analysis-entry-ts">${dt}${label}</div>
+        <div class="analysis-entry-ts">${edt}${label}</div>
         <div>${buildResultHtml(e.data, true)}</div>
       </div>
       <span onclick="deleteHistoryEntry(${e.id})" style="cursor:pointer;color:#aaa;font-size:13px;flex-shrink:0" title="Loeschen">✕</span>
     </div>`;
   }).join('');
 
-  const isOpen = container.querySelector('.analysis-history-list')?.style.display !== 'none';
   container.dataset.historyGroup = groupId;
   container.innerHTML = `
-    <div class="plant-result-title" style="margin-bottom:6px">
-      🔬 Plant.id · ${new Date(latest.ts).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}
-    </div>
-    <div>${buildResultHtml(latest.data, false)}</div>
-    <div class="analysis-history-title" onclick="toggleHistoryList(this)" style="margin-top:10px">
-      📋 Verlauf (${list.length} Analyse${list.length !== 1 ? 'n' : ''}, ${list.filter(e=>e.starred).length} ⭐)
-      <span style="font-size:11px;color:#aaa">${isOpen ? '▲ einklappen' : '▼ ausklappen'}</span>
-    </div>
-    <div class="analysis-history-list" style="display:${isOpen ? 'flex' : 'none'};flex-direction:column;gap:5px">${historyRows}</div>`;
+    <span class="plant-result-toggle" onclick="togglePlantPanel('${groupId}')">
+      🔬 ${list.length} Analyse${list.length !== 1 ? 'n' : ''}${starred ? ' · ' + starred + ' ⭐' : ''} · ${dt} ${isOpen ? '▲' : '▼'}
+    </span>
+    <div class="plant-result-panel" style="display:${isOpen ? 'block' : 'none'}">
+      <div class="plant-result-title">Plant.id · ${dt}</div>
+      <div>${buildResultHtml(latest.data, false)}</div>
+      <div class="analysis-history-title" onclick="toggleHistoryList(this)" style="margin-top:10px">
+        📋 Verlauf (${list.length} Analyse${list.length !== 1 ? 'n' : ''}, ${starred} ⭐)
+        <span style="font-size:11px;color:#aaa">▼ ausklappen</span>
+      </div>
+      <div class="analysis-history-list" style="display:none;flex-direction:column;gap:5px">${historyRows}</div>
+    </div>`;
   container.style.display = 'block';
+}
+
+function togglePlantPanel(groupId) {
+  if (_plantPanelOpen.has(groupId)) _plantPanelOpen.delete(groupId);
+  else _plantPanelOpen.add(groupId);
+  renderPlantResult(groupId);
 }
 
 function toggleHistoryList(titleEl) {

@@ -308,6 +308,7 @@ export class WebDashboardService {
                 }
                 const lib = camUrl.protocol === 'https:' ? https : http;
                 const proxyReq = lib.get(camUrl.toString(), proxyRes => {
+                    if (res.headersSent) { proxyRes.resume(); return; }
                     const ct = proxyRes.headers['content-type'] ?? 'image/jpeg';
                     res.writeHead(proxyRes.statusCode ?? 200, {
                         'Content-Type': ct,
@@ -315,9 +316,17 @@ export class WebDashboardService {
                         'Access-Control-Allow-Origin': '*',
                     });
                     proxyRes.pipe(res);
+                    proxyRes.on('error', () => { if (!res.writableEnded) res.end(); });
                 });
-                proxyReq.setTimeout(8000, () => { proxyReq.destroy(); res.writeHead(504); res.end(); });
-                proxyReq.on('error', () => { res.writeHead(502); res.end(); });
+                proxyReq.setTimeout(8000, () => {
+                    proxyReq.destroy();
+                    if (!res.headersSent) { res.writeHead(504); res.end(); }
+                    else if (!res.writableEnded) { res.end(); }
+                });
+                proxyReq.on('error', () => {
+                    if (!res.headersSent) { res.writeHead(502); res.end(); }
+                    else if (!res.writableEnded) { res.end(); }
+                });
             } catch {
                 res.writeHead(400); res.end('Invalid url');
             }
