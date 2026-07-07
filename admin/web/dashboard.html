@@ -1485,10 +1485,10 @@ function groupCardHtml(g) {
       ${monitorTag}
       ${qualityBadgeHtml(g)}
     </div>
-    ${cameraHtml}
     ${irrigBadge}
     ${actHtml}
     ${alarmHtml}
+    ${cameraHtml}
     <div data-ls-bar="${g.id}">${lsBarHtml(g.id)}</div>
     <div style="padding:6px 12px 10px;display:flex;justify-content:flex-end;gap:6px">
       <button class="db-btn" onclick="showLs('${gid}','${g.name.replace(/'/g,"\\'")}')">🗓 Kalender</button>

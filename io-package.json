@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.32",
+    "version": "0.2.33",
     "news": {
+      "0.2.33": {
+        "en": "Dashboard: camera thumbnail and plant analysis moved below actuator list",
+        "de": "Dashboard: Kamera-Vorschau und Pflanzenanalyse werden jetzt unterhalb der Aktoren angezeigt"
+      },
       "0.2.32": {
         "en": "Plant.id results: German disease name translations, clear healthy vs. problem layout, confidence percentage shown, minor hints shown separately without alarm styling",
         "de": "Plant.id Ergebnisse: Deutsche Krankheitsbezeichnungen, klares Gesund/Problem-Layout, Konfidenz-Prozent angezeigt, schwache Hinweise separat ohne Alarm-Darstellung"
