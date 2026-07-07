@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.31",
+    "version": "0.2.32",
     "news": {
+      "0.2.32": {
+        "en": "Plant.id results: German disease name translations, clear healthy vs. problem layout, confidence percentage shown, minor hints shown separately without alarm styling",
+        "de": "Plant.id Ergebnisse: Deutsche Krankheitsbezeichnungen, klares Gesund/Problem-Layout, Konfidenz-Prozent angezeigt, schwache Hinweise separat ohne Alarm-Darstellung"
+      },
       "0.2.31": {
         "en": "Fix adapter crash: cam-proxy error handlers now guard against ERR_HTTP_HEADERS_SENT; analysis results hidden behind collapsible toggle button on dashboard cards",
         "de": "Crash-Fix: Cam-Proxy-Fehlerbehandlung verhindert ERR_HTTP_HEADERS_SENT; Analyse-Ergebnisse auf Dashboard-Karten hinter eingeklapptem Toggle-Button versteckt"

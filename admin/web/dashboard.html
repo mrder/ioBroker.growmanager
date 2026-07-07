@@ -1898,34 +1898,98 @@ function deleteHistoryEntry(entryId) {
   });
 }
 
+// Übersetzungstabelle für häufige Plant.id Bezeichnungen
+const DISEASE_NAMES = {
+  'sap-sucking pests': 'Saugende Schädlinge (Blattläuse, Spinnmilben, etc.)',
+  'aphids': 'Blattläuse',
+  'spider mites': 'Spinnmilben',
+  'whiteflies': 'Weiße Fliegen',
+  'thrips': 'Thripse',
+  'powdery mildew': 'Echter Mehltau',
+  'downy mildew': 'Falscher Mehltau',
+  'gray mold': 'Grauschimmel (Botrytis)',
+  'botrytis': 'Grauschimmel (Botrytis)',
+  'root rot': 'Wurzelfäule',
+  'nutrient deficiency': 'Nährstoffmangel',
+  'nitrogen deficiency': 'Stickstoffmangel',
+  'iron deficiency': 'Eisenmangel',
+  'magnesium deficiency': 'Magnesiummangel',
+  'overwatering': 'Überwässerung',
+  'underwatering': 'Wassermangel',
+  'leaf blight': 'Blattfäule',
+  'leaf spot': 'Blattflecken',
+  'rust': 'Rost (Pilzkrankheit)',
+  'fusarium': 'Fusarium-Welke',
+  'pythium': 'Pythium-Fäule',
+  'bacterial leaf spot': 'Bakterielle Blattflecken',
+  'mosaic virus': 'Mosaikvirus',
+  'healthy': 'Gesund',
+};
+function translateDisease(name) {
+  if (!name) return '–';
+  const lower = name.toLowerCase();
+  for (const [en, de] of Object.entries(DISEASE_NAMES)) {
+    if (lower.includes(en)) return de;
+  }
+  return name; // Originalname wenn keine Übersetzung
+}
+
 function buildResultHtml(data, compact) {
   if (data.error) {
     return `<div style="color:#d32f2f;font-size:12px">⚠ ${data.error}</div>`;
   }
   const health = data.result?.is_healthy;
   const diseases = data.result?.disease?.suggestions ?? [];
-  const isHealthy = health?.binary === true || (health?.probability ?? 0) > 0.85;
-  let html = isHealthy
-    ? '<span style="color:#4caf50;font-weight:600">✓ Gesund</span>'
-    : '<span style="color:#f44336;font-weight:600">⚠ Probleme</span>';
-  if (!compact) {
-    if (diseases.length === 0) {
-      html += '<div style="font-size:12px;color:#666;margin-top:4px">Keine Krankheiten erkannt.</div>';
-    } else {
-      diseases.slice(0, 5).forEach(d => {
+  const healthProb = Math.round((health?.probability ?? 0) * 100);
+  const isHealthy = health?.binary === true || healthProb > 85;
+
+  // Nur echte Probleme (>15%) anzeigen
+  const realProblems = diseases.filter(d => (d.probability ?? 0) > 0.15);
+
+  if (compact) {
+    if (isHealthy) {
+      return `<span style="color:#4caf50;font-weight:600">✓ Gesund</span> <span style="font-size:11px;color:#888">(${healthProb}%)</span>`;
+    }
+    const top = realProblems[0] ?? diseases[0];
+    const pct = Math.round((top?.probability ?? 0) * 100);
+    return `<span style="color:#f44336;font-weight:600">⚠ Problem</span> <span style="font-size:11px;color:#888">– ${translateDisease(top?.name)} (${pct}%)</span>`;
+  }
+
+  // Vollansicht
+  let html = '';
+  if (isHealthy) {
+    html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="color:#4caf50;font-weight:600;font-size:14px">✓ Pflanze gesund</span>
+      <span style="font-size:11px;color:#888">Konfidenz: ${healthProb}%</span>
+    </div>`;
+    if (realProblems.length > 0) {
+      html += `<div style="font-size:11px;color:#888;margin-bottom:4px">Schwache Hinweise (kein Handlungsbedarf):</div>`;
+      realProblems.slice(0, 3).forEach(d => {
         const pct = Math.round((d.probability ?? 0) * 100);
-        const cls = pct >= 60 ? '' : pct >= 35 ? 'medium' : 'low';
-        html += `<div class="plant-disease-row" style="margin-top:3px">
-          <span style="flex:0 0 38px;font-size:11px;color:#888">${pct}%</span>
-          <div class="plant-conf-bar"><div class="plant-conf-fill ${cls}" style="width:${pct}%"></div></div>
-          <span style="font-size:12px;flex:1">${d.name ?? '–'}</span>
+        html += `<div class="plant-disease-row">
+          <span style="flex:0 0 38px;font-size:11px;color:#aaa">${pct}%</span>
+          <div class="plant-conf-bar"><div class="plant-conf-fill low" style="width:${pct}%"></div></div>
+          <span style="font-size:12px;flex:1;color:#aaa">${translateDisease(d.name)}</span>
         </div>`;
       });
+    } else {
+      html += `<div style="font-size:12px;color:#666">Keine Auffälligkeiten erkannt.</div>`;
     }
-  } else if (diseases.length > 0) {
-    const top = diseases[0];
-    const pct = Math.round((top.probability ?? 0) * 100);
-    html += ` <span style="font-size:11px;color:#888">– ${top.name ?? ''} (${pct}%)</span>`;
+  } else {
+    html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="color:#f44336;font-weight:600;font-size:14px">⚠ Probleme erkannt</span>
+      <span style="font-size:11px;color:#888">Gesundheitswahrscheinlichkeit: ${healthProb}%</span>
+    </div>`;
+    const showList = realProblems.length > 0 ? realProblems : diseases.slice(0, 3);
+    showList.slice(0, 5).forEach(d => {
+      const pct = Math.round((d.probability ?? 0) * 100);
+      const cls = pct >= 60 ? '' : pct >= 35 ? 'medium' : 'low';
+      html += `<div class="plant-disease-row">
+        <span style="flex:0 0 38px;font-size:11px;color:#888">${pct}%</span>
+        <div class="plant-conf-bar"><div class="plant-conf-fill ${cls}" style="width:${pct}%"></div></div>
+        <span style="font-size:12px;flex:1">${translateDisease(d.name)}</span>
+      </div>`;
+    });
   }
   return html;
 }
