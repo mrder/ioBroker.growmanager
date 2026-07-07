@@ -1844,7 +1844,13 @@ class GrowManagerAdapter extends utils.Adapter {
             case 'getGroupState':
                 if (obj.callback && obj.message && typeof obj.message === 'object' && 'groupId' in obj.message) {
                     const gs = this.groupStates.get((obj.message as { groupId: string }).groupId);
-                    this.sendTo(obj.from, obj.command, (gs ?? null) as unknown as ioBroker.MessagePayload, obj.callback);
+                    // Maps don't survive JSON serialization — convert to plain objects
+                    const payload = gs ? {
+                        ...gs,
+                        sensors: Object.fromEntries(gs.sensors),
+                        actuators: Object.fromEntries(gs.actuators),
+                    } : null;
+                    this.sendTo(obj.from, obj.command, payload as unknown as ioBroker.MessagePayload, obj.callback);
                 }
                 break;
             case 'setOverride':

@@ -37,6 +37,7 @@ export class ActuatorService {
             blocked: false,
             overrideActive: false,
             manualLock: false,
+            needsSync: true,
             health: 'unknown',
             runTimeSeconds: 0,
             switchCount: 0,
@@ -137,12 +138,16 @@ export class ActuatorService {
         const state = this.states.get(config.id);
         if (!state) return false;
 
+        // Beim ersten Tick nach Neustart immer senden (Gerät könnte physisch anders stehen)
+        const firstSync = state.needsSync;
+        state.needsSync = false;
+
         // Vergleich basiert auf requested (nicht effectiveState), damit der Befehl
         // auch bei konfiguriertem Feedback-State korrekt gefeuert wird.
         const wasOn = this.isRequestingOn(config, state.requested);
         state.requested = requested;
         const isNowOn = this.isRequestingOn(config, state.requested);
-        const changing = wasOn !== isNowOn;
+        const changing = wasOn !== isNowOn || firstSync;
 
         // Effektiven Zustand sofort aus requested ableiten (wenn kein Feedback vorhanden)
         if (state.feedback === null && state.power === null) {

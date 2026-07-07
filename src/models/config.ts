@@ -535,6 +535,8 @@ export interface ActuatorState {
     overrideUntil?: number;
     /** Manuell gesperrt durch Dashboard-Override — blockiert Auto-Zyklus */
     manualLock: boolean;
+    /** Nach Neustart: beim ersten recordCommand immer Befehl senden, auch wenn requested == offValue */
+    needsSync: boolean;
     health: 'ok' | 'noFeedback' | 'noPower' | 'stuckOn' | 'stuckOff' | 'noEffect' | 'unknown' | 'unreachable';
     effectCheck?: EffectCheckResult;
     runTimeSeconds: number;

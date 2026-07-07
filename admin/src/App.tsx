@@ -2711,6 +2711,7 @@ const App: React.FC = () => {
         const instanceName = `growmanager.${instanceId}`;
         const groups = config.groups;
 
+        type ActSt = { requested: unknown; feedback: unknown; power: number | null; health: string };
         type GS = {
             temperature?: number | null;
             humidity?: number | null;
@@ -2719,12 +2720,20 @@ const App: React.FC = () => {
             degradation?: string;
             mode?: string;
             lastDecision?: { reason?: string } | null;
+            actuators?: Record<string, ActSt>;
+            highestAlarmSeverity?: string;
         } | null;
 
         function pollGroup(g: typeof groups[0]): Promise<void> {
             return new Promise(resolve => {
-                sendTo(instanceName, 'getGroupState', { groupId: g.id }, (result: unknown) => {
+                iobSendTo(instanceName, 'getGroupState', { groupId: g.id }, (result: unknown) => {
                     const gs = result as GS;
+                    const acts: Record<string, ActSt> = {};
+                    if (gs?.actuators) {
+                        for (const [id, a] of Object.entries(gs.actuators)) {
+                            acts[id] = { requested: a.requested, feedback: a.feedback, power: a.power ?? null, health: a.health ?? 'unknown' };
+                        }
+                    }
                     setLiveStates(prev => ({
                         ...prev,
                         [g.id]: {
@@ -2735,9 +2744,9 @@ const App: React.FC = () => {
                             health: gs?.degradation ?? 'FULL',
                             mode: gs?.mode ?? g.mode,
                             phase: g.phase,
-                            alarmSeverity: 'none',
+                            alarmSeverity: gs?.highestAlarmSeverity ?? 'none',
                             nextChange: '',
-                            actuators: {},
+                            actuators: acts,
                             lastDecision: gs?.lastDecision?.reason ?? '',
                         },
                     }));
