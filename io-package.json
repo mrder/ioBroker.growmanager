@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.36",
+    "version": "0.2.37",
     "news": {
+      "0.2.37": {
+        "en": "Overview page integration: GrowManager now appears as tile on ioBroker overview with direct link to web dashboard",
+        "de": "Uebersichtsseite: GrowManager erscheint jetzt als Kachel auf der ioBroker-Uebersichtsseite mit direktem Link zum Web-Dashboard"
+      },
       "0.2.36": {
         "en": "Round 2 review fixes: _plantPanelOpen ReferenceError fixed (declaration moved before first use), dbSwitchTab null guard, SSE reconnect timer leak fixed, fallback fetch guard against overwriting live data, IrrigationService dry-run alarm only fires when flow sensor configured, importConfig triggers adapter restart, detectAdapters uses full instance id, body-limit returns 413 before destroying request, irrigationRequired skips disabled zones, soilMoisture sensor name escaping in onclick",
         "de": "Runde 2 Review Fixes: _plantPanelOpen ReferenceError behoben (Deklaration vor erster Verwendung verschoben), dbSwitchTab Null-Guard, SSE Reconnect Timer-Leak behoben, Fallback-Fetch schreibt keine neueren SSE-Daten ueber, IrrigationService Trockenlaeufer-Alarm nur bei konfiguriertem Durchfluss-Sensor, importConfig loest Adapter-Neustart aus, detectAdapters nutzt vollstaendige Instanz-ID, Body-Limit sendet 413 vor Request-Abbruch, irrigationRequired ignoriert deaktivierte Zonen, Bodenfeuchte-Sensorname wird im onclick escaped"
@@ -412,7 +416,14 @@
     "tier": 3,
     "adminUI": {
       "config": "html"
-    }
+    },
+    "localLinks": {
+      "_default": {
+        "link": "http://%ip%:%native_webPort%",
+        "name": "GrowManager Dashboard"
+      }
+    },
+    "icon": "growmanager.png"
   },
   "native": {
     "language": "de",
