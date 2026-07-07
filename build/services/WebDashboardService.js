@@ -212,6 +212,41 @@ class WebDashboardService {
             this.handlePlantAnalysis(req, res);
             return;
         }
+        // Camera proxy: fetches image from local camera URL server-side, avoids browser CORS
+        if (url === '/api/cam-proxy' && req.method === 'GET') {
+            const rawUrl = new URL(req.url ?? '/', `http://localhost`).searchParams.get('url');
+            if (!rawUrl) {
+                res.writeHead(400);
+                res.end('Missing url param');
+                return;
+            }
+            try {
+                const camUrl = new URL(decodeURIComponent(rawUrl));
+                // Only allow http/https to prevent SSRF to internal services
+                if (camUrl.protocol !== 'http:' && camUrl.protocol !== 'https:') {
+                    res.writeHead(400);
+                    res.end('Bad protocol');
+                    return;
+                }
+                const lib = camUrl.protocol === 'https:' ? https : http;
+                const proxyReq = lib.get(camUrl.toString(), proxyRes => {
+                    const ct = proxyRes.headers['content-type'] ?? 'image/jpeg';
+                    res.writeHead(proxyRes.statusCode ?? 200, {
+                        'Content-Type': ct,
+                        'Cache-Control': 'no-store',
+                        'Access-Control-Allow-Origin': '*',
+                    });
+                    proxyRes.pipe(res);
+                });
+                proxyReq.setTimeout(8000, () => { proxyReq.destroy(); res.writeHead(504); res.end(); });
+                proxyReq.on('error', () => { res.writeHead(502); res.end(); });
+            }
+            catch {
+                res.writeHead(400);
+                res.end('Invalid url');
+            }
+            return;
+        }
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('Not found');
     }

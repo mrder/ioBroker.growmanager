@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.27",
+    "version": "0.2.28",
     "news": {
+      "0.2.28": {
+        "en": "Camera: backend proxy /api/cam-proxy eliminates CORS issues; ObjectURL cache prevents thumbnail flicker on SSE re-render; modal loads from cache instantly",
+        "de": "Kamera: Backend-Proxy /api/cam-proxy loest CORS-Probleme; ObjectURL-Cache verhindert Thumbnail-Flackern bei SSE-Rerender; Modal laedt sofort aus Cache"
+      },
       "0.2.27": {
         "en": "Fix dashboard camera: modal opens immediately on click; thumbnail only reloads when src empty (no flicker on SSE re-render); CORS-safe canvas with clear upload fallback message",
         "de": "Fix Dashboard Kamera: Modal oeffnet sofort beim Klick; Thumbnail laedt nur neu wenn src leer (kein Flackern bei SSE re-render); CORS-sicheres Canvas mit klarer Upload-Fallback-Meldung"

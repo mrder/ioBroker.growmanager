@@ -579,7 +579,8 @@ const ACT_TYPE = {
 };
 
 const PHASE_LABELS = { seedling:'Keimling', growth:'Wachstum', bloom:'Blüte', drying:'Trocknung', custom:'Individuell' };
-const camUrls = {}; // groupId -> snapshotUrl, populated during render
+const camUrls = {};   // groupId -> snapshotUrl, populated during render
+const camCache = {};  // groupId -> last-good objectURL (blob:// from cam-proxy)
 const MODE_LABELS = {
   monitorOnly:'Nur Überwachung', temperature:'Temperatur', humidity:'Feuchte',
   vpd:'VPD', combined:'Kombiniert', schedule:'Zeitplan', manual:'Manuell',
@@ -1417,11 +1418,13 @@ function groupCardHtml(g) {
       }).join('')}</div>`
     : '';
 
+  const camSrc = camCache[g.id] || '';
   const cameraHtml = g.cameraUrl
     ? `<div class="card-camera">
         <div class="cam-thumb-wrap" onclick="openAnalysisModal('${g.id}','${g.cameraUrl}')">
-          <img class="cam-thumb" id="cam-thumb-${g.id}" src=""
-            alt="Kamera" />
+          <img class="cam-thumb" id="cam-thumb-${g.id}"
+            src="${camSrc}" alt="📷"
+            style="${camSrc ? '' : 'opacity:0.3'}" />
           <div class="cam-thumb-overlay">📷 Klicken zum Analysieren</div>
         </div>
         <div id="plant-result-${g.id}" class="plant-result" style="display:none"></div>
@@ -1564,26 +1567,50 @@ setInterval(() => {
 // Kamera: Auto-Refresh (gepuffert, alle 10s) + Analyse-Modal
 // ============================================================
 
-// Gepufferter Refresh: neues Bild erst anzeigen wenn es geladen hat
-function refreshCamThumb(groupId, url) {
-  const el = document.getElementById('cam-thumb-' + groupId);
-  if (!el) return;
-  const tmp = new Image();
-  tmp.onload = () => { el.src = tmp.src; };
-  // onerror: altes Bild bleibt stehen (kein Flash bei laufender Snapshot-Generierung)
-  tmp.src = url + '?t=' + Date.now();
+// Gepufferter Proxy-Refresh: lädt Bild über /api/cam-proxy (same-origin → kein CORS)
+// Erst bei Erfolg wird camCache + Thumbnail aktualisiert. Kein Flash bei Fehler.
+async function refreshCamThumb(groupId, url) {
+  const proxyUrl = '/api/cam-proxy?url=' + encodeURIComponent(url) + '&t=' + Date.now();
+  try {
+    const resp = await fetch(proxyUrl);
+    if (!resp.ok) return; // Kamera antwortet nicht → altes Bild bleibt
+    const blob = await resp.blob();
+    if (!blob.type.startsWith('image/')) return;
+    // Alten ObjectURL freigeben
+    if (camCache[groupId] && camCache[groupId].startsWith('blob:')) {
+      URL.revokeObjectURL(camCache[groupId]);
+    }
+    const objUrl = URL.createObjectURL(blob);
+    camCache[groupId] = objUrl;
+    // Nur sichtbar machen wenn Bild korrekt decodiert wurde
+    const tmp = new Image();
+    tmp.onload = () => {
+      camCache[groupId] = objUrl; // bereits gesetzt, aber sicher
+      const el = document.getElementById('cam-thumb-' + groupId);
+      if (el) { el.src = objUrl; el.style.opacity = '1'; }
+    };
+    tmp.onerror = () => URL.revokeObjectURL(objUrl);
+    tmp.src = objUrl;
+  } catch { /* Netzwerkfehler → altes Bild bleibt */ }
 }
 
-// Nach re-render: nur Thumbnails laden die noch kein Bild haben
+// Nach re-render: sofort aus Cache anzeigen, dann im Hintergrund aktualisieren
 function initCamThumbs() {
   for (const [gid, url] of Object.entries(camUrls)) {
     const el = document.getElementById('cam-thumb-' + gid);
-    // Nur laden wenn src-Attribut noch leer (frisch gerendert)
-    if (el && !el.getAttribute('src')) refreshCamThumb(gid, url);
+    if (!el) continue;
+    if (camCache[gid]) {
+      // Cache vorhanden → sofort anzeigen, kein Flackern
+      el.src = camCache[gid];
+      el.style.opacity = '1';
+    } else {
+      // Erstmalig laden
+      refreshCamThumb(gid, url);
+    }
   }
 }
 
-// Auto-Refresh alle 10 Sekunden (unabhängig von SSE re-renders)
+// Auto-Refresh alle 10 Sekunden
 setInterval(() => {
   for (const [gid, url] of Object.entries(camUrls)) {
     refreshCamThumb(gid, url);
@@ -1676,11 +1703,17 @@ function loadImageOntoCanvas(src, label, isCrossOrigin) {
 function openAnalysisModal(groupId, url) {
   cropGroupId = groupId;
   buildCropModal();
-  // Modal sofort öffnen — nicht auf Bildladevorgang warten
   cropModal.classList.add('open');
   const ts = new Date().toLocaleTimeString('de-DE');
-  // Erst ohne crossOrigin versuchen (lokale Kameras haben oft keine CORS-Header)
-  loadImageOntoCanvas(url + '?t=' + Date.now(), 'Kamera-Snapshot ' + ts, false);
+  const cached = camCache[groupId];
+  if (cached) {
+    // Gecachtes ObjectURL ist same-origin → Canvas wird nicht tainted → toDataURL klappt
+    loadImageOntoCanvas(cached, 'Kamera-Snapshot ' + ts, true);
+  } else {
+    // Noch kein Cache → über Proxy laden (same-origin)
+    const proxyUrl = '/api/cam-proxy?url=' + encodeURIComponent(url) + '&t=' + Date.now();
+    loadImageOntoCanvas(proxyUrl, 'Kamera-Snapshot ' + ts, true);
+  }
 }
 
 function cropUploadFile() {
