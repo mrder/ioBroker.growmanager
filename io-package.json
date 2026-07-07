@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.37",
+    "version": "0.2.38",
     "news": {
+      "0.2.38": {
+        "en": "Fix actuator sync after restart: shared supply/exhaust fans now controlled exclusively via voting (no double-command with air system); owner vote now uses current climate need instead of stale requested; air system adds setActuatorStateWithVerify for non-shared fans; supplyCommand=false no longer skips the supply fan OFF command",
+        "de": "Fix Aktor-Sync nach Neustart: geteilte Zu-/Abluft-Aktoren werden ausschliesslich per Voting gesteuert (keine Doppelsteuerung mit Air-System); Eigentuemer-Stimme nutzt aktuellen Klimabedarf statt alten Sollwert; Air-System-Pfad erhaelt setActuatorStateWithVerify fuer nicht-geteilte Aktoren; supplyCommand=false blockiert AUS-Befehl nicht mehr"
+      },
       "0.2.37": {
         "en": "Overview page integration: GrowManager now appears as tile on ioBroker overview with direct link to web dashboard",
         "de": "Uebersichtsseite: GrowManager erscheint jetzt als Kachel auf der ioBroker-Uebersichtsseite mit direktem Link zum Web-Dashboard"

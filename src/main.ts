@@ -716,16 +716,16 @@ class GrowManagerAdapter extends utils.Adapter {
                     if (!actuatorConfig.shared || !actuatorConfig.sharedParticipants?.length) continue;
                     const hysteresisSeconds = actuatorConfig.sharedVoteHysteresisSeconds ?? 60;
 
-                    // Eigentümer-Stimme einreichen (Ergebnis aus processGroup)
-                    const ownerActState = this.actuatorService.getState(actuatorConfig.id);
-                    const ownerWantsOn = ownerActState
-                        ? this.actuatorService.isRequestingOn(actuatorConfig, ownerActState.requested)
-                        : false;
+                    // Eigentümer-Stimme: aktuellen Klimabedarf berechnen (gleiche Logik wie Teilnehmer)
+                    const ownerGs = this.groupStates.get(group.id);
+                    const ownerNeed = ownerGs
+                        ? this.computeParticipantNeed(actuatorConfig.type, ownerGs, 3)
+                        : { wantsOn: false, urgency: 0 };
                     this.sharedActorManager.submitVote(actuatorConfig.id, {
                         groupId: group.id,
-                        wantsOn: ownerWantsOn,
+                        wantsOn: ownerNeed.wantsOn,
                         weight: 1.0,
-                        urgency: 1.0,
+                        urgency: ownerNeed.urgency,
                         reason: `Eigentümer ${group.name}`,
                     });
 
@@ -931,20 +931,31 @@ class GrowManagerAdapter extends utils.Adapter {
         );
         const airOutput = this.airSystemService.computeAirOutput(config.id, config, config.airSystem, airDemand);
         if (airOutput.available) {
-            const exhaustAct = config.actuators.find(a => a.type === 'exhaustFan' && a.enabled);
-            const supplyAct = config.actuators.find(a => a.type === 'supplyFan' && a.enabled);
+            // Geteilte Aktoren werden ausschliesslich ueber das Voting-System gesteuert
+            const exhaustAct = config.actuators.find(a => a.type === 'exhaustFan' && a.enabled && !a.shared);
+            const supplyAct = config.actuators.find(a => a.type === 'supplyFan' && a.enabled && !a.shared);
             if (exhaustAct) {
                 const canSw = this.actuatorService.canSwitch(exhaustAct, airOutput.exhaustCommand);
                 if (canSw.allowed) {
                     const changed = this.actuatorService.recordCommand(exhaustAct, airOutput.exhaustCommand);
-                    if (changed) await this.setActuatorState(exhaustAct.commandStateId, airOutput.exhaustCommand);
+                    if (changed) {
+                        await this.setActuatorState(exhaustAct.commandStateId, airOutput.exhaustCommand);
+                        if (typeof airOutput.exhaustCommand === 'boolean') {
+                            this.setActuatorStateWithVerify(exhaustAct, config.id, airOutput.exhaustCommand);
+                        }
+                    }
                 }
             }
-            if (supplyAct && airOutput.supplyCommand !== false) {
+            if (supplyAct) {
                 const canSw = this.actuatorService.canSwitch(supplyAct, airOutput.supplyCommand);
                 if (canSw.allowed) {
                     const changed = this.actuatorService.recordCommand(supplyAct, airOutput.supplyCommand);
-                    if (changed) await this.setActuatorState(supplyAct.commandStateId, airOutput.supplyCommand);
+                    if (changed) {
+                        await this.setActuatorState(supplyAct.commandStateId, airOutput.supplyCommand);
+                        if (typeof airOutput.supplyCommand === 'boolean') {
+                            this.setActuatorStateWithVerify(supplyAct, config.id, airOutput.supplyCommand);
+                        }
+                    }
                 }
             }
         }
