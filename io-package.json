@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.2.28",
+    "version": "0.2.29",
     "news": {
+      "0.2.29": {
+        "en": "Analysis modal: max 55vh canvas scroll, buttons always visible; Plant.id results persist across SSE re-renders via localStorage; analysis history per group: last 10 + unlimited starred entries with toggle and delete",
+        "de": "Analyse-Modal: max 55vh Canvas-Scroll, Buttons immer sichtbar; Plant.id-Ergebnisse ueberleben SSE-Rerender via localStorage; Analyse-Verlauf pro Gruppe: letzte 10 + unbegrenzt gestirnte Eintraege mit Stern-Toggle und Loeschen"
+      },
       "0.2.28": {
         "en": "Camera: backend proxy /api/cam-proxy eliminates CORS issues; ObjectURL cache prevents thumbnail flicker on SSE re-render; modal loads from cache instantly",
         "de": "Kamera: Backend-Proxy /api/cam-proxy loest CORS-Probleme; ObjectURL-Cache verhindert Thumbnail-Flackern bei SSE-Rerender; Modal laedt sofort aus Cache"

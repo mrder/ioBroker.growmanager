@@ -276,25 +276,26 @@
     font-size: 10px; color: #fff; background: rgba(0,0,0,0.6); border-radius: 0 0 4px 4px; padding: 3px 0; }
   /* Analyse-Modal */
   .crop-modal { display:none; position:fixed; inset:0; z-index:9100; background:rgba(0,0,0,0.78);
-    align-items:center; justify-content:center; }
+    align-items:flex-start; justify-content:center; overflow-y:auto; padding:16px 0; }
   .crop-modal.open { display:flex; }
   .crop-modal-box { background:var(--bg-card,#fff); border-radius:10px; padding:16px;
-    max-width:95vw; max-height:90vh; overflow:auto; min-width:300px; }
-  .crop-modal-title { font-size:15px; font-weight:600; margin:0 0 4px; }
-  .crop-modal-hint { font-size:12px; color:#666; margin:0 0 10px; }
-  .crop-canvas-wrap { position: relative; display: inline-block; cursor: crosshair;
-    border: 1px solid var(--border); border-radius:4px; overflow:hidden; }
+    width:min(860px,96vw); margin:auto; display:flex; flex-direction:column; gap:10px; }
+  .crop-modal-title { font-size:15px; font-weight:600; margin:0; }
+  .crop-modal-hint { font-size:12px; color:#666; margin:0; }
+  /* Canvas scrollt innerhalb des Modals, Buttons bleiben immer sichtbar */
+  .crop-canvas-scroll { overflow:auto; max-height:55vh; border:1px solid var(--border); border-radius:4px; }
+  .crop-canvas-wrap { position: relative; display: inline-block; cursor: crosshair; }
   .crop-overlay { position:absolute; border: 2px dashed #4caf50; pointer-events:none; display:none; }
-  .crop-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+  .crop-toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .crop-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .crop-btn { padding: 6px 14px; border-radius: 5px; border:none; cursor:pointer; font-size:13px; }
   .crop-btn-primary { background:#2e7d32; color:#fff; }
   .crop-btn-primary:hover { background:#1b5e20; }
   .crop-btn-primary:disabled { background:#9e9e9e; cursor:default; }
   .crop-btn-secondary { background:#eee; color:#333; }
   .crop-btn-secondary:hover { background:#ddd; }
-  .crop-btn-upload { background:transparent; color:var(--accent,#4caf50); border:1px solid currentColor;
-    padding:5px 12px; }
-  /* Analyse-Ergebnis unter Thumbnail */
+  .crop-btn-upload { background:transparent; color:var(--accent,#4caf50); border:1px solid currentColor; padding:5px 12px; }
+  /* Analyse-Ergebnis */
   .plant-result { margin-top: 8px; border-radius: 6px; border: 1px solid var(--border);
     padding: 10px 12px; font-size: 13px; background: var(--bg-card); }
   .plant-result-title { font-weight: 600; margin-bottom: 6px; }
@@ -303,6 +304,17 @@
   .plant-conf-fill { height: 100%; background: #4caf50; border-radius: 4px; }
   .plant-conf-fill.medium { background: #ff9800; }
   .plant-conf-fill.low { background: #f44336; }
+  /* Analyse-Historie */
+  .analysis-history { margin: 0 16px 12px; }
+  .analysis-history-title { font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;
+    display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
+  .analysis-history-list { display:flex; flex-direction:column; gap:6px; }
+  .analysis-entry { border:1px solid var(--border); border-radius:6px; padding:8px 10px;
+    font-size:12px; background:var(--bg-card); display:flex; gap:8px; align-items:flex-start; }
+  .analysis-entry-star { cursor:pointer; font-size:15px; flex-shrink:0; }
+  .analysis-entry-body { flex:1; min-width:0; }
+  .analysis-entry-ts { color:var(--text-dim); font-size:11px; margin-bottom:2px; }
+  .analysis-entry-starred { border-color: #f9a825; background: rgba(249,168,37,0.06); }
 
   /* ---- Empty ---- */
   .empty-state { grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--text-dim); }
@@ -1509,11 +1521,13 @@ function render(state) {
     return;
   }
   // Lifestyle-Daten laden (nur beim ersten Mal pro Gruppe), dann rendern
+  window._dashState = state;
   loadAllLifestyle(state.groups).then(() => {
     // Reset camUrls before re-render so stale groups are removed
     for (const k of Object.keys(camUrls)) delete camUrls[k];
     grid.innerHTML = state.groups.map(groupCardHtml).join('');
     initCamThumbs();
+    restorePlantResults();
   });
 }
 
@@ -1627,22 +1641,27 @@ function buildCropModal() {
   cropModal.className = 'crop-modal';
   cropModal.innerHTML = `
     <div class="crop-modal-box">
-      <p class="crop-modal-title">🔬 Pflanzenbild analysieren</p>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <p class="crop-modal-title">🔬 Pflanzenbild analysieren</p>
+        <button class="crop-btn crop-btn-secondary" onclick="closeCropModal()" style="padding:4px 10px;font-size:12px">✕ Schliessen</button>
+      </div>
       <p class="crop-modal-hint">Bereich ziehen um nur einen Ausschnitt zu analysieren — oder ganzes Bild senden.</p>
       <div class="crop-toolbar">
         <button class="crop-btn crop-btn-upload" onclick="cropUploadFile()">📂 Anderes Bild laden</button>
         <span id="crop-filename" style="font-size:11px;color:#888"></span>
       </div>
-      <div class="crop-canvas-wrap" id="crop-wrap">
-        <canvas id="crop-canvas"></canvas>
-        <div class="crop-overlay" id="crop-overlay"></div>
+      <div class="crop-canvas-scroll">
+        <div class="crop-canvas-wrap" id="crop-wrap">
+          <canvas id="crop-canvas"></canvas>
+          <div class="crop-overlay" id="crop-overlay"></div>
+        </div>
       </div>
-      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button id="crop-analyze-btn" class="crop-btn crop-btn-primary" onclick="doCropAnalyze()">Analysieren (Plant.id)</button>
+      <div class="crop-actions">
+        <button id="crop-analyze-btn" class="crop-btn crop-btn-primary" onclick="doCropAnalyze()">🔬 Analysieren (Plant.id)</button>
         <button class="crop-btn crop-btn-secondary" onclick="closeCropModal()">Abbrechen</button>
         <button class="crop-btn crop-btn-secondary" onclick="cropClearSelection()" style="font-size:11px">Auswahl aufheben</button>
       </div>
-      <div id="crop-status" style="font-size:12px;color:#666;margin-top:8px;min-height:18px"></div>
+      <div id="crop-status" style="font-size:12px;color:#888;min-height:18px"></div>
     </div>`;
   document.body.appendChild(cropModal);
 
@@ -1746,20 +1765,17 @@ async function doCropAnalyze() {
   try {
     const offscreen = document.createElement('canvas');
     if (cropRect && cropRect.w > 10 && cropRect.h > 10) {
-      offscreen.width = cropRect.w;
-      offscreen.height = cropRect.h;
+      offscreen.width = cropRect.w; offscreen.height = cropRect.h;
       offscreen.getContext('2d').drawImage(cropCanvas, cropRect.x, cropRect.y, cropRect.w, cropRect.h, 0, 0, cropRect.w, cropRect.h);
     } else {
-      offscreen.width = cropCanvas.width;
-      offscreen.height = cropCanvas.height;
+      offscreen.width = cropCanvas.width; offscreen.height = cropCanvas.height;
       offscreen.getContext('2d').drawImage(cropCanvas, 0, 0);
     }
     base64 = offscreen.toDataURL('image/jpeg', 0.85);
   } catch(e) {
-    // SecurityError: canvas tainted by cross-origin image (no CORS headers on camera)
     const isCors = String(e).toLowerCase().includes('security') || String(e).toLowerCase().includes('taint');
     statusEl.textContent = isCors
-      ? '⚠ Kamera-URL hat keine CORS-Erlaubnis. Bitte Foto hochladen (📂 Anderes Bild laden).'
+      ? '⚠ CORS-Fehler: Bitte Foto hochladen (📂 Anderes Bild laden).'
       : '⚠ Fehler: ' + e;
     cropModal.querySelector('#crop-analyze-btn').disabled = false;
     return;
@@ -1767,71 +1783,156 @@ async function doCropAnalyze() {
 
   try {
     const resp = await fetch('/api/plant-analysis', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ image: base64 }),
     });
     const data = await resp.json();
     closeCropModal();
-    showPlantResult(cropGroupId, data);
+    addAnalysisToHistory(cropGroupId, data);
+    renderPlantResult(cropGroupId);
   } catch(e) {
     statusEl.textContent = '⚠ Netzwerkfehler: ' + e;
   }
   cropModal.querySelector('#crop-analyze-btn').disabled = false;
 }
 
-function showPlantResult(groupId, data) {
-  const el = document.getElementById('plant-result-' + groupId);
-  if (!el) return;
+// ============================================================
+// Analyse-Historie (localStorage, letzten 10 + Sterne unlimitiert)
+// ============================================================
+const HISTORY_KEY = 'growmanager_analysis_history';
+const HISTORY_MAX_REGULAR = 10; // normale (nicht gestirnte) Einträge
 
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
+}
+function saveHistory(list) {
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); } catch {}
+}
+
+function addAnalysisToHistory(groupId, data) {
+  const ts = Date.now();
+  // Gruppenname aus aktuellem State holen
+  const groupName = (window._dashState?.groups?.find(g => g.id === groupId)?.name) || groupId;
+  const entry = { id: ts, groupId, groupName, ts, data, starred: false };
+  let list = loadHistory();
+  list.unshift(entry);
+  // Nicht-gestirnte auf MAX_REGULAR begrenzen
+  const starred = list.filter(e => e.starred);
+  const regular = list.filter(e => !e.starred).slice(0, HISTORY_MAX_REGULAR);
+  list = [...starred, ...regular].sort((a, b) => b.ts - a.ts);
+  saveHistory(list);
+}
+
+function toggleStar(entryId) {
+  let list = loadHistory();
+  const entry = list.find(e => e.id === entryId);
+  if (!entry) return;
+  entry.starred = !entry.starred;
+  // Nicht-gestirnte wieder auf MAX begrenzen falls wir entstirnen
+  const starred = list.filter(e => e.starred);
+  const regular = list.filter(e => !e.starred).slice(0, HISTORY_MAX_REGULAR);
+  list = [...starred, ...regular].sort((a, b) => b.ts - a.ts);
+  saveHistory(list);
+  // Alle History-Anzeigen aktualisieren
+  document.querySelectorAll('[data-history-group]').forEach(el => {
+    renderPlantResult(el.dataset.historyGroup);
+  });
+}
+
+function deleteHistoryEntry(entryId) {
+  let list = loadHistory().filter(e => e.id !== entryId);
+  saveHistory(list);
+  document.querySelectorAll('[data-history-group]').forEach(el => {
+    renderPlantResult(el.dataset.historyGroup);
+  });
+}
+
+function buildResultHtml(data, compact) {
   if (data.error) {
-    el.style.display = 'block';
-    el.innerHTML = `<div class="plant-result-title">⚠ Analyse fehlgeschlagen</div><div style="color:#d32f2f;font-size:12px">${data.error}</div>`;
-    return;
+    return `<div style="color:#d32f2f;font-size:12px">⚠ ${data.error}</div>`;
   }
-
   const health = data.result?.is_healthy;
   const diseases = data.result?.disease?.suggestions ?? [];
-  const isHealthy = health?.binary === true || health?.probability > 0.85;
-
-  let html = `<div class="plant-result-title">🔬 Plant.id Analyse`;
-  if (isHealthy) html += ' <span style="color:#4caf50">✓ Gesund</span>';
-  else html += ' <span style="color:#f44336">⚠ Probleme erkannt</span>';
-  html += `</div>`;
-
-  if (diseases.length === 0) {
-    html += '<div style="font-size:12px;color:#666">Keine Krankheiten oder Mängel erkannt.</div>';
-  } else {
-    diseases.slice(0, 5).forEach(d => {
-      const pct = Math.round((d.probability ?? 0) * 100);
-      const cls = pct >= 60 ? '' : pct >= 35 ? 'medium' : 'low';
-      html += `<div class="plant-disease-row">
-        <span style="flex:0 0 44px;font-size:11px;color:#666">${pct}%</span>
-        <div class="plant-conf-bar"><div class="plant-conf-fill ${cls}" style="width:${pct}%"></div></div>
-        <span style="font-size:12px;flex:1">${d.name ?? '–'}</span>
-      </div>`;
-    });
-  }
-
-  if (data.result?.disease?.question?.suggestions) {
-    // similar_images Ergebnisse
-    const imgs = data.result.disease.question.suggestions.slice(0, 2);
-    if (imgs.length > 0) {
-      html += `<div style="font-size:11px;color:#666;margin-top:6px">Ähnliche Bilder aus DB:</div>
-        <div style="display:flex;gap:6px;margin-top:4px">`;
-      imgs.forEach(s => {
-        if (s.similar_images?.[0]?.url) {
-          html += `<img src="${s.similar_images[0].url}" style="width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid var(--border)" />`;
-        }
+  const isHealthy = health?.binary === true || (health?.probability ?? 0) > 0.85;
+  let html = isHealthy
+    ? '<span style="color:#4caf50;font-weight:600">✓ Gesund</span>'
+    : '<span style="color:#f44336;font-weight:600">⚠ Probleme</span>';
+  if (!compact) {
+    if (diseases.length === 0) {
+      html += '<div style="font-size:12px;color:#666;margin-top:4px">Keine Krankheiten erkannt.</div>';
+    } else {
+      diseases.slice(0, 5).forEach(d => {
+        const pct = Math.round((d.probability ?? 0) * 100);
+        const cls = pct >= 60 ? '' : pct >= 35 ? 'medium' : 'low';
+        html += `<div class="plant-disease-row" style="margin-top:3px">
+          <span style="flex:0 0 38px;font-size:11px;color:#888">${pct}%</span>
+          <div class="plant-conf-bar"><div class="plant-conf-fill ${cls}" style="width:${pct}%"></div></div>
+          <span style="font-size:12px;flex:1">${d.name ?? '–'}</span>
+        </div>`;
       });
-      html += '</div>';
     }
+  } else if (diseases.length > 0) {
+    const top = diseases[0];
+    const pct = Math.round((top.probability ?? 0) * 100);
+    html += ` <span style="font-size:11px;color:#888">– ${top.name ?? ''} (${pct}%)</span>`;
   }
-
-  html += `<div style="font-size:10px;color:#aaa;margin-top:6px">Plant.id v3 · ${new Date().toLocaleString('de-DE')}</div>`;
-  el.innerHTML = html;
-  el.style.display = 'block';
+  return html;
 }
+
+// Rendert das neueste Ergebnis + History-Liste für eine Gruppe in den DOM.
+// Wird nach jedem Analyse-Abschluss UND nach jedem SSE-Re-render aufgerufen.
+function renderPlantResult(groupId) {
+  const container = document.getElementById('plant-result-' + groupId);
+  if (!container) return;
+  const list = loadHistory().filter(e => e.groupId === groupId);
+  if (list.length === 0) { container.style.display = 'none'; return; }
+
+  const latest = list[0];
+  const historyRows = list.map((e, idx) => {
+    const dt = new Date(e.ts).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+    const starIcon = e.starred ? '⭐' : '☆';
+    const label = idx === 0 ? '<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;border-radius:3px;padding:1px 5px;margin-left:4px">NEU</span>' : '';
+    return `<div class="analysis-entry ${e.starred ? 'analysis-entry-starred' : ''}">
+      <span class="analysis-entry-star" onclick="toggleStar(${e.id})" title="${e.starred ? 'Stern entfernen' : 'Als wichtig markieren'}">${starIcon}</span>
+      <div class="analysis-entry-body">
+        <div class="analysis-entry-ts">${dt}${label}</div>
+        <div>${buildResultHtml(e.data, true)}</div>
+      </div>
+      <span onclick="deleteHistoryEntry(${e.id})" style="cursor:pointer;color:#aaa;font-size:13px;flex-shrink:0" title="Loeschen">✕</span>
+    </div>`;
+  }).join('');
+
+  const isOpen = container.querySelector('.analysis-history-list')?.style.display !== 'none';
+  container.dataset.historyGroup = groupId;
+  container.innerHTML = `
+    <div class="plant-result-title" style="margin-bottom:6px">
+      🔬 Plant.id · ${new Date(latest.ts).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}
+    </div>
+    <div>${buildResultHtml(latest.data, false)}</div>
+    <div class="analysis-history-title" onclick="toggleHistoryList(this)" style="margin-top:10px">
+      📋 Verlauf (${list.length} Analyse${list.length !== 1 ? 'n' : ''}, ${list.filter(e=>e.starred).length} ⭐)
+      <span style="font-size:11px;color:#aaa">${isOpen ? '▲ einklappen' : '▼ ausklappen'}</span>
+    </div>
+    <div class="analysis-history-list" style="display:${isOpen ? 'flex' : 'none'};flex-direction:column;gap:5px">${historyRows}</div>`;
+  container.style.display = 'block';
+}
+
+function toggleHistoryList(titleEl) {
+  const list = titleEl.nextElementSibling;
+  const open = list.style.display !== 'none';
+  list.style.display = open ? 'none' : 'flex';
+  titleEl.querySelector('span').textContent = open ? '▼ ausklappen' : '▲ einklappen';
+}
+
+// Nach SSE-Re-render: alle Gruppen mit History neu rendern
+function restorePlantResults() {
+  const list = loadHistory();
+  const groups = [...new Set(list.map(e => e.groupId))];
+  groups.forEach(gid => renderPlantResult(gid));
+}
+
+// State-Referenz für Gruppenname-Lookup
+window._dashState = null;
 
 // Crop-Modal schließen mit Escape
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCropModal(); });
