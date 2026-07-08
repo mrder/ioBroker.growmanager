@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.48",
+    "version": "0.2.49",
     "news": {
+      "0.2.49": {
+        "en": "Fix voting tooltip clipping: use fixed-position JS overlay to escape card overflow:hidden boundary; add pending indicator when Soll=EIN but Ist=AUS with no active block",
+        "de": "Fix Abstimmungs-Tooltip Abschneiden: Fixed-Position JS-Overlay escaped overflow:hidden der Card; Pending-Indikator wenn Soll=EIN aber Ist=AUS ohne aktive Sperre"
+      },
       "0.2.48": {
         "en": "Custom alert rules: define per-group threshold alerts (above/below/outside/inside range) for temperature, humidity, VPD, CO2, soil moisture, pH, EC, tank level — configurable in Admin UI under Alarme → Alarmregeln; triggers push notifications via existing channels",
         "de": "Benutzerdefinierte Alarmregeln: Grenzwert-Alarme pro Gruppe definieren (größer/kleiner/außerhalb/innerhalb Bereich) fuer Temperatur, Feuchte, VPD, CO2, Bodenfeuchte, pH, EC, Tankfüllstand — im Admin-UI unter Alarme → Alarmregeln konfigurierbar; loest Push-Benachrichtigungen über vorhandene Kanäle aus"

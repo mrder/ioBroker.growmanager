@@ -331,22 +331,20 @@
   .q-sensor-err { font-size: 10px; color: var(--orange); grid-column: 2 / -1; }
 
   /* ---- Voting Tooltip (Soll bei geteilten Aktoren) ---- */
-  .act-soll-voting { position: relative; display: inline-flex; align-items: center; gap: 4px; cursor: help; }
-  .act-soll-voting:hover .voting-tooltip { display: block; }
-  .voting-tooltip {
-    display: none; position: absolute; bottom: 100%; left: 0;
+  .act-soll-voting { display: inline-flex; align-items: center; gap: 4px; cursor: help; }
+  .voting-tooltip-data { display: none; } /* nur Datenspeicher, wird per JS in Fixed-Overlay gerendert */
+  #vote-tooltip-fixed {
+    display: none; position: fixed; z-index: 9999; pointer-events: none;
     background: #1a2a3a; border: 1px solid var(--border); border-radius: 6px;
     padding: 8px 12px; font-size: 12px; color: var(--text); white-space: nowrap;
-    z-index: 50; margin-bottom: 6px; min-width: 200px; text-align: left;
-  }
-  .voting-tooltip::after {
-    content: ''; position: absolute; top: 100%; left: 14px;
-    border: 6px solid transparent; border-top-color: var(--border);
+    min-width: 200px; text-align: left; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
   }
   .v-vote-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
   .v-vote-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .v-vote-name { flex: 1; color: var(--text-dim); }
   .v-vote-val { font-weight: 600; }
+  /* ---- Pending-Indikator Soll≠Ist ---- */
+  .act-pending { font-size: 12px; opacity: 0.8; cursor: help; }
 
   /* ---- Aktoren Detail ---- */
   .actuators { padding: 10px 16px; }
@@ -632,6 +630,9 @@
 </style>
 </head>
 <body>
+
+<!-- Fixed Vote-Tooltip Overlay (escaped aus overflow:hidden der Cards) -->
+<div id="vote-tooltip-fixed"></div>
 
 <div class="header">
   <div class="header-title">🌿 GrowManager</div>
@@ -1360,7 +1361,7 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
         <span style="font-size:10px;opacity:0.6">${pct}%${v.urgency > 0 ? ' u:'+v.urgency.toFixed(1) : ''}</span>
       </div>`;
     }).join('');
-    votingTooltipHtml = `<div class="voting-tooltip">
+    votingTooltipHtml = `<div class="voting-tooltip-data">
       <div style="font-weight:700;margin-bottom:6px;color:var(--text)">Abstimmung (${modeLabel})</div>
       ${rows}
     </div>`;
@@ -1395,6 +1396,10 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
     countdownHtml = `<span class="act-countdown ws-cd" id="ws-cd-${a.id}" data-until="${a.windSimNextChangeAt}" data-on="${wsOn}" style="color:${wsColor}">🌀 ${wsOn?'EIN':'AUS'} noch ${wsInitStr}</span>`;
   } else if (a.manualLock) {
     countdownHtml = `<span class="act-manual-lock" title="Manuell gesperrt – Auto-Zyklus pausiert">🔒 MANUELL</span>`;
+  }
+  // Soll≠Ist ohne sonstigen Grund: Befehl unterwegs oder Gerät reagiert nicht
+  if (!countdownHtml && hasFeedback && sollOn && !istOn) {
+    countdownHtml = `<span class="act-pending" title="Befehl EIN gesendet – warte auf Gerät-Feedback (Alarm folgt wenn Gerät nicht reagiert)">⏳</span>`;
   }
 
   const ctrlBtns = isManualMode || ov
@@ -2143,6 +2148,41 @@ setInterval(() => {
     el.style.color = isOn ? 'var(--accent)' : 'var(--muted)';
   });
 }, 1000);
+
+// ============================================================
+// Vote-Tooltip: Fixed-Overlay (escaped aus overflow:hidden der Card)
+// ============================================================
+(function() {
+  const overlay = document.getElementById('vote-tooltip-fixed');
+  if (!overlay) return;
+
+  document.addEventListener('mouseover', function(e) {
+    const el = e.target.closest('.act-soll-voting');
+    if (!el) return;
+    const data = el.querySelector('.voting-tooltip-data');
+    if (!data) return;
+    overlay.innerHTML = data.innerHTML;
+    overlay.style.display = 'block';
+    // Position: oberhalb des Elements, linksbündig aber innerhalb des Viewports
+    const rect = el.getBoundingClientRect();
+    const ttW = overlay.offsetWidth || 220;
+    const ttH = overlay.offsetHeight || 80;
+    let top = rect.top - ttH - 8;
+    let left = rect.left;
+    if (top < 4) top = rect.bottom + 8;
+    if (left + ttW > window.innerWidth - 8) left = window.innerWidth - ttW - 8;
+    if (left < 4) left = 4;
+    overlay.style.top  = top  + 'px';
+    overlay.style.left = left + 'px';
+  });
+
+  document.addEventListener('mouseout', function(e) {
+    const el = e.target.closest('.act-soll-voting');
+    if (el && !el.contains(e.relatedTarget)) {
+      overlay.style.display = 'none';
+    }
+  });
+})();
 
 // ============================================================
 // Kamera: Hover-Popup
