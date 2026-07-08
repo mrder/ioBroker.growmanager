@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.52",
+    "version": "0.2.53",
     "news": {
+      "0.2.53": {
+        "en": "Fix shared actor command never sent: executeDecision was calling recordCommand() for shared actors with participants, consuming the state-change flag before the voting loop could detect it — setActuatorState was never called; removed the premature recordCommand call",
+        "de": "Fix Shared-Aktor Befehl wurde nie gesendet: executeDecision rief recordCommand() fuer geteilte Aktoren mit Teilnehmern auf, verbrauchte das changed-Flag bevor die Voting-Loop es sehen konnte — setActuatorState wurde nie aufgerufen; falschen recordCommand-Aufruf entfernt"
+      },
       "0.2.52": {
         "en": "Fix actuator verify: use ActuatorService tracked feedback instead of commandStateId for verification — without a separate feedbackStateId the old code always reported success; now ACTUATOR_NO_FEEDBACK alarm fires correctly after 20s when device ignores command",
         "de": "Fix Aktor-Verifikation: ActuatorService-Feedback statt commandStateId prüfen — ohne separaten feedbackStateId meldete alter Code immer Erfolg; ACTUATOR_NO_FEEDBACK Alarm wird jetzt korrekt nach 20s ausgelöst wenn Gerät nicht reagiert"

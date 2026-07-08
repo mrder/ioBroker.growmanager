@@ -1114,10 +1114,9 @@ class GrowManagerAdapter extends utils.Adapter {
                     reason: action.reason,
                     isCritical: false,
                 });
-                // State aktualisieren damit Voting-Loop den aktuellen Gruppen-Wunsch lesen kann
-                if (actuatorConfig.sharedParticipants?.length) {
-                    this.actuatorService.recordCommand(actuatorConfig, action.requested);
-                }
+                // Aktoren mit sharedParticipants werden ausschließlich durch die Voting-Loop
+                // in runCycle() gesteuert. recordCommand() darf NICHT hier aufgerufen werden,
+                // weil sonst die Voting-Loop changed=false sieht und setActuatorState nie sendet.
                 continue;
             }
             const canSwitch = this.actuatorService.canSwitch(actuatorConfig, action.requested);
