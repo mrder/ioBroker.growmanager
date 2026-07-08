@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.58",
+    "version": "0.2.59",
     "news": {
+      "0.2.59": {
+        "en": "Fix maxSwitchesPerHour countdown: waitSeconds now accurately reflects time until oldest switch event leaves the 1h window instead of fixed 60s",
+        "de": "Fix maxSwitchesPerHour Countdown: waitSeconds berechnet jetzt die korrekte Wartezeit bis das aelteste Schaltereignis das 1h-Fenster verlaesst statt festem 60s-Wert"
+      },
       "0.2.58": {
         "en": "Voting tooltip now shows why each group wants the actuator on/off (VPD guard, temperature, humidity reason); computeParticipantNeed returns reason string; outdoor guard reason shown in tooltip",
         "de": "Abstimmungs-Tooltip zeigt jetzt warum jede Gruppe den Aktor an/aus moechte (VPD-Guard, Temperatur, Feuchte-Begruendung); computeParticipantNeed gibt Begruendungstext zurueck; Outdoor-Guard-Grund im Tooltip"

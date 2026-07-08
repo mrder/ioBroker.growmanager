@@ -117,12 +117,15 @@ export class ActuatorService {
             const rt = this.runTime.get(config.id);
             if (!rt) return { allowed: true }; // nicht initialisiert → kein Limit
             const oneHourAgo = now - 3600000;
-            const recentSwitches = rt.lastHourSwitches.filter(ts => ts > oneHourAgo).length;
-            if (recentSwitches >= config.maxSwitchesPerHour) {
+            const recentTs = rt.lastHourSwitches.filter(ts => ts > oneHourAgo);
+            if (recentTs.length >= config.maxSwitchesPerHour) {
+                // Warten bis das älteste Schaltereignis das 1h-Fenster verlässt
+                const oldestTs = Math.min(...recentTs);
+                const waitSeconds = Math.max(1, Math.round((oldestTs + 3600000 - now) / 1000));
                 return {
                     allowed: false,
-                    reason: `Max. Schaltspiele/h erreicht (${recentSwitches}/${config.maxSwitchesPerHour})`,
-                    waitSeconds: 60,
+                    reason: `Max. Schaltspiele/h erreicht (${recentTs.length}/${config.maxSwitchesPerHour})`,
+                    waitSeconds,
                 };
             }
         }
