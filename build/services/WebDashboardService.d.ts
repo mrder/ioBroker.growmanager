@@ -13,6 +13,7 @@ export interface DashboardActuatorState {
     }>;
     votes?: Array<{
         groupId: string;
+        groupName?: string;
         wantsOn: boolean;
         weight: number;
         urgency: number;

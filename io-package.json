@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.46",
+    "version": "0.2.47",
     "news": {
+      "0.2.47": {
+        "en": "Voting tooltip: show real group names instead of internal IDs",
+        "de": "Abstimmungs-Tooltip: echte Gruppennamen statt interner IDs anzeigen"
+      },
       "0.2.46": {
         "en": "Shared actor voting tooltip: hover over Soll display to see per-participant vote breakdown (EIN/AUS, weight, urgency) with voting mode label — makes it easy to debug whether display or control logic is wrong",
         "de": "Shared-Aktor Abstimmungs-Tooltip: Hover ueber die Soll-Anzeige zeigt Abstimmungsergebnis je Teilnehmer (EIN/AUS, Gewicht, Dringlichkeit) mit Modus-Bezeichnung — hilft zu diagnostizieren ob Anzeige- oder Steuerungsfehler vorliegt"

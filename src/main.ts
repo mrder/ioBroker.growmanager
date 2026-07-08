@@ -755,6 +755,7 @@ class GrowManagerAdapter extends utils.Adapter {
                         : { wantsOn: false, urgency: 0 };
                     this.sharedActorManager.submitVote(actuatorConfig.id, {
                         groupId: group.id,
+                        groupName: group.name,
                         wantsOn: ownerNeed.wantsOn,
                         weight: 1.0,
                         urgency: ownerNeed.urgency,
@@ -764,13 +765,15 @@ class GrowManagerAdapter extends utils.Adapter {
                     for (const participant of actuatorConfig.sharedParticipants) {
                         const pState = this.groupStates.get(participant.groupId);
                         if (!pState) continue;
+                        const pGroup = this.growConfig.groups.find(g => g.id === participant.groupId);
                         const need = this.computeParticipantNeed(actuatorConfig.type, pState, 3);
                         this.sharedActorManager.submitVote(actuatorConfig.id, {
                             groupId: participant.groupId,
+                            groupName: pGroup?.name ?? participant.groupId,
                             wantsOn: need.wantsOn,
                             weight: participant.influenceFactor / 100,
                             urgency: need.urgency,
-                            reason: `Teilnehmer ${participant.groupId}`,
+                            reason: `Teilnehmer ${pGroup?.name ?? participant.groupId}`,
                         });
                     }
 

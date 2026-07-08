@@ -15,6 +15,7 @@ export interface SharedActorResult {
 }
 export interface VoteEntry {
     groupId: string;
+    groupName?: string;
     wantsOn: boolean;
     weight: number;
     urgency: number;

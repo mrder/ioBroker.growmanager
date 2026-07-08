@@ -1355,7 +1355,7 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
       const pct = Math.round(v.weight * 100);
       return `<div class="v-vote-row">
         <div class="v-vote-dot" style="background:${dotColor}"></div>
-        <span class="v-vote-name">${v.groupId}</span>
+        <span class="v-vote-name">${v.groupName ?? v.groupId}</span>
         <span class="v-vote-val" style="color:${dotColor}">${label}</span>
         <span style="font-size:10px;opacity:0.6">${pct}%${v.urgency > 0 ? ' u:'+v.urgency.toFixed(1) : ''}</span>
       </div>`;

@@ -25,6 +25,7 @@ export interface SharedActorResult {
 
 export interface VoteEntry {
     groupId: string;
+    groupName?: string;
     wantsOn: boolean;
     weight: number;    // influenceFactor / 100 (Eigentümer hat immer 1.0)
     urgency: number;   // 0-1: wie dringend die Gruppe den Aktor braucht

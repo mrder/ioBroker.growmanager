@@ -19,7 +19,7 @@ export interface DashboardActuatorState {
     health: string;
     sharedVotingMode?: string;
     sharedParticipants?: Array<{ groupId: string; influenceFactor: number }>;
-    votes?: Array<{ groupId: string; wantsOn: boolean; weight: number; urgency: number; reason: string }>;
+    votes?: Array<{ groupId: string; groupName?: string; wantsOn: boolean; weight: number; urgency: number; reason: string }>;
     // Wird gesetzt wenn dieser Aktor in einer anderen Gruppe konfiguriert ist (Teilnehmer-Sicht)
     sharedFromGroupId?: string;
     sharedFromGroupName?: string;
