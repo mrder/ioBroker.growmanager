@@ -1391,7 +1391,7 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
 
   // Countdown: Sperrzeit / Wind-Sim-Phase / manualLock
   let countdownHtml = '';
-  if (a.blocked && a.blockSecondsLeft > 0) {
+  if (a.blockSecondsLeft > 0) {
     const mins = Math.floor(a.blockSecondsLeft / 60);
     const secs = a.blockSecondsLeft % 60;
     const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;

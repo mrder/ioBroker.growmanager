@@ -1234,8 +1234,13 @@ class GrowManagerAdapter extends utils.Adapter {
                 this.log.debug(
                     `Aktor ${actuatorConfig.name}: gesperrt – ${canSwitch.reason} (${canSwitch.waitSeconds}s)`
                 );
+                this.switchBlocks.set(actuatorConfig.id, {
+                    reason: canSwitch.reason ?? 'Gesperrt',
+                    until: Date.now() + (canSwitch.waitSeconds ?? 0) * 1000,
+                });
                 continue;
             }
+            this.switchBlocks.delete(actuatorConfig.id);
 
             const changed = this.actuatorService.recordCommand(actuatorConfig, action.requested);
             if (changed) {
