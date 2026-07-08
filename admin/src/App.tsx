@@ -2422,6 +2422,7 @@ const CHANNEL_TYPE_LABELS: Record<NotificationChannelType, string> = {
     whatsapp: '💬 WhatsApp',
     discord: '🟣 Discord Webhook',
     signal: '🔵 Signal',
+    pushover: '🔔 Pushover',
 };
 
 function defaultChannel(type: NotificationChannelType): NotificationChannel {
@@ -2491,14 +2492,36 @@ const NotificationSettings: React.FC<{
                             onChange={e => onChange({ ...value, cooldownMinutes: +e.target.value })} />
                     </div>
 
-                    <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+                    <div style={{ marginBottom: 14 }}>
                         <button style={styles.btnSecondary} onClick={detectAdapters}>
                             🔍 Adapter erkennen
                         </button>
-                        {detected && (
-                            <span style={{ fontSize: 12, color: '#555', alignSelf: 'center' }}>
-                                Gefunden: {detected.filter(d => d.type !== 'discord').map(d => `${d.type}.${d.instance}`).join(', ') || 'keine ioBroker-Adapter'} · Discord immer verfügbar
-                            </span>
+                        {detected !== null && (
+                            <div style={{ marginTop: 10, background: '#f5f9f5', border: '1px solid #c8e6c9', borderRadius: 8, padding: '10px 14px' }}>
+                                {detected.filter(d => d.type !== 'discord').length === 0 ? (
+                                    <div style={{ fontSize: 12, color: '#888' }}>Keine ioBroker-Benachrichtigungs-Adapter gefunden (Telegram, WhatsApp, Signal, Pushover). Discord ist immer per Webhook nutzbar.</div>
+                                ) : (
+                                    <>
+                                        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Gefundene Adapter – direkt hinzufügen:</div>
+                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                            {detected.filter(d => d.type !== 'discord').map(d => (
+                                                <button key={`${d.type}-${d.instance}`}
+                                                    style={{ ...styles.btnSecondary, fontSize: 12 }}
+                                                    onClick={() => {
+                                                        const nc = defaultChannel(d.type as NotificationChannelType);
+                                                        if (d.type === 'telegram')  nc.telegramInstance  = d.instance;
+                                                        if (d.type === 'whatsapp')  nc.whatsappInstance  = d.instance;
+                                                        if (d.type === 'signal')    nc.signalInstance    = d.instance;
+                                                        if (d.type === 'pushover')  nc.pushoverInstance  = d.instance;
+                                                        setEditingChannel(nc);
+                                                    }}>
+                                                    + {CHANNEL_TYPE_LABELS[d.type as NotificationChannelType]} (Instanz {d.instance})
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         )}
                     </div>
 
@@ -2538,12 +2561,13 @@ const NotificationSettings: React.FC<{
                                 {ch.type === 'whatsapp' && `whatsapp-cmb.${ch.whatsappInstance ?? '0'} · ${ch.whatsappPhone ?? 'keine Nummer'}`}
                                 {ch.type === 'signal' && `signal-cmb.${ch.signalInstance ?? '0'} · ${ch.signalPhone ?? 'keine Nummer'}`}
                                 {ch.type === 'discord' && (ch.discordWebhookUrl ? 'Webhook konfiguriert ✓' : '⚠ Webhook-URL fehlt')}
+                                {ch.type === 'pushover' && `pushover.${ch.pushoverInstance ?? '0'}`}
                             </div>
                         </div>
                     ))}
 
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        {(['telegram', 'whatsapp', 'discord', 'signal'] as NotificationChannelType[]).map(t => (
+                        {(['telegram', 'whatsapp', 'discord', 'signal', 'pushover'] as NotificationChannelType[]).map(t => (
                             <button key={t} style={{ ...styles.btnSecondary, fontSize: 12 }}
                                 onClick={() => setEditingChannel(defaultChannel(t))}>
                                 + {CHANNEL_TYPE_LABELS[t]}
@@ -2619,6 +2643,12 @@ const NotificationChannelEditor: React.FC<{
                     <FieldLabel tip="Empfänger-Rufnummer im E.164-Format">Telefonnummer</FieldLabel>
                     <input style={styles.input} placeholder="+491234567890" value={ch.signalPhone ?? ''}
                         onChange={e => setCh({ ...ch, signalPhone: e.target.value })} />
+                </>)}
+
+                {ch.type === 'pushover' && (<>
+                    <FieldLabel tip="Instanznummer des Pushover-Adapters (z.B. 0 für pushover.0). App-Token und User-Key werden im Pushover-Adapter selbst konfiguriert – hier nur die Instanznummer eintragen.">Instanz-Nummer</FieldLabel>
+                    <input style={styles.input} placeholder="0" value={ch.pushoverInstance ?? ''}
+                        onChange={e => setCh({ ...ch, pushoverInstance: e.target.value })} />
                 </>)}
 
                 <FieldLabel>Ruhephase (keine Benachrichtigungen)</FieldLabel>

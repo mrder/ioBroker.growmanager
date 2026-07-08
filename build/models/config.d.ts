@@ -270,7 +270,7 @@ export interface GroupConfig {
     sensorDisagreementThreshold: number;
     outdoorSensor?: OutdoorSensorConfig;
 }
-export type NotificationChannelType = 'telegram' | 'whatsapp' | 'discord' | 'signal';
+export type NotificationChannelType = 'telegram' | 'whatsapp' | 'discord' | 'signal' | 'pushover';
 export interface NotificationChannel {
     id: string;
     type: NotificationChannelType;
@@ -282,6 +282,7 @@ export interface NotificationChannel {
     discordWebhookUrl?: string;
     signalInstance?: string;
     signalPhone?: string;
+    pushoverInstance?: string;
     minSeverity: 'info' | 'warning' | 'fault' | 'critical';
     quietHoursEnabled: boolean;
     quietHoursStart: number;

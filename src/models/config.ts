@@ -436,7 +436,7 @@ export interface GroupConfig {
 
 // ---- Push-Benachrichtigungen -------------------------------
 
-export type NotificationChannelType = 'telegram' | 'whatsapp' | 'discord' | 'signal';
+export type NotificationChannelType = 'telegram' | 'whatsapp' | 'discord' | 'signal' | 'pushover';
 
 export interface NotificationChannel {
     id: string;
@@ -453,6 +453,8 @@ export interface NotificationChannel {
     // Signal (signal-cmb adapter)
     signalInstance?: string;
     signalPhone?: string;
+    // Pushover (pushover adapter)
+    pushoverInstance?: string;    // z.B. "0" für pushover.0
     // Filter
     minSeverity: 'info' | 'warning' | 'fault' | 'critical';
     quietHoursEnabled: boolean;

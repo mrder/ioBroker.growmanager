@@ -15,6 +15,7 @@ export declare class NotificationService {
         ok: boolean;
         error?: string;
     }>;
+    private stripHtml;
     private sendToChannel;
     private formatText;
     private buildDiscordEmbed;

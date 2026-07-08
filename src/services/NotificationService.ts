@@ -85,6 +85,10 @@ export class NotificationService {
         }
     }
 
+    private stripHtml(html: string): string {
+        return html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+    }
+
     private async sendToChannel(
         ch: NotificationChannel,
         text: string,
@@ -120,6 +124,16 @@ export class NotificationService {
                 if (!ch.discordWebhookUrl) throw new Error('Keine Discord-Webhook-URL konfiguriert');
                 await this.postDiscordWebhook(ch.discordWebhookUrl, embed);
                 this.log.info('Discord-Notification gesendet');
+                break;
+            }
+            case 'pushover': {
+                const instance = ch.pushoverInstance ?? '0';
+                this.sendTo(`pushover.${instance}`, 'send', {
+                    message: this.stripHtml(text),
+                    title: 'GrowManager Alarm',
+                    sound: 'none',
+                });
+                this.log.info(`Pushover-Notification gesendet (Instanz ${instance})`);
                 break;
             }
         }

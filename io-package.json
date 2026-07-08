@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.44",
+    "version": "0.2.45",
     "news": {
+      "0.2.45": {
+        "en": "Push notifications overhaul: fix detectAdapters (correct instance number extraction, scan instances 0-4 dynamically); add Pushover adapter support; auto-add buttons for detected adapters (pre-fill instance number); HTML stripped for Pushover messages",
+        "de": "Push-Benachrichtigungen ueberarbeitet: detectAdapters repariert (korrekte Instanznummer, dynamischer Scan 0-4); Pushover-Adapter-Unterstuetzung hinzugefuegt; Auto-Hinzufuegen-Buttons fuer erkannte Adapter mit vorausgefuellter Instanznummer; HTML wird fuer Pushover-Nachrichten entfernt"
+      },
       "0.2.44": {
         "en": "Sortenwiki: 30 pre-loaded strains (OG Kush, GSC, Blue Dream, White Widow, Northern Lights, AK-47, GG#4, Gelato, Zkittlez, Wedding Cake, Amnesia Haze, Sour Diesel, Jack Herer, Pineapple Express, Bubba Kush, Critical Mass, SSH, GDP, Strawberry Cough, Bruce Banner, Runtz, Mimosa, Do-Si-Dos, Lemon Haze, Chemdawg, MAC, Tropicana Cookies + originals); new strains auto-merge on adapter start without overwriting custom entries; double-confirm dialog before deleting a strain",
         "de": "Sortenwiki: 30 vorinstallierte Sorten (OG Kush, GSC, Blue Dream, White Widow, Northern Lights, AK-47, GG#4, Gelato, Zkittlez, Wedding Cake, Amnesia Haze, Sour Diesel, Jack Herer, Pineapple Express, Bubba Kush, Critical Mass, SSH, GDP, Strawberry Cough, Bruce Banner, Runtz, Mimosa, Do-Si-Dos, Lemon Haze, Chemdawg, MAC, Tropicana Cookies + Originale); neue Default-Sorten werden beim Adapter-Start automatisch nachgemergt ohne eigene Eintraege zu ueberschreiben; doppelte Sicherheitsabfrage vor dem Loeschen einer Sorte"

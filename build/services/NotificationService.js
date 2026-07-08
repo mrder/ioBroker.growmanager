@@ -98,6 +98,9 @@ class NotificationService {
             return { ok: false, error: String(err) };
         }
     }
+    stripHtml(html) {
+        return html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+    }
     async sendToChannel(ch, text, embed) {
         switch (ch.type) {
             case 'telegram': {
@@ -132,6 +135,16 @@ class NotificationService {
                     throw new Error('Keine Discord-Webhook-URL konfiguriert');
                 await this.postDiscordWebhook(ch.discordWebhookUrl, embed);
                 this.log.info('Discord-Notification gesendet');
+                break;
+            }
+            case 'pushover': {
+                const instance = ch.pushoverInstance ?? '0';
+                this.sendTo(`pushover.${instance}`, 'send', {
+                    message: this.stripHtml(text),
+                    title: 'GrowManager Alarm',
+                    sound: 'none',
+                });
+                this.log.info(`Pushover-Notification gesendet (Instanz ${instance})`);
                 break;
             }
         }

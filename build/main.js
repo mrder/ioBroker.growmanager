@@ -1848,26 +1848,23 @@ class GrowManagerAdapter extends utils.Adapter {
                 }
                 break;
             case 'detectAdapters': {
-                // Prüft welche Benachrichtigungs-Adapter installiert sind
-                const checks = [
-                    { type: 'telegram', ids: ['telegram.0', 'telegram.1'] },
-                    { type: 'whatsapp', ids: ['whatsapp-cmb.0', 'whatsapp-cmb.1'] },
-                    { type: 'signal', ids: ['signal-cmb.0'] },
+                const ADAPTER_MAP = [
+                    { adapter: 'telegram', type: 'telegram' },
+                    { adapter: 'whatsapp-cmb', type: 'whatsapp' },
+                    { adapter: 'signal-cmb', type: 'signal' },
+                    { adapter: 'pushover', type: 'pushover' },
                 ];
                 const detected = [];
-                for (const check of checks) {
-                    for (const id of check.ids) {
+                for (const { adapter, type } of ADAPTER_MAP) {
+                    for (let i = 0; i <= 4; i++) {
                         try {
-                            const adapterObj = await this.getForeignObjectAsync(`system.adapter.${id}`);
-                            if (adapterObj) {
-                                detected.push({ type: check.type, instance: id });
-                                break; // Erste gefundene Instanz reicht
-                            }
+                            const adapterObj = await this.getForeignObjectAsync(`system.adapter.${adapter}.${i}`);
+                            if (adapterObj)
+                                detected.push({ type, instance: String(i) });
                         }
                         catch { /* nicht installiert */ }
                     }
                 }
-                // Discord ist immer verfügbar (nur Webhook-URL nötig)
                 detected.push({ type: 'discord', instance: '' });
                 if (obj.callback) {
                     this.sendTo(obj.from, obj.command, { detected }, obj.callback);
