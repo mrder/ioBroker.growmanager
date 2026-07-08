@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.43",
+    "version": "0.2.44",
     "news": {
+      "0.2.44": {
+        "en": "Sortenwiki: 30 pre-loaded strains (OG Kush, GSC, Blue Dream, White Widow, Northern Lights, AK-47, GG#4, Gelato, Zkittlez, Wedding Cake, Amnesia Haze, Sour Diesel, Jack Herer, Pineapple Express, Bubba Kush, Critical Mass, SSH, GDP, Strawberry Cough, Bruce Banner, Runtz, Mimosa, Do-Si-Dos, Lemon Haze, Chemdawg, MAC, Tropicana Cookies + originals); new strains auto-merge on adapter start without overwriting custom entries; double-confirm dialog before deleting a strain",
+        "de": "Sortenwiki: 30 vorinstallierte Sorten (OG Kush, GSC, Blue Dream, White Widow, Northern Lights, AK-47, GG#4, Gelato, Zkittlez, Wedding Cake, Amnesia Haze, Sour Diesel, Jack Herer, Pineapple Express, Bubba Kush, Critical Mass, SSH, GDP, Strawberry Cough, Bruce Banner, Runtz, Mimosa, Do-Si-Dos, Lemon Haze, Chemdawg, MAC, Tropicana Cookies + Originale); neue Default-Sorten werden beim Adapter-Start automatisch nachgemergt ohne eigene Eintraege zu ueberschreiben; doppelte Sicherheitsabfrage vor dem Loeschen einer Sorte"
+      },
       "0.2.43": {
         "en": "Fix Sortenwiki empty after update: loadStrains() now migrates strains.json data into ioBroker state (database.strains) on first read instead of returning file data without persisting",
         "de": "Fix Sortenwiki leer nach Update: loadStrains() migriert strains.json jetzt beim ersten Lesen in den ioBroker-State (database.strains) statt Dateidaten ohne Persistierung zurueckzugeben"
