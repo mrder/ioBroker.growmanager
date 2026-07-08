@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.50",
+    "version": "0.2.51",
     "news": {
+      "0.2.51": {
+        "en": "Participant view: show labeled Soll/Ist instead of unlabeled single value; add act-label-dim CSS class",
+        "de": "Teilnehmer-Ansicht: Soll und Ist mit Label anzeigen statt unbeschrifteter Einzelwert; act-label-dim CSS-Klasse ergänzt"
+      },
       "0.2.50": {
         "en": "Fix control logic: dehumidifier blocked when VPD already too high (voting path); humidifier blocked when VPD already too low; outdoor guard applied to shared supply/exhaust fans via voting loop; participant view shows current voting result instead of stale last-command; pending indicator also shown when Soll=AUS but Ist=EIN",
         "de": "Fix Regellogik: Entfeuchter gesperrt wenn VPD bereits zu hoch (auch im Voting-Pfad); Befeuchter gesperrt wenn VPD bereits zu niedrig; Outdoor-Guard greift jetzt auch für geteilte Zu-/Abluft-Aktoren im Voting-Loop; Teilnehmer-Ansicht zeigt aktuelles Abstimmungsergebnis statt veralteten letzten Befehl; Pending-Indikator ⏳ auch bei Soll=AUS/Ist=EIN"

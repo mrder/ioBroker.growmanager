@@ -345,6 +345,7 @@
   .v-vote-val { font-weight: 600; }
   /* ---- Pending-Indikator Soll≠Ist ---- */
   .act-pending { font-size: 12px; opacity: 0.8; cursor: help; }
+  .act-label-dim { font-size: 10px; color: var(--text-dim); }
 
   /* ---- Aktoren Detail ---- */
   .actuators { padding: 10px 16px; }
@@ -1310,17 +1311,25 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   // Externer geteilter Aktor (nur Teilnehmer, kein Eigentümer dieser Gruppe)
   if (a.sharedFromGroupId) {
     const fb = a.feedback ?? a.effectiveState;
-    const istOn = fb !== null && fb !== undefined
+    const hasFb = fb !== null && fb !== undefined;
+    const sollOn = a.command === true || (typeof a.command === 'number' && a.command > 0);
+    const istOn = hasFb
       ? (fb === true || (typeof fb === 'number' && fb > 0) || fb === 'true' || fb === 'on')
-      : (a.command === true || (typeof a.command === 'number' && a.command > 0));
+      : sollOn;
     const ledClass = istOn ? 'on' : 'off';
     const t = ACT_TYPE[a.type] ?? ACT_TYPE.custom;
     const influence = a.influenceFactor != null ? ` · ${a.influenceFactor}% Einfluss` : '';
+    const istHtml = hasFb
+      ? ` <span class="act-label-dim">Ist:</span> <span class="act-state ${istOn?'on':'off'}">${istOn?'EIN':'AUS'}</span>`
+      : '';
     return `<div class="actuator-row act-shared-extern">
       <div class="act-dot ${ledClass}"></div>
       <span class="act-name">${t.icon} ${a.name}</span>
       <span class="act-shared-from-badge" title="Eigentümer: ${a.sharedFromGroupName}${influence}">⇄ ${a.sharedFromGroupName}</span>
-      <span class="act-state ${istOn?'on':'off'}" style="margin-left:auto">${istOn?'EIN':'AUS'}</span>
+      <span style="margin-left:auto;display:flex;align-items:center;gap:4px">
+        <span class="act-label-dim">Soll:</span>
+        <span class="act-state ${sollOn?'on':'off'}">${sollOn?'EIN':'AUS'}</span>${istHtml}
+      </span>
     </div>`;
   }
   const sollOn = a.command === true || (typeof a.command === 'number' && a.command > 0);
