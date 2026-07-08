@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.54",
+    "version": "0.2.55",
     "news": {
+      "0.2.55": {
+        "en": "Fix VPD guard missing in humidity-mode dehumidifier/humidifier path (ClimateController.decideHumidityAct): dehumidifier was activating based on humidity alone even when VPD already in upper zone; same guard now applies in both humidity-mode and VPD-mode",
+        "de": "Fix VPD-Guard fehlte im Feuchte-Modus für Entfeuchter/Befeuchter (ClimateController.decideHumidityAct): Entfeuchter aktivierte nur auf Basis von Luftfeuchte auch wenn VPD bereits in der Schutzzone; Guard gilt jetzt in Feuchte-Modus und VPD-Modus"
+      },
       "0.2.54": {
         "en": "Fix VPD guard zone: block dehumidifier in upper 25% of VPD range (not just above max) and humidifier in lower 25%; add switchBlocks map so minimumOff/On countdown timer shows in dashboard instead of pending indicator",
         "de": "Fix VPD-Schutzzone: Entfeuchter wird im oberen Viertel des VPD-Bereichs blockiert (nicht erst ueber Maximum); Befeuchter im unteren Viertel; switchBlocks-Map zeigt Mindestauszeit-Countdown im Dashboard statt ⏳"

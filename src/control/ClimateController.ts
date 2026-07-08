@@ -172,7 +172,7 @@ export class ClimateController {
                 }
 
                 case 'humidity': {
-                    const r = this.decideHumidityAct(act, dir, hum, setpoint, hyst, actions, outdoorTemp, outdoorHumidity, config.outdoorSensor);
+                    const r = this.decideHumidityAct(act, dir, hum, vpd, setpoint, hyst, actions, outdoorTemp, outdoorHumidity, config.outdoorSensor);
                     if (r) reasons.push(r);
                     break;
                 }
@@ -280,6 +280,7 @@ export class ClimateController {
         act: ActuatorConfig,
         dir: ControlDirection,
         hum: number | null,
+        vpd: number | null,
         sp: ClimateSetpoint,
         hyst: GroupHystStates,
         actions: ControlAction[],
@@ -288,6 +289,9 @@ export class ClimateController {
         outdoorCfg: OutdoorSensorConfig | undefined,
     ): string | null {
         if (hum === null) return null;
+
+        const vpdMin = sp.vpdMin ?? null;
+        const vpdMax = sp.vpdMax ?? null;
 
         let hState: HystState;
         if (act.actuatorHysteresis !== undefined && act.actuatorHysteresis > 0) {
@@ -300,16 +304,30 @@ export class ClimateController {
         }
 
         if (dir === 'up') {
-            // Befeuchter
+            // Befeuchter: VPD-Schutz – unteres Viertel des Sollbereichs blockiert Befeuchter
             if (hState === -1) {
+                if (act.type === 'humidifier' && vpd !== null && vpdMin !== null) {
+                    const humGuard = vpdMax !== null ? vpdMin + (vpdMax - vpdMin) * 0.25 : vpdMin + 0.1;
+                    if (vpd < humGuard) {
+                        this.pushAction(actions, act, false, `VPD ${vpd.toFixed(2)} im Schutzbereich – Befeuchter gesperrt`, false);
+                        return null;
+                    }
+                }
                 this.pushAction(actions, act, true, `RH=${hum.toFixed(0)}% < ${sp.humidity}%`, false);
                 return `Befeuchter EIN (${hum.toFixed(0)}% zu trocken)`;
             } else {
                 this.pushAction(actions, act, false, `RH im Zielbereich`, false);
             }
         } else if (dir === 'down' || dir === 'both') {
-            // Entfeuchter / Abluft
+            // Entfeuchter: VPD-Schutz – oberes Viertel des Sollbereichs blockiert Entfeuchter
             if (hState === 1) {
+                if (act.type === 'dehumidifier' && vpd !== null && vpdMax !== null) {
+                    const dehumGuard = vpdMin !== null ? vpdMax - (vpdMax - vpdMin) * 0.25 : vpdMax - 0.1;
+                    if (vpd > dehumGuard) {
+                        this.pushAction(actions, act, false, `VPD ${vpd.toFixed(2)} im Schutzbereich – Entfeuchter gesperrt`, false);
+                        return null;
+                    }
+                }
                 // Außenluft-Guard für Feuchte
                 if (act.outdoorGuardEnabled && outdoorHumidity !== null) {
                     const maxHumDelta = outdoorCfg?.maxHumidityDeltaPercent ?? 10;
