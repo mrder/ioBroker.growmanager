@@ -104,6 +104,41 @@ export type ModeCommand = {
     groupId: string;
     mode: string;
 };
+export interface StrainEntry {
+    id: string;
+    name: string;
+    type: 'sativa' | 'indica' | 'hybrid';
+    sativaPercent: number;
+    growWeeks: number;
+    bloomWeeks: number;
+    yieldGramsPerM2?: number;
+    height: 'klein' | 'mittel' | 'groß' | 'sehr groß';
+    tempDayMin: number;
+    tempDayMax: number;
+    tempNightMin: number;
+    tempNightMax: number;
+    humidityVeg: number;
+    humidityBloom: number;
+    vpdMin: number;
+    vpdMax: number;
+    aroma: string[];
+    effect: string[];
+    thcPercent?: number;
+    cbdPercent?: number;
+    difficulty: 'einfach' | 'mittel' | 'schwer';
+    breeder?: string;
+    notes?: string;
+    createdAt: number;
+    updatedAt: number;
+}
+export interface AnalysisEntry {
+    id: number;
+    groupId: string;
+    groupName: string;
+    ts: number;
+    data: unknown;
+    starred: boolean;
+}
 export declare class WebDashboardService {
     private readonly log;
     private readonly adapterDir;
@@ -118,7 +153,12 @@ export declare class WebDashboardService {
     private databaseCallback;
     private lifestyleGetCallback;
     private lifestyleSetCallback;
+    private strainsGetCallback;
+    private strainsSetCallback;
+    private analysesGetCallback;
+    private analysesSetCallback;
     private plantIdApiKey;
+    private strainsFilePath;
     constructor(log: {
         info: (m: string) => void;
         warn: (m: string) => void;
@@ -137,7 +177,12 @@ export declare class WebDashboardService {
     }>): void;
     setDatabaseCallback(cb: (groupId: string, type: 'stats' | 'energy' | 'irrigation') => unknown): void;
     setLifestyleCallbacks(get: (groupId: string) => Promise<unknown>, set: (groupId: string, data: unknown) => Promise<void>): void;
+    setStrainsCallbacks(get: () => Promise<StrainEntry[]>, set: (s: StrainEntry[]) => Promise<void>): void;
+    setAnalysesCallbacks(get: (groupId: string) => Promise<AnalysisEntry[]>, set: (groupId: string, analyses: AnalysisEntry[]) => Promise<void>): void;
     start(port: number, bindAddress: string): void;
+    private loadStrains;
+    private saveStrains;
+    private handleStrains;
     stop(): void;
     updateState(state: DashboardState): void;
     private handleRequest;

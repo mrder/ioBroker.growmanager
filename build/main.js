@@ -53,6 +53,7 @@ class GrowManagerAdapter extends utils.Adapter {
         this.watchdogTimer = null;
         // Laufzeit-Zustände
         this.groupStates = new Map();
+        this.votingResults = new Map(); // letzte Voting-Entscheidung je Aktor-ID
         this.lightChangeTimes = new Map();
         this.subscribedStateIds = new Set();
         // Letzte bekannte Tag/Nacht-Zustände für Wechselerkennung
@@ -270,6 +271,35 @@ class GrowManagerAdapter extends utils.Adapter {
             });
             await this.setStateAsync(`lifestyle.${groupId}`, { val: JSON.stringify(data), ack: true });
         });
+        this.webDashboard.setStrainsCallbacks(async () => {
+            const state = await this.getStateAsync('database.strains');
+            if (state?.val && typeof state.val === 'string') {
+                try {
+                    const parsed = JSON.parse(state.val);
+                    if (Array.isArray(parsed))
+                        return parsed;
+                }
+                catch { /* ignore */ }
+            }
+            return [];
+        }, async (strains) => {
+            await this.setStateAsync('database.strains', JSON.stringify(strains), true);
+        });
+        this.webDashboard.setAnalysesCallbacks(async (groupId) => {
+            const state = await this.getStateAsync(`database.${groupId}.analyses`);
+            if (state?.val && typeof state.val === 'string') {
+                try {
+                    const parsed = JSON.parse(state.val);
+                    if (Array.isArray(parsed))
+                        return parsed;
+                }
+                catch { /* ignore */ }
+            }
+            return [];
+        }, async (groupId, analyses) => {
+            await this.setStateAsync(`database.${groupId}.analyses`, JSON.stringify(analyses), true);
+        });
+        await this.initGlobalDatabase();
         this.webDashboard.start(webPort, webBind);
         // Regelzyklus starten
         this.scheduleNextCycle();
@@ -654,16 +684,16 @@ class GrowManagerAdapter extends utils.Adapter {
                     if (!actuatorConfig.shared || !actuatorConfig.sharedParticipants?.length)
                         continue;
                     const hysteresisSeconds = actuatorConfig.sharedVoteHysteresisSeconds ?? 60;
-                    // Eigentümer-Stimme einreichen (Ergebnis aus processGroup)
-                    const ownerActState = this.actuatorService.getState(actuatorConfig.id);
-                    const ownerWantsOn = ownerActState
-                        ? this.actuatorService.isRequestingOn(actuatorConfig, ownerActState.requested)
-                        : false;
+                    // Eigentümer-Stimme: aktuellen Klimabedarf berechnen (gleiche Logik wie Teilnehmer)
+                    const ownerGs = this.groupStates.get(group.id);
+                    const ownerNeed = ownerGs
+                        ? this.computeParticipantNeed(actuatorConfig.type, ownerGs, 3)
+                        : { wantsOn: false, urgency: 0 };
                     this.sharedActorManager.submitVote(actuatorConfig.id, {
                         groupId: group.id,
-                        wantsOn: ownerWantsOn,
+                        wantsOn: ownerNeed.wantsOn,
                         weight: 1.0,
-                        urgency: 1.0,
+                        urgency: ownerNeed.urgency,
                         reason: `Eigentümer ${group.name}`,
                     });
                     for (const participant of actuatorConfig.sharedParticipants) {
@@ -685,6 +715,8 @@ class GrowManagerAdapter extends utils.Adapter {
                     const votingMode = actuatorConfig.sharedVotingMode ?? 'any';
                     const hysteresisForVoting = hysteresisSeconds;
                     const finalCommand = this.sharedActorManager.resolveWithVoting(actuatorConfig.id, votingMode, hysteresisForVoting, group.id, currentCommand);
+                    // Voting-Ergebnis für Dashboard-Anzeige speichern (unabhängig von canSwitch)
+                    this.votingResults.set(actuatorConfig.id, finalCommand);
                     const can = this.actuatorService.canSwitch(actuatorConfig, finalCommand);
                     if (can.allowed) {
                         const changed = this.actuatorService.recordCommand(actuatorConfig, finalCommand);
@@ -837,22 +869,31 @@ class GrowManagerAdapter extends utils.Adapter {
         const airDemand = this.airSystemService.computeAirDemand(config, config.airSystem, state.temperature, airSp?.temperature ?? null, state.humidity, airSp?.humidity ?? null, state.vpd, airSp?.vpdMin ?? null, airSp?.vpdMax ?? null, isDay);
         const airOutput = this.airSystemService.computeAirOutput(config.id, config, config.airSystem, airDemand);
         if (airOutput.available) {
-            const exhaustAct = config.actuators.find(a => a.type === 'exhaustFan' && a.enabled);
-            const supplyAct = config.actuators.find(a => a.type === 'supplyFan' && a.enabled);
+            // Geteilte Aktoren werden ausschliesslich ueber das Voting-System gesteuert
+            const exhaustAct = config.actuators.find(a => a.type === 'exhaustFan' && a.enabled && !a.shared);
+            const supplyAct = config.actuators.find(a => a.type === 'supplyFan' && a.enabled && !a.shared);
             if (exhaustAct) {
                 const canSw = this.actuatorService.canSwitch(exhaustAct, airOutput.exhaustCommand);
                 if (canSw.allowed) {
                     const changed = this.actuatorService.recordCommand(exhaustAct, airOutput.exhaustCommand);
-                    if (changed)
+                    if (changed) {
                         await this.setActuatorState(exhaustAct.commandStateId, airOutput.exhaustCommand);
+                        if (typeof airOutput.exhaustCommand === 'boolean') {
+                            this.setActuatorStateWithVerify(exhaustAct, config.id, airOutput.exhaustCommand);
+                        }
+                    }
                 }
             }
-            if (supplyAct && airOutput.supplyCommand !== false) {
+            if (supplyAct) {
                 const canSw = this.actuatorService.canSwitch(supplyAct, airOutput.supplyCommand);
                 if (canSw.allowed) {
                     const changed = this.actuatorService.recordCommand(supplyAct, airOutput.supplyCommand);
-                    if (changed)
+                    if (changed) {
                         await this.setActuatorState(supplyAct.commandStateId, airOutput.supplyCommand);
+                        if (typeof airOutput.supplyCommand === 'boolean') {
+                            this.setActuatorStateWithVerify(supplyAct, config.id, airOutput.supplyCommand);
+                        }
+                    }
                 }
             }
         }
@@ -1206,11 +1247,15 @@ class GrowManagerAdapter extends utils.Adapter {
                 const wsInfo = a.circulationMode === 'windSimulator'
                     ? this.actuatorService.getWindSimInfo(a.id)
                     : undefined;
+                // Für shared Aktoren mit Teilnehmern: Voting-Ergebnis als Soll anzeigen
+                const displayCommand = (a.shared && a.sharedParticipants?.length)
+                    ? (this.votingResults.get(a.id) ?? as?.requested ?? null)
+                    : (as?.requested ?? null);
                 return {
                     id: a.id,
                     name: a.name,
                     type: a.type,
-                    command: as?.requested ?? null,
+                    command: displayCommand,
                     effectiveState: as?.effectiveState ?? null,
                     feedback: as?.feedback ?? null,
                     health: as?.health ?? 'unknown',
@@ -1438,7 +1483,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     soilMoistureSum += zs.currentMoisture;
                     soilMoistureCount++;
                 }
-                if (zs.running || (zs.currentMoisture !== null && zs.currentMoisture < zone.startMoisture)) {
+                if (zone.enabled !== false && (zs.running || (zs.currentMoisture !== null && zs.currentMoisture < zone.startMoisture))) {
                     irrigationRequired = true;
                 }
             }
@@ -1525,14 +1570,26 @@ class GrowManagerAdapter extends utils.Adapter {
             await this.createStateDef(`${aBase}.health`, 'string', 'text', 'unknown');
         }
     }
+    async initGlobalDatabase() {
+        await this.setObjectNotExistsAsync('database', { type: 'folder', common: { name: 'Datenbank' }, native: {} });
+        await this.setObjectNotExistsAsync('database.strains', {
+            type: 'state',
+            common: { name: 'Sortenwiki', type: 'string', role: 'json', read: true, write: true, def: '[]' },
+            native: {},
+        });
+        const strainsState = await this.getStateAsync('database.strains');
+        if (!strainsState || !strainsState.val) {
+            await this.setStateAsync('database.strains', { val: '[]', ack: true });
+        }
+    }
     async createDatabaseObjects(groupId) {
         const base = `database.${groupId}`;
         await this.setObjectNotExistsAsync('database', { type: 'folder', common: { name: 'Datenbank' }, native: {} });
         await this.setObjectNotExistsAsync(base, { type: 'folder', common: { name: `DB Gruppe ${groupId}` }, native: {} });
-        for (const key of ['stats', 'energy', 'irrigation']) {
+        for (const key of ['stats', 'energy', 'irrigation', 'analyses']) {
             await this.setObjectNotExistsAsync(`${base}.${key}`, {
                 type: 'state',
-                common: { name: key, type: 'string', role: 'json', read: true, write: false, def: '[]' },
+                common: { name: key, type: 'string', role: 'json', read: true, write: key === 'analyses', def: '[]' },
                 native: {},
             });
             const s = await this.getStateAsync(`${base}.${key}`);
@@ -1733,12 +1790,13 @@ class GrowManagerAdapter extends utils.Adapter {
             case 'importConfig':
                 if (obj.message && typeof obj.message === 'object' && 'json' in obj.message) {
                     const importResult = this.configurationService.importConfig(obj.message.json);
+                    if (obj.callback) {
+                        this.sendTo(obj.from, obj.command, importResult.result, obj.callback);
+                    }
                     if (importResult.config) {
                         this.growConfig = importResult.config;
                         this.log.info('Konfiguration importiert');
-                    }
-                    if (obj.callback) {
-                        this.sendTo(obj.from, obj.command, importResult.result, obj.callback);
+                        this.restart();
                     }
                 }
                 break;
@@ -1802,7 +1860,7 @@ class GrowManagerAdapter extends utils.Adapter {
                         try {
                             const adapterObj = await this.getForeignObjectAsync(`system.adapter.${id}`);
                             if (adapterObj) {
-                                detected.push({ type: check.type, instance: id.split('.').pop() ?? '0' });
+                                detected.push({ type: check.type, instance: id });
                                 break; // Erste gefundene Instanz reicht
                             }
                         }

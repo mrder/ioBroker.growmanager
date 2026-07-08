@@ -33,6 +33,89 @@ const http = __importStar(require("http"));
 const https = __importStar(require("https"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+const DEFAULT_STRAINS = [
+    {
+        id: 'strain-dante-inferno',
+        name: 'Dante Inferno',
+        type: 'hybrid',
+        sativaPercent: 50,
+        growWeeks: 4,
+        bloomWeeks: 9,
+        yieldGramsPerM2: 450,
+        height: 'mittel',
+        tempDayMin: 22,
+        tempDayMax: 28,
+        tempNightMin: 18,
+        tempNightMax: 22,
+        humidityVeg: 65,
+        humidityBloom: 50,
+        vpdMin: 0.8,
+        vpdMax: 1.4,
+        aroma: ['tropisch', 'zitrus', 'süß', 'exotisch'],
+        effect: ['euphorisch', 'entspannend', 'kreativ'],
+        thcPercent: 22,
+        cbdPercent: 0.5,
+        difficulty: 'mittel',
+        breeder: 'Unbekannt',
+        notes: 'Intensive tropische Aromen, gute Indoor-Performer.',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+    },
+    {
+        id: 'strain-purple-punch',
+        name: 'Purple Punch',
+        type: 'indica',
+        sativaPercent: 20,
+        growWeeks: 4,
+        bloomWeeks: 8,
+        yieldGramsPerM2: 400,
+        height: 'klein',
+        tempDayMin: 20,
+        tempDayMax: 26,
+        tempNightMin: 17,
+        tempNightMax: 21,
+        humidityVeg: 60,
+        humidityBloom: 45,
+        vpdMin: 0.9,
+        vpdMax: 1.3,
+        aroma: ['traube', 'beere', 'süß', 'vanille'],
+        effect: ['entspannend', 'schläfrig', 'glücklich'],
+        thcPercent: 20,
+        cbdPercent: 0.5,
+        difficulty: 'einfach',
+        breeder: 'Supernova Gardens',
+        notes: 'Starke lila Färbung bei kühlen Nachttemperaturen (15-18°C). Kurze kompakte Pflanzen.',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+    },
+    {
+        id: 'strain-seriousa',
+        name: 'Seriousa',
+        type: 'hybrid',
+        sativaPercent: 40,
+        growWeeks: 5,
+        bloomWeeks: 9,
+        yieldGramsPerM2: 500,
+        height: 'groß',
+        tempDayMin: 22,
+        tempDayMax: 28,
+        tempNightMin: 18,
+        tempNightMax: 23,
+        humidityVeg: 65,
+        humidityBloom: 50,
+        vpdMin: 0.8,
+        vpdMax: 1.5,
+        aroma: ['erdig', 'kiefern', 'würzig', 'holzig'],
+        effect: ['entspannend', 'euphorisch', 'fokussiert'],
+        thcPercent: 18,
+        cbdPercent: 1.0,
+        difficulty: 'mittel',
+        breeder: 'Serious Seeds',
+        notes: 'Robuste Sorte mit gutem Ertrag. Gute Resistenz gegen Schimmel und Schädlinge.',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+    },
+];
 class WebDashboardService {
     constructor(log, adapterDir) {
         this.log = log;
@@ -54,7 +137,12 @@ class WebDashboardService {
         this.databaseCallback = null;
         this.lifestyleGetCallback = null;
         this.lifestyleSetCallback = null;
+        this.strainsGetCallback = null;
+        this.strainsSetCallback = null;
+        this.analysesGetCallback = null;
+        this.analysesSetCallback = null;
         this.plantIdApiKey = '';
+        this.strainsFilePath = '';
     }
     setPin(pin) { this.pin = pin; }
     setPlantIdApiKey(key) { this.plantIdApiKey = key; }
@@ -63,8 +151,13 @@ class WebDashboardService {
     setTrendsCallback(cb) { this.trendsCallback = cb; }
     setDatabaseCallback(cb) { this.databaseCallback = cb; }
     setLifestyleCallbacks(get, set) { this.lifestyleGetCallback = get; this.lifestyleSetCallback = set; }
+    setStrainsCallbacks(get, set) { this.strainsGetCallback = get; this.strainsSetCallback = set; }
+    setAnalysesCallbacks(get, set) { this.analysesGetCallback = get; this.analysesSetCallback = set; }
     start(port, bindAddress) {
         const htmlPath = path.join(this.adapterDir, 'admin', 'web', 'dashboard.html');
+        this.strainsFilePath = path.join(this.adapterDir, 'strains.json');
+        // Sorten laden (async, um ioBroker-State-Callback zu verwenden wenn gesetzt)
+        this.loadStrains().catch(() => { });
         try {
             this.dashboardHtml = fs.readFileSync(htmlPath, 'utf-8');
         }
@@ -77,6 +170,151 @@ class WebDashboardService {
         this.server.listen(port, bindAddress, () => {
             this.log.info(`GrowManager Dashboard erreichbar unter http://${bindAddress}:${port}/`);
         });
+    }
+    async loadStrains() {
+        // Callback bevorzugen (ioBroker-State)
+        if (this.strainsGetCallback) {
+            try {
+                const data = await this.strainsGetCallback();
+                if (data.length > 0)
+                    return data;
+            }
+            catch { /* ignore */ }
+        }
+        // Datei-Fallback: liest strains.json und migriert gleichzeitig in ioBroker-State
+        try {
+            if (fs.existsSync(this.strainsFilePath)) {
+                const parsed = JSON.parse(fs.readFileSync(this.strainsFilePath, 'utf-8'));
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    await this.saveStrains(parsed);
+                    return parsed;
+                }
+            }
+        }
+        catch { /* ignore */ }
+        // Fallback: hardcodierte Defaults
+        const now = Date.now();
+        const seeded = DEFAULT_STRAINS.map(s => ({ ...s, createdAt: now, updatedAt: now }));
+        await this.saveStrains(seeded);
+        return seeded;
+    }
+    async saveStrains(strains) {
+        // Callback bevorzugen (ioBroker-State)
+        if (this.strainsSetCallback) {
+            await this.strainsSetCallback(strains);
+            return;
+        }
+        // Fallback: Datei
+        try {
+            fs.writeFileSync(this.strainsFilePath, JSON.stringify(strains, null, 2), 'utf-8');
+        }
+        catch (e) {
+            this.log.error(`Strains speichern fehlgeschlagen: ${e}`);
+        }
+    }
+    handleStrains(req, res, strainId) {
+        const json = (data, status = 200) => {
+            if (res.headersSent)
+                return;
+            res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify(data));
+        };
+        if (!strainId) {
+            // GET /api/strains
+            if (req.method === 'GET') {
+                this.loadStrains().then(strains => json(strains)).catch(e => json({ error: String(e) }, 500));
+                return;
+            }
+            // POST /api/strains
+            if (req.method === 'POST') {
+                let body = '';
+                req.on('data', chunk => { body += chunk; if (body.length > 32768) {
+                    if (!res.headersSent) {
+                        res.writeHead(413);
+                        res.end();
+                    }
+                    req.destroy();
+                } });
+                req.on('error', () => { });
+                req.on('end', async () => {
+                    try {
+                        const strain = JSON.parse(body);
+                        strain.id = `strain-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                        strain.createdAt = Date.now();
+                        strain.updatedAt = Date.now();
+                        const strains = await this.loadStrains();
+                        strains.push(strain);
+                        await this.saveStrains(strains);
+                        json(strain, 201);
+                    }
+                    catch (e) {
+                        json({ error: String(e) }, 400);
+                    }
+                });
+                return;
+            }
+        }
+        else {
+            // GET /api/strains/:id, PUT /api/strains/:id, DELETE /api/strains/:id
+            if (req.method === 'GET') {
+                this.loadStrains().then(strains => {
+                    const idx = strains.findIndex(s => s.id === strainId);
+                    if (idx < 0) {
+                        json({ error: 'Nicht gefunden' }, 404);
+                        return;
+                    }
+                    json(strains[idx]);
+                }).catch(e => json({ error: String(e) }, 500));
+                return;
+            }
+            // PUT /api/strains/:id
+            if (req.method === 'PUT') {
+                let body = '';
+                req.on('data', chunk => { body += chunk; if (body.length > 32768) {
+                    if (!res.headersSent) {
+                        res.writeHead(413);
+                        res.end();
+                    }
+                    req.destroy();
+                } });
+                req.on('error', () => { });
+                req.on('end', async () => {
+                    try {
+                        const strains = await this.loadStrains();
+                        const idx = strains.findIndex(s => s.id === strainId);
+                        const updated = JSON.parse(body);
+                        updated.id = strainId;
+                        updated.updatedAt = Date.now();
+                        if (idx < 0) {
+                            json({ error: 'Nicht gefunden' }, 404);
+                            return;
+                        }
+                        strains[idx] = updated;
+                        await this.saveStrains(strains);
+                        json(updated);
+                    }
+                    catch (e) {
+                        json({ error: String(e) }, 400);
+                    }
+                });
+                return;
+            }
+            // DELETE /api/strains/:id
+            if (req.method === 'DELETE') {
+                this.loadStrains().then(async (strains) => {
+                    const idx = strains.findIndex(s => s.id === strainId);
+                    if (idx < 0) {
+                        json({ error: 'Nicht gefunden' }, 404);
+                        return;
+                    }
+                    strains.splice(idx, 1);
+                    await this.saveStrains(strains);
+                    json({ ok: true });
+                }).catch(e => json({ error: String(e) }, 500));
+                return;
+            }
+        }
+        json({ error: 'Method not allowed' }, 405);
     }
     stop() {
         for (const client of this.sseClients) {
@@ -103,7 +341,7 @@ class WebDashboardService {
             }
         }
     }
-    handleRequest(req, res) {
+    async handleRequest(req, res) {
         const url = (req.url ?? '/').split('?')[0];
         // CORS für lokale Entwicklung
         res.setHeader('Access-Control-Allow-Origin', '*');
@@ -188,8 +426,13 @@ class WebDashboardService {
             }
             if (req.method === 'POST') {
                 let body = '';
-                req.on('data', chunk => { body += chunk; if (body.length > 4096)
-                    req.destroy(); });
+                req.on('data', chunk => { body += chunk; if (body.length > 4096) {
+                    if (!res.headersSent) {
+                        res.writeHead(413, { 'Content-Type': 'application/json' });
+                        res.end('{"error":"too large"}');
+                    }
+                    req.destroy();
+                } });
                 req.on('error', () => { });
                 req.on('end', async () => {
                     try {
@@ -211,6 +454,55 @@ class WebDashboardService {
         if (url === '/api/plant-analysis' && req.method === 'POST') {
             this.handlePlantAnalysis(req, res);
             return;
+        }
+        // Sortenwiki API
+        if (url === '/api/strains') {
+            this.handleStrains(req, res);
+            return;
+        }
+        const strainIdMatch = url.match(/^\/api\/strains\/([^/]+)$/);
+        if (strainIdMatch) {
+            this.handleStrains(req, res, strainIdMatch[1]);
+            return;
+        }
+        // GET|PUT /api/analyses/:groupId
+        const analysesMatch = url.match(/^\/api\/analyses\/([^/]+)$/);
+        if (analysesMatch) {
+            const groupId = analysesMatch[1];
+            const jsonA = (data, status = 200) => {
+                if (res.headersSent)
+                    return;
+                res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.end(JSON.stringify(data));
+            };
+            if (req.method === 'GET') {
+                const list = this.analysesGetCallback ? await this.analysesGetCallback(groupId) : [];
+                jsonA(list);
+                return;
+            }
+            if (req.method === 'PUT') {
+                let body = '';
+                req.on('data', chunk => { body += chunk; if (body.length > 524288) {
+                    if (!res.headersSent) {
+                        res.writeHead(413);
+                        res.end();
+                    }
+                    req.destroy();
+                } });
+                req.on('error', () => { });
+                req.on('end', async () => {
+                    try {
+                        const analyses = JSON.parse(body);
+                        if (this.analysesSetCallback)
+                            await this.analysesSetCallback(groupId, analyses);
+                        jsonA({ ok: true });
+                    }
+                    catch (e) {
+                        jsonA({ error: String(e) }, 400);
+                    }
+                });
+                return;
+            }
         }
         // Camera proxy: fetches image from local camera URL server-side, avoids browser CORS
         if (url === '/api/cam-proxy' && req.method === 'GET') {

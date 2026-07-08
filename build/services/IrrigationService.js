@@ -83,7 +83,7 @@ class IrrigationService {
         // Maximale Laufzeit
         if (elapsed > zone.maxRunSeconds) {
             this.stopZone(zone, state, 'Maximale Laufzeit erreicht', groupId);
-            if (zone.dryRunProtection && (state.flowRate === null || state.flowRate < 0.1)) {
+            if (zone.dryRunProtection && zone.flowStateId && (state.flowRate === null || state.flowRate < 0.1)) {
                 this.alarmService.raise(AlarmService_1.ALARM_CODES.IRRIGATION_DRY_RUN, groupId, `zone:${zone.id}`, 'fault', `Zone ${zone.name}: Kein Durchfluss erkannt (Trockenläuferschutz)`);
                 state.blocked = true;
                 state.blockedReason = 'Trockenläufer-Schutz aktiv';
