@@ -303,24 +303,16 @@ export class WebDashboardService {
                 if (data.length > 0) return data;
             } catch { /* ignore */ }
         }
-        // Datei-Fallback (Migration von altem System)
+        // Datei-Fallback: liest strains.json und migriert gleichzeitig in ioBroker-State
         try {
             if (fs.existsSync(this.strainsFilePath)) {
                 const parsed = JSON.parse(fs.readFileSync(this.strainsFilePath, 'utf-8')) as StrainEntry[];
-                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-            }
-        } catch { /* ignore */ }
-        // Erste Nutzung: mitgelieferte strains.json aus Adapter-Verzeichnis probieren
-        const bundledPath = path.join(this.adapterDir, 'strains.json');
-        if (bundledPath !== this.strainsFilePath && fs.existsSync(bundledPath)) {
-            try {
-                const parsed = JSON.parse(fs.readFileSync(bundledPath, 'utf-8')) as StrainEntry[];
                 if (Array.isArray(parsed) && parsed.length > 0) {
                     await this.saveStrains(parsed);
                     return parsed;
                 }
-            } catch { /* ignore */ }
-        }
+            }
+        } catch { /* ignore */ }
         // Fallback: hardcodierte Defaults
         const now = Date.now();
         const seeded = DEFAULT_STRAINS.map(s => ({ ...s, createdAt: now, updatedAt: now }));

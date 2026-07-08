@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.42",
+    "version": "0.2.43",
     "news": {
+      "0.2.43": {
+        "en": "Fix Sortenwiki empty after update: loadStrains() now migrates strains.json data into ioBroker state (database.strains) on first read instead of returning file data without persisting",
+        "de": "Fix Sortenwiki leer nach Update: loadStrains() migriert strains.json jetzt beim ersten Lesen in den ioBroker-State (database.strains) statt Dateidaten ohne Persistierung zurueckzugeben"
+      },
       "0.2.42": {
         "en": "Persistent cross-device storage: KI-Analysen migrated from browser localStorage to ioBroker state (database.{groupId}.analyses); Sortenwiki strains migrated from file to ioBroker state (database.strains) — all data now accessible from every browser and future app connections",
         "de": "Persistente geraeteuebergreifende Speicherung: KI-Analysen von browser localStorage in ioBroker-State migriert (database.{groupId}.analyses); Sortenwiki-Sorten von Datei in ioBroker-State migriert (database.strains) — alle Daten jetzt von jedem Browser und kuenftigen App-Verbindungen zugaenglich"
