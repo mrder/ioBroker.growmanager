@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.51",
+    "version": "0.2.52",
     "news": {
+      "0.2.52": {
+        "en": "Fix actuator verify: use ActuatorService tracked feedback instead of commandStateId for verification — without a separate feedbackStateId the old code always reported success; now ACTUATOR_NO_FEEDBACK alarm fires correctly after 20s when device ignores command",
+        "de": "Fix Aktor-Verifikation: ActuatorService-Feedback statt commandStateId prüfen — ohne separaten feedbackStateId meldete alter Code immer Erfolg; ACTUATOR_NO_FEEDBACK Alarm wird jetzt korrekt nach 20s ausgelöst wenn Gerät nicht reagiert"
+      },
       "0.2.51": {
         "en": "Participant view: show labeled Soll/Ist instead of unlabeled single value; add act-label-dim CSS class",
         "de": "Teilnehmer-Ansicht: Soll und Ist mit Label anzeigen statt unbeschrifteter Einzelwert; act-label-dim CSS-Klasse ergänzt"

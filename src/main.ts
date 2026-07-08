@@ -1399,24 +1399,50 @@ class GrowManagerAdapter extends utils.Adapter {
         value: boolean | number,
         verifyDelaySec = 10,
     ): void {
-        const feedbackId = actuatorConfig.feedbackStateId ?? actuatorConfig.commandStateId;
         // Ausstehende Verifikation für diesen Aktor abbrechen
         const existing = this.pendingVerify.get(actuatorConfig.id);
         if (existing) this.clearTimeout(existing);
 
         const schedule = (isRetry: boolean) => this.setTimeout(async () => {
             this.pendingVerify.delete(actuatorConfig.id);
-            const actual = await this.getForeignStateAsync(feedbackId);
-            if (!actual || actual.val === null || actual.val === undefined) return;
-            const actVal = actual.val;
+
+            // Tatsächlichen Gerätezustand ermitteln:
+            // - Wenn dedizierter feedbackStateId konfiguriert → direkt lesen
+            // - Sonst → letzten bestätigten (ack=true) Zustand aus ActuatorService nutzen
+            //   (commandStateId würde den von UNS geschriebenen Wert zurückliefern → immer "OK")
+            let actualOn: boolean;
+            if (actuatorConfig.feedbackStateId) {
+                const actual = await this.getForeignStateAsync(actuatorConfig.feedbackStateId);
+                if (!actual || actual.val === null || actual.val === undefined) return;
+                const actVal = actual.val;
+                actualOn = typeof actVal === 'boolean' ? actVal : (actVal as number) > 0;
+            } else {
+                const tracked = this.actuatorService.getState(actuatorConfig.id);
+                if (tracked?.feedback === null || tracked?.feedback === undefined) {
+                    // Noch kein Feedback empfangen – bei Retry trotzdem Alarm
+                    if (isRetry) {
+                        this.log.error(`Aktor ${actuatorConfig.name}: kein Feedback nach Befehl ${value}`);
+                        this.alarmService.raise(
+                            ALARM_CODES.ACTUATOR_NO_FEEDBACK,
+                            groupId,
+                            actuatorConfig.id,
+                            'warning',
+                            `Kein Gerätestatus empfangen nach Befehl "${value}"`,
+                        );
+                    }
+                    return;
+                }
+                const fb = tracked.feedback;
+                actualOn = typeof fb === 'boolean' ? fb : (fb as number) > 0;
+            }
+
             const requestedOn = typeof value === 'boolean' ? value : value > 0;
-            const actualOn = typeof actVal === 'boolean' ? actVal : (actVal as number) > 0;
             if (requestedOn === actualOn) {
                 this.alarmService.clear(ALARM_CODES.ACTUATOR_NO_FEEDBACK, groupId, actuatorConfig.id);
                 return;
             }
             if (!isRetry) {
-                this.log.warn(`Aktor ${actuatorConfig.name}: Soll=${value} aber Ist=${actVal} – 1x Retry`);
+                this.log.warn(`Aktor ${actuatorConfig.name}: Soll=${value} aber Ist=${actualOn} – 1x Retry`);
                 await this.setActuatorState(actuatorConfig.commandStateId, value);
                 this.pendingVerify.set(actuatorConfig.id, schedule(true));
             } else {
