@@ -11,6 +11,13 @@ export interface DashboardActuatorState {
         groupId: string;
         influenceFactor: number;
     }>;
+    votes?: Array<{
+        groupId: string;
+        wantsOn: boolean;
+        weight: number;
+        urgency: number;
+        reason: string;
+    }>;
     sharedFromGroupId?: string;
     sharedFromGroupName?: string;
     influenceFactor?: number;

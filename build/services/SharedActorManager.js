@@ -213,6 +213,12 @@ class SharedActorManager {
         return confirmedCommand;
     }
     /**
+     * Gibt alle Stimmen für einen Aktor zurück (für Dashboard-Tooltip).
+     */
+    getVotes(actuatorId) {
+        return this.votes.get(actuatorId) ?? [];
+    }
+    /**
      * Leert alle Anforderungen und Stimmen nach dem Regelzyklus.
      */
     clearCycle() {

@@ -267,6 +267,13 @@ export class SharedActorManager {
     }
 
     /**
+     * Gibt alle Stimmen für einen Aktor zurück (für Dashboard-Tooltip).
+     */
+    getVotes(actuatorId: string): VoteEntry[] {
+        return this.votes.get(actuatorId) ?? [];
+    }
+
+    /**
      * Leert alle Anforderungen und Stimmen nach dem Regelzyklus.
      */
     clearCycle(): void {

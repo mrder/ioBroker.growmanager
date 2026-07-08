@@ -1261,6 +1261,9 @@ class GrowManagerAdapter extends utils.Adapter {
                     health: as?.health ?? 'unknown',
                     sharedVotingMode: a.sharedVotingMode,
                     sharedParticipants: a.sharedParticipants,
+                    votes: (a.shared && a.sharedParticipants?.length)
+                        ? this.sharedActorManager.getVotes(a.id)
+                        : undefined,
                     manualLock: as?.manualLock ?? false,
                     blocked: as?.blocked ?? false,
                     blockReason: as?.blockedReason,

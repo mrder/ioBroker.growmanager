@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.45",
+    "version": "0.2.46",
     "news": {
+      "0.2.46": {
+        "en": "Shared actor voting tooltip: hover over Soll display to see per-participant vote breakdown (EIN/AUS, weight, urgency) with voting mode label — makes it easy to debug whether display or control logic is wrong",
+        "de": "Shared-Aktor Abstimmungs-Tooltip: Hover ueber die Soll-Anzeige zeigt Abstimmungsergebnis je Teilnehmer (EIN/AUS, Gewicht, Dringlichkeit) mit Modus-Bezeichnung — hilft zu diagnostizieren ob Anzeige- oder Steuerungsfehler vorliegt"
+      },
       "0.2.45": {
         "en": "Push notifications overhaul: fix detectAdapters (correct instance number extraction, scan instances 0-4 dynamically); add Pushover adapter support; auto-add buttons for detected adapters (pre-fill instance number); HTML stripped for Pushover messages",
         "de": "Push-Benachrichtigungen ueberarbeitet: detectAdapters repariert (korrekte Instanznummer, dynamischer Scan 0-4); Pushover-Adapter-Unterstuetzung hinzugefuegt; Auto-Hinzufuegen-Buttons fuer erkannte Adapter mit vorausgefuellter Instanznummer; HTML wird fuer Pushover-Nachrichten entfernt"

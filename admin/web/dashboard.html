@@ -330,6 +330,24 @@
   .q-sensor-val { font-weight: 600; }
   .q-sensor-err { font-size: 10px; color: var(--orange); grid-column: 2 / -1; }
 
+  /* ---- Voting Tooltip (Soll bei geteilten Aktoren) ---- */
+  .act-soll-voting { position: relative; display: inline-flex; align-items: center; gap: 4px; cursor: help; }
+  .act-soll-voting:hover .voting-tooltip { display: block; }
+  .voting-tooltip {
+    display: none; position: absolute; bottom: 100%; left: 0;
+    background: #1a2a3a; border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 12px; font-size: 12px; color: var(--text); white-space: nowrap;
+    z-index: 50; margin-bottom: 6px; min-width: 200px; text-align: left;
+  }
+  .voting-tooltip::after {
+    content: ''; position: absolute; top: 100%; left: 14px;
+    border: 6px solid transparent; border-top-color: var(--border);
+  }
+  .v-vote-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+  .v-vote-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .v-vote-name { flex: 1; color: var(--text-dim); }
+  .v-vote-val { font-weight: 600; }
+
   /* ---- Aktoren Detail ---- */
   .actuators { padding: 10px 16px; }
   .act-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
@@ -1327,10 +1345,33 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
     : `<span class="act-mode-badge">AUTO</span>`;
 
   // Soll-Wert
-  let sollHtml = isPercent
+  const votes = (a.votes && a.votes.length > 0) ? a.votes : null;
+  let votingTooltipHtml = '';
+  if (votes) {
+    const modeLabel = { any: 'ANY', majority: 'Mehrheit', primary: 'Eigentümer' }[a.sharedVotingMode ?? 'any'] ?? a.sharedVotingMode;
+    const rows = votes.map(v => {
+      const dotColor = v.wantsOn ? 'var(--green-light)' : 'var(--red)';
+      const label = v.wantsOn ? 'EIN' : 'AUS';
+      const pct = Math.round(v.weight * 100);
+      return `<div class="v-vote-row">
+        <div class="v-vote-dot" style="background:${dotColor}"></div>
+        <span class="v-vote-name">${v.groupId}</span>
+        <span class="v-vote-val" style="color:${dotColor}">${label}</span>
+        <span style="font-size:10px;opacity:0.6">${pct}%${v.urgency > 0 ? ' u:'+v.urgency.toFixed(1) : ''}</span>
+      </div>`;
+    }).join('');
+    votingTooltipHtml = `<div class="voting-tooltip">
+      <div style="font-weight:700;margin-bottom:6px;color:var(--text)">Abstimmung (${modeLabel})</div>
+      ${rows}
+    </div>`;
+  }
+  const sollInner = isPercent
     ? `<span class="act-soll-label">Soll:</span><span class="act-percent">${Math.round(a.command)}%</span>
        <div class="percent-bar-wrap"><div class="percent-bar-fill" style="width:${a.command}%"></div></div>`
     : `<span class="act-soll-label">Soll:</span><span class="act-state ${sollOn?'on':'off'}">${sollOn?'EIN':'AUS'}</span>`;
+  let sollHtml = votes
+    ? `<span class="act-soll-voting">${sollInner}${votingTooltipHtml}</span>`
+    : sollInner;
 
   // Ist-Wert (nur anzeigen wenn Feedback-State konfiguriert, sonst identisch mit Soll)
   let istHtml = '';

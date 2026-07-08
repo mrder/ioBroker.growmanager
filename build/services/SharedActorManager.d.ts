@@ -57,6 +57,10 @@ export declare class SharedActorManager {
      */
     resolveWithVoting(actuatorId: string, mode: 'any' | 'majority' | 'primary', hysteresisSeconds: number, ownerId: string, currentCommand: boolean | number): boolean | number;
     /**
+     * Gibt alle Stimmen für einen Aktor zurück (für Dashboard-Tooltip).
+     */
+    getVotes(actuatorId: string): VoteEntry[];
+    /**
      * Leert alle Anforderungen und Stimmen nach dem Regelzyklus.
      */
     clearCycle(): void;
