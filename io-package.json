@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.60",
+    "version": "0.2.61",
     "news": {
+      "0.2.61": {
+        "en": "VPD-priority mode for shared dehumidifier/humidifier: when VPD setpoints are configured, only VPD decides (dehumidify if VPD<min, humidify if VPD>max, pause if VPD in range); humidity setpoint no longer drives dehumidification when VPD is already in target range",
+        "de": "VPD-Vorrang fuer geteilte Ent-/Befeuchter: wenn VPD-Sollwerte konfiguriert, entscheidet nur der VPD (Entfeuchten wenn VPD<min, Befeuchten wenn VPD>max, pausieren wenn VPD im Bereich); RH-Setpoint treibt Entfeuchter nicht mehr an wenn VPD bereits im Sollbereich liegt"
+      },
       "0.2.60": {
         "en": "Widen VPD guard zone for dehumidifier/humidifier from 25% to 33% of range: dehumidifier now blocked in upper third (not just upper quarter) of VPD target range, preventing dehumidification requests when VPD is at 1.37 kPa with max 1.50 kPa",
         "de": "VPD-Schutzzone fuer Ent-/Befeuchter von 25% auf 33% des Bereichs ausgeweitet: Entfeuchter wird jetzt im oberen Drittel (statt nur Viertel) des VPD-Sollbereichs gesperrt; verhindert Entfeuchtungsanforderungen bei VPD 1.37 kPa mit Max 1.50 kPa"

@@ -1194,8 +1194,25 @@ class GrowManagerAdapter extends utils.Adapter {
         }
         switch (actuatorType) {
             case 'dehumidifier': {
-                // Oberes Drittel des VPD-Sollbereichs schützen: Entfeuchter würde VPD weiter erhöhen
-                // → bereits bei 67% des Wegs zum Maximum blockieren
+                const hum = gs.humidity;
+                if (hum === null)
+                    return { wantsOn: false, urgency: 0, reason: 'Kein Feuchtesensor' };
+                // VPD-Modus: wenn beide VPD-Grenzen konfiguriert sind, entscheidet nur der VPD.
+                // Entfeuchter senkt Feuchte → erhöht VPD und erzeugt Abwärme → darf VPD
+                // nicht in den Überbereich treiben.
+                if (vpdMin !== null && vpdMax !== null && gs.vpd !== null) {
+                    if (gs.vpd < vpdMin) {
+                        const deficit = vpdMin - gs.vpd;
+                        return { wantsOn: true, urgency: Math.min(1, deficit / 0.5), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu niedrig (Soll >${vpdMin.toFixed(2)}) – Entfeuchten` };
+                    }
+                    if (gs.vpd > vpdMax) {
+                        // VPD zu hoch → Entfeuchter würde es weiter verschlimmern → gesperrt
+                        return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch – Entfeuchter gesperrt` };
+                    }
+                    // VPD im Sollbereich → keine RH-Regelung; Entfeuchter würde VPD weiter erhöhen
+                    return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa im Sollbereich – Entfeuchter pausiert` };
+                }
+                // Feuchtemodus (kein VPD konfiguriert): RH-Setpoint mit Guard
                 const dehum_vpdGuard = vpdMax !== null
                     ? (vpdMin !== null ? vpdMax - (vpdMax - vpdMin) * 0.33 : vpdMax - 0.1)
                     : null;
@@ -1203,21 +1220,29 @@ class GrowManagerAdapter extends utils.Adapter {
                     return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa im Schutzbereich (>${dehum_vpdGuard.toFixed(2)}) – Entfeuchter gesperrt` };
                 }
                 const target = humSetpoint ?? 60;
-                const hum = gs.humidity;
-                if (hum === null)
-                    return { wantsOn: false, urgency: 0, reason: 'Kein Feuchtesensor' };
                 const excess = hum - (target + hyst);
                 if (excess > 0)
                     return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Soll ${target}% – Entfeuchten` };
-                // VPD zu niedrig → Luftfeuchtigkeit zu hoch → Entfeuchter
-                if (vpdMin !== null && gs.vpd !== null && gs.vpd < vpdMin - 0.2) {
-                    const deficit = vpdMin - gs.vpd;
-                    return { wantsOn: true, urgency: Math.min(1, deficit / 0.5), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu niedrig (Soll >${vpdMin.toFixed(2)}) – Entfeuchten` };
-                }
                 return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
             }
             case 'humidifier': {
-                // Unteres Drittel des VPD-Sollbereichs schützen: Befeuchter würde VPD weiter senken
+                const hum = gs.humidity;
+                if (hum === null)
+                    return { wantsOn: false, urgency: 0, reason: 'Kein Feuchtesensor' };
+                // VPD-Modus: wenn beide VPD-Grenzen konfiguriert sind, entscheidet nur der VPD.
+                if (vpdMin !== null && vpdMax !== null && gs.vpd !== null) {
+                    if (gs.vpd > vpdMax) {
+                        const excess = gs.vpd - vpdMax;
+                        return { wantsOn: true, urgency: Math.min(1, excess / 0.5), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch (Soll <${vpdMax.toFixed(2)}) – Befeuchten` };
+                    }
+                    if (gs.vpd < vpdMin) {
+                        // VPD zu niedrig → Befeuchter würde es weiter verschlimmern → gesperrt
+                        return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa zu niedrig – Befeuchter gesperrt` };
+                    }
+                    // VPD im Sollbereich → keine RH-Regelung
+                    return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa im Sollbereich – Befeuchter pausiert` };
+                }
+                // Feuchtemodus (kein VPD konfiguriert): RH-Setpoint mit Guard
                 const hum_vpdGuard = vpdMin !== null
                     ? (vpdMax !== null ? vpdMin + (vpdMax - vpdMin) * 0.33 : vpdMin + 0.1)
                     : null;
@@ -1225,17 +1250,9 @@ class GrowManagerAdapter extends utils.Adapter {
                     return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa im Schutzbereich (<${hum_vpdGuard.toFixed(2)}) – Befeuchter gesperrt` };
                 }
                 const target = humSetpoint ?? 50;
-                const hum = gs.humidity;
-                if (hum === null)
-                    return { wantsOn: false, urgency: 0, reason: 'Kein Feuchtesensor' };
                 const deficit = (target - hyst) - hum;
                 if (deficit > 0)
                     return { wantsOn: true, urgency: Math.min(1, deficit / 10), reason: `RH ${hum.toFixed(0)}% < Soll ${target}% – Befeuchten` };
-                // VPD zu hoch → Luftfeuchtigkeit zu niedrig → Befeuchter
-                if (vpdMax !== null && gs.vpd !== null && gs.vpd > vpdMax + 0.2) {
-                    const excess = gs.vpd - vpdMax;
-                    return { wantsOn: true, urgency: Math.min(1, excess / 0.5), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch (Soll <${vpdMax.toFixed(2)}) – Befeuchten` };
-                }
                 return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
             }
             case 'cooling':
