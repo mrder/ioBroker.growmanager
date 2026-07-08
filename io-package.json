@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.59",
+    "version": "0.2.60",
     "news": {
+      "0.2.60": {
+        "en": "Widen VPD guard zone for dehumidifier/humidifier from 25% to 33% of range: dehumidifier now blocked in upper third (not just upper quarter) of VPD target range, preventing dehumidification requests when VPD is at 1.37 kPa with max 1.50 kPa",
+        "de": "VPD-Schutzzone fuer Ent-/Befeuchter von 25% auf 33% des Bereichs ausgeweitet: Entfeuchter wird jetzt im oberen Drittel (statt nur Viertel) des VPD-Sollbereichs gesperrt; verhindert Entfeuchtungsanforderungen bei VPD 1.37 kPa mit Max 1.50 kPa"
+      },
       "0.2.59": {
         "en": "Fix maxSwitchesPerHour countdown: waitSeconds now accurately reflects time until oldest switch event leaves the 1h window instead of fixed 60s",
         "de": "Fix maxSwitchesPerHour Countdown: waitSeconds berechnet jetzt die korrekte Wartezeit bis das aelteste Schaltereignis das 1h-Fenster verlaesst statt festem 60s-Wert"

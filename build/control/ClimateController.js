@@ -232,10 +232,10 @@ class ClimateController {
             hyst.humidity = hState;
         }
         if (dir === 'up') {
-            // Befeuchter: VPD-Schutz – unteres Viertel des Sollbereichs blockiert Befeuchter
+            // Befeuchter: VPD-Schutz – unteres Drittel des Sollbereichs blockiert Befeuchter
             if (hState === -1) {
                 if (act.type === 'humidifier' && vpd !== null && vpdMin !== null) {
-                    const humGuard = vpdMax !== null ? vpdMin + (vpdMax - vpdMin) * 0.25 : vpdMin + 0.1;
+                    const humGuard = vpdMax !== null ? vpdMin + (vpdMax - vpdMin) * 0.33 : vpdMin + 0.1;
                     if (vpd < humGuard) {
                         this.pushAction(actions, act, false, `VPD ${vpd.toFixed(2)} im Schutzbereich – Befeuchter gesperrt`, false);
                         return null;
@@ -249,10 +249,10 @@ class ClimateController {
             }
         }
         else if (dir === 'down' || dir === 'both') {
-            // Entfeuchter: VPD-Schutz – oberes Viertel des Sollbereichs blockiert Entfeuchter
+            // Entfeuchter: VPD-Schutz – oberes Drittel des Sollbereichs blockiert Entfeuchter
             if (hState === 1) {
                 if (act.type === 'dehumidifier' && vpd !== null && vpdMax !== null) {
-                    const dehumGuard = vpdMin !== null ? vpdMax - (vpdMax - vpdMin) * 0.25 : vpdMax - 0.1;
+                    const dehumGuard = vpdMin !== null ? vpdMax - (vpdMax - vpdMin) * 0.33 : vpdMax - 0.1;
                     if (vpd > dehumGuard) {
                         this.pushAction(actions, act, false, `VPD ${vpd.toFixed(2)} im Schutzbereich – Entfeuchter gesperrt`, false);
                         return null;

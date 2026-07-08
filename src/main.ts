@@ -1312,10 +1312,10 @@ class GrowManagerAdapter extends utils.Adapter {
 
         switch (actuatorType) {
             case 'dehumidifier': {
-                // Oberes Viertel des VPD-Sollbereichs schützen: Entfeuchter würde VPD weiter erhöhen
-                // → bereits bei 75% des Wegs zum Maximum blockieren
+                // Oberes Drittel des VPD-Sollbereichs schützen: Entfeuchter würde VPD weiter erhöhen
+                // → bereits bei 67% des Wegs zum Maximum blockieren
                 const dehum_vpdGuard = vpdMax !== null
-                    ? (vpdMin !== null ? vpdMax - (vpdMax - vpdMin) * 0.25 : vpdMax - 0.1)
+                    ? (vpdMin !== null ? vpdMax - (vpdMax - vpdMin) * 0.33 : vpdMax - 0.1)
                     : null;
                 if (dehum_vpdGuard !== null && gs.vpd !== null && gs.vpd > dehum_vpdGuard) {
                     return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa im Schutzbereich (>${dehum_vpdGuard.toFixed(2)}) – Entfeuchter gesperrt` };
@@ -1333,9 +1333,9 @@ class GrowManagerAdapter extends utils.Adapter {
                 return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
             }
             case 'humidifier': {
-                // Unteres Viertel des VPD-Sollbereichs schützen: Befeuchter würde VPD weiter senken
+                // Unteres Drittel des VPD-Sollbereichs schützen: Befeuchter würde VPD weiter senken
                 const hum_vpdGuard = vpdMin !== null
-                    ? (vpdMax !== null ? vpdMin + (vpdMax - vpdMin) * 0.25 : vpdMin + 0.1)
+                    ? (vpdMax !== null ? vpdMin + (vpdMax - vpdMin) * 0.33 : vpdMin + 0.1)
                     : null;
                 if (hum_vpdGuard !== null && gs.vpd !== null && gs.vpd < hum_vpdGuard) {
                     return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa im Schutzbereich (<${hum_vpdGuard.toFixed(2)}) – Befeuchter gesperrt` };
