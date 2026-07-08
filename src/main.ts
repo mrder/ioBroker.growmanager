@@ -754,7 +754,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     const ownerGs = this.groupStates.get(group.id);
                     let ownerNeed = ownerGs
                         ? this.computeParticipantNeed(actuatorConfig.type, ownerGs, 3)
-                        : { wantsOn: false, urgency: 0 };
+                        : { wantsOn: false as const, urgency: 0, reason: 'Kein Gruppenstatus' };
 
                     // Outdoor-Guard für Lüfter: Außenluft nur einsetzen wenn innen wärmer als außen
                     if (ownerNeed.wantsOn &&
@@ -768,7 +768,7 @@ class GrowManagerAdapter extends utils.Adapter {
                                 const minDelta = outdoorCfg.minTempDeltaCelsius ?? 2;
                                 if (inTemp - outTemp < minDelta) {
                                     this.log.debug(`SharedAktor ${actuatorConfig.name}: Outdoor-Guard – Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C, Delta < ${minDelta}°C → blockiert`);
-                                    ownerNeed = { wantsOn: false, urgency: 0 };
+                                    ownerNeed = { wantsOn: false, urgency: 0, reason: `Außenluft-Guard: Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C (Δ<${minDelta}°C)` };
                                 }
                             }
                         }
@@ -780,7 +780,7 @@ class GrowManagerAdapter extends utils.Adapter {
                         wantsOn: ownerNeed.wantsOn,
                         weight: 1.0,
                         urgency: ownerNeed.urgency,
-                        reason: `Eigentümer ${group.name}`,
+                        reason: ownerNeed.reason,
                     });
 
                     for (const participant of actuatorConfig.sharedParticipants) {
@@ -794,7 +794,7 @@ class GrowManagerAdapter extends utils.Adapter {
                             wantsOn: need.wantsOn,
                             weight: participant.influenceFactor / 100,
                             urgency: need.urgency,
-                            reason: `Teilnehmer ${pGroup?.name ?? participant.groupId}`,
+                            reason: need.reason,
                         });
                     }
 
@@ -1290,7 +1290,7 @@ class GrowManagerAdapter extends utils.Adapter {
         actuatorType: ActuatorType,
         gs: GroupState,
         defaultHysteresis: number,
-    ): { wantsOn: boolean; urgency: number } {
+    ): { wantsOn: boolean; urgency: number; reason: string } {
         const hyst = defaultHysteresis;
         const tempHyst = 1.5;  // °C
 
@@ -1318,19 +1318,19 @@ class GrowManagerAdapter extends utils.Adapter {
                     ? (vpdMin !== null ? vpdMax - (vpdMax - vpdMin) * 0.25 : vpdMax - 0.1)
                     : null;
                 if (dehum_vpdGuard !== null && gs.vpd !== null && gs.vpd > dehum_vpdGuard) {
-                    return { wantsOn: false, urgency: 0 };
+                    return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa im Schutzbereich (>${dehum_vpdGuard.toFixed(2)}) – Entfeuchter gesperrt` };
                 }
                 const target = humSetpoint ?? 60;
                 const hum = gs.humidity;
-                if (hum === null) return { wantsOn: false, urgency: 0 };
+                if (hum === null) return { wantsOn: false, urgency: 0, reason: 'Kein Feuchtesensor' };
                 const excess = hum - (target + hyst);
-                if (excess > 0) return { wantsOn: true, urgency: Math.min(1, excess / 10) };
+                if (excess > 0) return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Soll ${target}% – Entfeuchten` };
                 // VPD zu niedrig → Luftfeuchtigkeit zu hoch → Entfeuchter
                 if (vpdMin !== null && gs.vpd !== null && gs.vpd < vpdMin - 0.2) {
                     const deficit = vpdMin - gs.vpd;
-                    return { wantsOn: true, urgency: Math.min(1, deficit / 0.5) };
+                    return { wantsOn: true, urgency: Math.min(1, deficit / 0.5), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu niedrig (Soll >${vpdMin.toFixed(2)}) – Entfeuchten` };
                 }
-                return { wantsOn: false, urgency: 0 };
+                return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
             }
             case 'humidifier': {
                 // Unteres Viertel des VPD-Sollbereichs schützen: Befeuchter würde VPD weiter senken
@@ -1338,19 +1338,19 @@ class GrowManagerAdapter extends utils.Adapter {
                     ? (vpdMax !== null ? vpdMin + (vpdMax - vpdMin) * 0.25 : vpdMin + 0.1)
                     : null;
                 if (hum_vpdGuard !== null && gs.vpd !== null && gs.vpd < hum_vpdGuard) {
-                    return { wantsOn: false, urgency: 0 };
+                    return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa im Schutzbereich (<${hum_vpdGuard.toFixed(2)}) – Befeuchter gesperrt` };
                 }
                 const target = humSetpoint ?? 50;
                 const hum = gs.humidity;
-                if (hum === null) return { wantsOn: false, urgency: 0 };
+                if (hum === null) return { wantsOn: false, urgency: 0, reason: 'Kein Feuchtesensor' };
                 const deficit = (target - hyst) - hum;
-                if (deficit > 0) return { wantsOn: true, urgency: Math.min(1, deficit / 10) };
+                if (deficit > 0) return { wantsOn: true, urgency: Math.min(1, deficit / 10), reason: `RH ${hum.toFixed(0)}% < Soll ${target}% – Befeuchten` };
                 // VPD zu hoch → Luftfeuchtigkeit zu niedrig → Befeuchter
                 if (vpdMax !== null && gs.vpd !== null && gs.vpd > vpdMax + 0.2) {
                     const excess = gs.vpd - vpdMax;
-                    return { wantsOn: true, urgency: Math.min(1, excess / 0.5) };
+                    return { wantsOn: true, urgency: Math.min(1, excess / 0.5), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch (Soll <${vpdMax.toFixed(2)}) – Befeuchten` };
                 }
-                return { wantsOn: false, urgency: 0 };
+                return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
             }
             case 'cooling':
             case 'exhaustFan':
@@ -1359,23 +1359,24 @@ class GrowManagerAdapter extends utils.Adapter {
                 const temp = gs.temperature;
                 if (temp !== null) {
                     const excess = temp - (target + tempHyst);
-                    if (excess > 0) return { wantsOn: true, urgency: Math.min(1, excess / 5) };
+                    if (excess > 0) return { wantsOn: true, urgency: Math.min(1, excess / 5), reason: `T ${temp.toFixed(1)}°C > Soll ${target}°C – Lüftung/Kühlung` };
                 }
                 // VPD-basiert: zu hoch → Lüftung/Kühlung hilft
                 if (vpdMax !== null && gs.vpd !== null && gs.vpd > vpdMax + 0.2) {
                     const excess = gs.vpd - vpdMax;
-                    return { wantsOn: true, urgency: Math.min(1, excess / 0.5) };
+                    return { wantsOn: true, urgency: Math.min(1, excess / 0.5), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch – Lüftung` };
                 }
-                return { wantsOn: false, urgency: 0 };
+                return { wantsOn: false, urgency: 0, reason: `T/VPD im Sollbereich` };
             }
             case 'heating': {
                 const target = tempSetpoint ?? 20;
                 const temp = gs.temperature;
-                if (temp === null) return { wantsOn: false, urgency: 0 };
+                if (temp === null) return { wantsOn: false, urgency: 0, reason: 'Kein Temperatursensor' };
                 const deficit = (target - tempHyst) - temp;
                 return {
                     wantsOn: deficit > 0,
                     urgency: Math.min(1, Math.max(0, deficit / 5)),
+                    reason: deficit > 0 ? `T ${temp.toFixed(1)}°C < Soll ${target}°C – Heizen` : `T ${temp.toFixed(1)}°C im Sollbereich`,
                 };
             }
             case 'circulationFan':
@@ -1384,19 +1385,19 @@ class GrowManagerAdapter extends utils.Adapter {
                 const target = tempSetpoint ?? 25;
                 const temp = gs.temperature;
                 if (temp !== null && temp > target + tempHyst) {
-                    return { wantsOn: true, urgency: Math.min(1, (temp - target - tempHyst) / 5) };
+                    return { wantsOn: true, urgency: Math.min(1, (temp - target - tempHyst) / 5), reason: `T ${temp.toFixed(1)}°C > Soll ${target}°C – Umluft` };
                 }
                 if (vpdMax !== null && gs.vpd !== null && gs.vpd > vpdMax + 0.3) {
-                    return { wantsOn: true, urgency: Math.min(1, (gs.vpd - vpdMax) / 0.5) };
+                    return { wantsOn: true, urgency: Math.min(1, (gs.vpd - vpdMax) / 0.5), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch – Umluft` };
                 }
-                return { wantsOn: false, urgency: 0 };
+                return { wantsOn: false, urgency: 0, reason: 'T/VPD im Sollbereich' };
             }
             case 'co2Valve': {
                 // CO2 wird selten geteilt; kein Teilnehmer-Bedarf
-                return { wantsOn: false, urgency: 0 };
+                return { wantsOn: false, urgency: 0, reason: 'CO2-Ventil: kein Teilnehmer-Bedarf' };
             }
             default:
-                return { wantsOn: false, urgency: 0 };
+                return { wantsOn: false, urgency: 0, reason: 'Unbekannter Aktortyp' };
         }
     }
 

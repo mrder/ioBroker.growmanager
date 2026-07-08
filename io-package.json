@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.57",
+    "version": "0.2.58",
     "news": {
+      "0.2.58": {
+        "en": "Voting tooltip now shows why each group wants the actuator on/off (VPD guard, temperature, humidity reason); computeParticipantNeed returns reason string; outdoor guard reason shown in tooltip",
+        "de": "Abstimmungs-Tooltip zeigt jetzt warum jede Gruppe den Aktor an/aus moechte (VPD-Guard, Temperatur, Feuchte-Begruendung); computeParticipantNeed gibt Begruendungstext zurueck; Outdoor-Guard-Grund im Tooltip"
+      },
       "0.2.57": {
         "en": "Fix Soll display for non-shared actuators: now shows current controller desire instead of last sent command; blocked dehumidifier now shows Soll=ON with timer instead of Soll=OFF with confusing timer",
         "de": "Fix Soll-Anzeige fuer direkte Aktoren: zeigt jetzt aktuellen Reglerwunsch statt letzten gesendeten Befehl; blockierter Entfeuchter zeigt Soll=EIN mit Timer statt Soll=AUS mit verwirrenden Timer"

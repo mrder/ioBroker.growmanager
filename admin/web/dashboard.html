@@ -339,10 +339,11 @@
     padding: 8px 12px; font-size: 12px; color: var(--text); white-space: nowrap;
     min-width: 200px; text-align: left; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
   }
-  .v-vote-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
-  .v-vote-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .v-vote-name { flex: 1; color: var(--text-dim); }
+  .v-vote-row { display: flex; align-items: flex-start; gap: 8px; padding: 3px 0; }
+  .v-vote-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .v-vote-name { color: var(--text); font-weight: 600; }
   .v-vote-val { font-weight: 600; }
+  .v-vote-reason { font-size: 10px; color: var(--text-dim); margin-top: 1px; }
   /* ---- Pending-Indikator Soll≠Ist ---- */
   .act-pending { font-size: 12px; opacity: 0.8; cursor: help; }
   .act-label-dim { font-size: 10px; color: var(--text-dim); }
@@ -1363,11 +1364,17 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
       const dotColor = v.wantsOn ? 'var(--green-light)' : 'var(--red)';
       const label = v.wantsOn ? 'EIN' : 'AUS';
       const pct = Math.round(v.weight * 100);
+      const reasonHtml = v.reason ? `<div class="v-vote-reason">${v.reason}</div>` : '';
       return `<div class="v-vote-row">
         <div class="v-vote-dot" style="background:${dotColor}"></div>
-        <span class="v-vote-name">${v.groupName ?? v.groupId}</span>
-        <span class="v-vote-val" style="color:${dotColor}">${label}</span>
-        <span style="font-size:10px;opacity:0.6">${pct}%${v.urgency > 0 ? ' u:'+v.urgency.toFixed(1) : ''}</span>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="v-vote-name">${v.groupName ?? v.groupId}</span>
+            <span class="v-vote-val" style="color:${dotColor}">${label}</span>
+            <span style="font-size:10px;opacity:0.6">${pct}%${v.urgency > 0 ? ' u:'+v.urgency.toFixed(1) : ''}</span>
+          </div>
+          ${reasonHtml}
+        </div>
       </div>`;
     }).join('');
     votingTooltipHtml = `<div class="voting-tooltip-data">
