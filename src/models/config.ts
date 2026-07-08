@@ -468,6 +468,28 @@ export interface NotificationConfig {
     cooldownMinutes: number;      // Gleicher Alarm wird frühestens nach N Minuten erneut gesendet
 }
 
+// ---- Benutzerdefinierte Alarmregeln ------------------------
+
+export type CustomAlertMetric =
+    | 'temperature' | 'humidity' | 'vpd' | 'co2'
+    | 'soilMoisture' | 'leafTemperature' | 'ph' | 'ec' | 'tankLevel';
+
+export type CustomAlertCondition = 'above' | 'below' | 'outside' | 'inside';
+
+export interface CustomAlertRule {
+    id: string;
+    name: string;
+    enabled: boolean;
+    groupId: string;
+    metric: CustomAlertMetric;
+    condition: CustomAlertCondition;
+    threshold?: number;        // für 'above' / 'below'
+    thresholdMin?: number;     // für 'outside' / 'inside'
+    thresholdMax?: number;     // für 'outside' / 'inside'
+    severity: 'info' | 'warning' | 'fault' | 'critical';
+    cooldownMinutes: number;
+}
+
 // ---- Globale Konfiguration ---------------------------------
 
 export type StartBehavior = 'lastState' | 'delayedStart' | 'safeTurnOff' | 'monitorOnly';
@@ -490,6 +512,7 @@ export interface GrowManagerConfig {
     alarmChannels: AlarmChannel[];
     notifications?: NotificationConfig;
     plantIdApiKey?: string;
+    customAlertRules?: CustomAlertRule[];
 }
 
 // ---- Laufzeitzustände (nicht persistent) -------------------

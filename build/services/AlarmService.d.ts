@@ -23,6 +23,7 @@ export declare const ALARM_CODES: {
     readonly CAMERA_OFFLINE: "CAMERA_OFFLINE";
     readonly SENSOR_DEGRADED: "SENSOR_DEGRADED";
     readonly EMERGENCY_STOP: "EMERGENCY_STOP";
+    readonly CUSTOM_ALERT: "CUSTOM_ALERT";
 };
 export type AlarmCode = typeof ALARM_CODES[keyof typeof ALARM_CODES];
 export interface AlarmRaisedEvent {

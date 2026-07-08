@@ -293,6 +293,21 @@ export interface NotificationConfig {
     channels: NotificationChannel[];
     cooldownMinutes: number;
 }
+export type CustomAlertMetric = 'temperature' | 'humidity' | 'vpd' | 'co2' | 'soilMoisture' | 'leafTemperature' | 'ph' | 'ec' | 'tankLevel';
+export type CustomAlertCondition = 'above' | 'below' | 'outside' | 'inside';
+export interface CustomAlertRule {
+    id: string;
+    name: string;
+    enabled: boolean;
+    groupId: string;
+    metric: CustomAlertMetric;
+    condition: CustomAlertCondition;
+    threshold?: number;
+    thresholdMin?: number;
+    thresholdMax?: number;
+    severity: 'info' | 'warning' | 'fault' | 'critical';
+    cooldownMinutes: number;
+}
 export type StartBehavior = 'lastState' | 'delayedStart' | 'safeTurnOff' | 'monitorOnly';
 export interface GrowManagerConfig {
     language: 'de' | 'en';
@@ -312,6 +327,7 @@ export interface GrowManagerConfig {
     alarmChannels: AlarmChannel[];
     notifications?: NotificationConfig;
     plantIdApiKey?: string;
+    customAlertRules?: CustomAlertRule[];
 }
 export type DegradationLevel = 'FULL' | 'LIMITED' | 'FALLBACK' | 'MONITOR_ONLY' | 'SAFE' | 'FAULT';
 export type DayNight = 'day' | 'night' | 'transition';

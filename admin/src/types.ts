@@ -176,6 +176,26 @@ export interface NotificationConfig {
     cooldownMinutes: number;
 }
 
+export type CustomAlertMetric =
+    | 'temperature' | 'humidity' | 'vpd' | 'co2'
+    | 'soilMoisture' | 'leafTemperature' | 'ph' | 'ec' | 'tankLevel';
+
+export type CustomAlertCondition = 'above' | 'below' | 'outside' | 'inside';
+
+export interface CustomAlertRule {
+    id: string;
+    name: string;
+    enabled: boolean;
+    groupId: string;
+    metric: CustomAlertMetric;
+    condition: CustomAlertCondition;
+    threshold?: number;
+    thresholdMin?: number;
+    thresholdMax?: number;
+    severity: 'info' | 'warning' | 'fault' | 'critical';
+    cooldownMinutes: number;
+}
+
 export type StartBehavior = 'lastState' | 'delayedStart' | 'safeTurnOff' | 'monitorOnly';
 
 export interface GrowManagerConfig {
@@ -186,4 +206,5 @@ export interface GrowManagerConfig {
     groups: GroupConfig[]; climateProfiles: ClimateProfile[]; alarmChannels: AlarmChannel[];
     notifications?: NotificationConfig;
     plantIdApiKey?: string;
+    customAlertRules?: CustomAlertRule[];
 }

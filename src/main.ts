@@ -1070,8 +1070,62 @@ class GrowManagerAdapter extends utils.Adapter {
             this.diagnosticsEngine.checkSensorDisagreement(config.id, 'Temperatur', tempValues, threshold);
         }
 
-        // 8) ioBroker-States aktualisieren
+        // 8) Benutzerdefinierte Alarmregeln auswerten
+        this.evaluateCustomAlertRules(config, state);
+
+        // 9) ioBroker-States aktualisieren
         await this.updateGroupStates(config, state);
+    }
+
+    private evaluateCustomAlertRules(
+        config: import('./models/config').GroupConfig,
+        state: import('./models/config').GroupState,
+    ): void {
+        const rules = (this.growConfig.customAlertRules ?? []).filter(r => r.enabled && r.groupId === config.id);
+        if (rules.length === 0) return;
+
+        const metricValue = (metric: import('./models/config').CustomAlertMetric): number | null => {
+            switch (metric) {
+                case 'temperature':    return state.temperature;
+                case 'humidity':       return state.humidity;
+                case 'vpd':            return state.vpd;
+                default: {
+                    // Für alle anderen: erste gültige Messung des passenden Sensor-Typs
+                    for (const sensorCfg of config.sensors) {
+                        if (sensorCfg.type !== metric) continue;
+                        const ss = state.sensors.get(sensorCfg.id);
+                        if (ss?.valid && typeof ss.processedValue === 'number') return ss.processedValue;
+                    }
+                    return null;
+                }
+            }
+        };
+
+        for (const rule of rules) {
+            const val = metricValue(rule.metric);
+            if (val === null) continue;
+
+            let triggered = false;
+            switch (rule.condition) {
+                case 'above':   triggered = val > (rule.threshold ?? 0); break;
+                case 'below':   triggered = val < (rule.threshold ?? 0); break;
+                case 'outside': triggered = val < (rule.thresholdMin ?? 0) || val > (rule.thresholdMax ?? 0); break;
+                case 'inside':  triggered = val >= (rule.thresholdMin ?? 0) && val <= (rule.thresholdMax ?? 0); break;
+            }
+
+            if (triggered) {
+                const condDesc = rule.condition === 'above'   ? `> ${rule.threshold}`
+                    : rule.condition === 'below'   ? `< ${rule.threshold}`
+                    : rule.condition === 'outside' ? `außerhalb ${rule.thresholdMin}–${rule.thresholdMax}`
+                    : `innerhalb ${rule.thresholdMin}–${rule.thresholdMax}`;
+                this.alarmService.raise(
+                    ALARM_CODES.CUSTOM_ALERT, config.id, rule.id, rule.severity,
+                    `${rule.name}: ${rule.metric} = ${val.toFixed(2)} (${condDesc})`,
+                );
+            } else {
+                this.alarmService.clear(ALARM_CODES.CUSTOM_ALERT, config.id, rule.id);
+            }
+        }
     }
 
     private async tickCirculationActuators(config: GroupConfig): Promise<void> {

@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.47",
+    "version": "0.2.48",
     "news": {
+      "0.2.48": {
+        "en": "Custom alert rules: define per-group threshold alerts (above/below/outside/inside range) for temperature, humidity, VPD, CO2, soil moisture, pH, EC, tank level — configurable in Admin UI under Alarme → Alarmregeln; triggers push notifications via existing channels",
+        "de": "Benutzerdefinierte Alarmregeln: Grenzwert-Alarme pro Gruppe definieren (größer/kleiner/außerhalb/innerhalb Bereich) fuer Temperatur, Feuchte, VPD, CO2, Bodenfeuchte, pH, EC, Tankfüllstand — im Admin-UI unter Alarme → Alarmregeln konfigurierbar; loest Push-Benachrichtigungen über vorhandene Kanäle aus"
+      },
       "0.2.47": {
         "en": "Voting tooltip: show real group names instead of internal IDs",
         "de": "Abstimmungs-Tooltip: echte Gruppennamen statt interner IDs anzeigen"

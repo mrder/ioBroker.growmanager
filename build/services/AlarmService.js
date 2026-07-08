@@ -27,6 +27,7 @@ exports.ALARM_CODES = {
     CAMERA_OFFLINE: 'CAMERA_OFFLINE',
     SENSOR_DEGRADED: 'SENSOR_DEGRADED',
     EMERGENCY_STOP: 'EMERGENCY_STOP',
+    CUSTOM_ALERT: 'CUSTOM_ALERT',
 };
 class AlarmService {
     constructor(log) {

@@ -30,6 +30,7 @@ export const ALARM_CODES = {
     CAMERA_OFFLINE: 'CAMERA_OFFLINE',
     SENSOR_DEGRADED: 'SENSOR_DEGRADED',
     EMERGENCY_STOP: 'EMERGENCY_STOP',
+    CUSTOM_ALERT: 'CUSTOM_ALERT',
 } as const;
 
 export type AlarmCode = typeof ALARM_CODES[keyof typeof ALARM_CODES];

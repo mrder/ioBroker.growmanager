@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { GrowManagerConfig, GroupConfig, ClimateProfile, ControlTarget, ControlDirection, OutdoorSensorConfig, SharedParticipant, NotificationChannel, NotificationConfig, NotificationChannelType, WindSimulatorConfig, CirculationScheduleWindow } from './types';
+import type { GrowManagerConfig, GroupConfig, ClimateProfile, ControlTarget, ControlDirection, OutdoorSensorConfig, SharedParticipant, NotificationChannel, NotificationConfig, NotificationChannelType, WindSimulatorConfig, CirculationScheduleWindow, CustomAlertRule, CustomAlertMetric, CustomAlertCondition } from './types';
 
 // ioBroker Admin-Globals (werden vom Admin-Framework bereitgestellt)
 declare const socket: {
@@ -1604,6 +1604,233 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
     );
 };
 
+// ---- CustomAlertRulesEditor --------------------------------
+
+const METRIC_LABELS: Record<CustomAlertMetric, string> = {
+    temperature: 'Temperatur (°C)',
+    humidity: 'Luftfeuchte (%)',
+    vpd: 'VPD (kPa)',
+    co2: 'CO₂ (ppm)',
+    soilMoisture: 'Bodenfeuchte (%)',
+    leafTemperature: 'Blatttemperatur (°C)',
+    ph: 'pH',
+    ec: 'EC (mS/cm)',
+    tankLevel: 'Tankfüllstand (%)',
+};
+
+const CONDITION_LABELS: Record<CustomAlertCondition, string> = {
+    above: 'größer als',
+    below: 'kleiner als',
+    outside: 'außerhalb Bereich',
+    inside: 'innerhalb Bereich',
+};
+
+const SEVERITY_COLORS: Record<string, string> = {
+    info: '#1976d2', warning: '#f9a825', fault: '#e65100', critical: '#d32f2f',
+};
+
+function newRule(groupId = ''): CustomAlertRule {
+    return {
+        id: `rule_${Date.now()}`,
+        name: '',
+        enabled: true,
+        groupId,
+        metric: 'vpd',
+        condition: 'outside',
+        thresholdMin: 0.8,
+        thresholdMax: 1.4,
+        severity: 'warning',
+        cooldownMinutes: 30,
+    };
+}
+
+const CustomAlertRulesEditor: React.FC<{
+    rules: CustomAlertRule[];
+    groups: GroupConfig[];
+    onChange: (rules: CustomAlertRule[]) => void;
+}> = ({ rules, groups, onChange }) => {
+    const [editIdx, setEditIdx] = useState<number | null>(null);
+    const [editRule, setEditRule] = useState<CustomAlertRule | null>(null);
+
+    const startEdit = (idx: number) => {
+        setEditIdx(idx);
+        setEditRule({ ...rules[idx] });
+    };
+
+    const startNew = () => {
+        const r = newRule(groups[0]?.id ?? '');
+        setEditRule(r);
+        setEditIdx(-1); // -1 = new
+    };
+
+    const saveEdit = () => {
+        if (!editRule) return;
+        if (!editRule.name.trim()) { alert('Bitte einen Namen vergeben.'); return; }
+        if (!editRule.groupId) { alert('Bitte eine Gruppe wählen.'); return; }
+        const updated = [...rules];
+        if (editIdx === -1) {
+            updated.push(editRule);
+        } else if (editIdx !== null) {
+            updated[editIdx] = editRule;
+        }
+        onChange(updated);
+        setEditIdx(null);
+        setEditRule(null);
+    };
+
+    const deleteRule = (idx: number) => {
+        if (!window.confirm(`Regel „${rules[idx].name}" wirklich löschen?`)) return;
+        onChange(rules.filter((_, i) => i !== idx));
+    };
+
+    const toggleRule = (idx: number) => {
+        const updated = [...rules];
+        updated[idx] = { ...updated[idx], enabled: !updated[idx].enabled };
+        onChange(updated);
+    };
+
+    const rangeCondition = editRule?.condition === 'outside' || editRule?.condition === 'inside';
+    const singleCondition = editRule?.condition === 'above' || editRule?.condition === 'below';
+
+    const inputStyle: React.CSSProperties = {
+        border: '1px solid #ccc', borderRadius: 4, padding: '4px 8px', fontSize: 13, width: '100%', boxSizing: 'border-box',
+    };
+    const labelStyle: React.CSSProperties = { fontSize: 12, color: '#555', marginBottom: 2 };
+    const fieldWrap: React.CSSProperties = { marginBottom: 10 };
+    const row: React.CSSProperties = { display: 'flex', gap: 10, marginBottom: 10 };
+
+    if (editRule !== null) {
+        return (
+            <div style={{ background: '#f9f9f9', border: '1px solid #ddd', borderRadius: 6, padding: 16 }}>
+                <h4 style={{ margin: '0 0 12px' }}>{editIdx === -1 ? 'Neue Alarmregel' : 'Regel bearbeiten'}</h4>
+                <div style={row}>
+                    <div style={{ flex: 2, ...fieldWrap }}>
+                        <div style={labelStyle}>Name *</div>
+                        <input style={inputStyle} value={editRule.name}
+                            onChange={e => setEditRule(r => r && ({ ...r, name: e.target.value }))}
+                            placeholder="z.B. VPD zu hoch" />
+                    </div>
+                    <div style={{ flex: 1, ...fieldWrap }}>
+                        <div style={labelStyle}>Gruppe *</div>
+                        <select style={inputStyle} value={editRule.groupId}
+                            onChange={e => setEditRule(r => r && ({ ...r, groupId: e.target.value }))}>
+                            <option value="">– wählen –</option>
+                            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                        </select>
+                    </div>
+                </div>
+                <div style={row}>
+                    <div style={{ flex: 1, ...fieldWrap }}>
+                        <div style={labelStyle}>Messgröße</div>
+                        <select style={inputStyle} value={editRule.metric}
+                            onChange={e => setEditRule(r => r && ({ ...r, metric: e.target.value as CustomAlertMetric }))}>
+                            {(Object.keys(METRIC_LABELS) as CustomAlertMetric[]).map(m =>
+                                <option key={m} value={m}>{METRIC_LABELS[m]}</option>
+                            )}
+                        </select>
+                    </div>
+                    <div style={{ flex: 1, ...fieldWrap }}>
+                        <div style={labelStyle}>Bedingung</div>
+                        <select style={inputStyle} value={editRule.condition}
+                            onChange={e => setEditRule(r => r && ({ ...r, condition: e.target.value as CustomAlertCondition }))}>
+                            {(Object.keys(CONDITION_LABELS) as CustomAlertCondition[]).map(c =>
+                                <option key={c} value={c}>{CONDITION_LABELS[c]}</option>
+                            )}
+                        </select>
+                    </div>
+                </div>
+                <div style={row}>
+                    {singleCondition && (
+                        <div style={{ flex: 1, ...fieldWrap }}>
+                            <div style={labelStyle}>Schwellwert</div>
+                            <input style={inputStyle} type="number" step="0.01"
+                                value={editRule.threshold ?? ''} placeholder="z.B. 30"
+                                onChange={e => setEditRule(r => r && ({ ...r, threshold: +e.target.value }))} />
+                        </div>
+                    )}
+                    {rangeCondition && (
+                        <>
+                            <div style={{ flex: 1, ...fieldWrap }}>
+                                <div style={labelStyle}>Minimum</div>
+                                <input style={inputStyle} type="number" step="0.01"
+                                    value={editRule.thresholdMin ?? ''} placeholder="z.B. 0.8"
+                                    onChange={e => setEditRule(r => r && ({ ...r, thresholdMin: +e.target.value }))} />
+                            </div>
+                            <div style={{ flex: 1, ...fieldWrap }}>
+                                <div style={labelStyle}>Maximum</div>
+                                <input style={inputStyle} type="number" step="0.01"
+                                    value={editRule.thresholdMax ?? ''} placeholder="z.B. 1.4"
+                                    onChange={e => setEditRule(r => r && ({ ...r, thresholdMax: +e.target.value }))} />
+                            </div>
+                        </>
+                    )}
+                    <div style={{ flex: 1, ...fieldWrap }}>
+                        <div style={labelStyle}>Schweregrad</div>
+                        <select style={inputStyle} value={editRule.severity}
+                            onChange={e => setEditRule(r => r && ({ ...r, severity: e.target.value as CustomAlertRule['severity'] }))}>
+                            <option value="info">ℹ Info</option>
+                            <option value="warning">⚠ Warning</option>
+                            <option value="fault">🔥 Fault</option>
+                            <option value="critical">🚨 Critical</option>
+                        </select>
+                    </div>
+                    <div style={{ flex: 1, ...fieldWrap }}>
+                        <div style={labelStyle}>Cooldown (Min.)</div>
+                        <input style={inputStyle} type="number" min={0}
+                            value={editRule.cooldownMinutes}
+                            onChange={e => setEditRule(r => r && ({ ...r, cooldownMinutes: +e.target.value }))} />
+                    </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <button style={styles.btnPrimary} onClick={saveEdit}>Speichern</button>
+                    <button style={styles.btnSecondary} onClick={() => { setEditIdx(null); setEditRule(null); }}>Abbrechen</button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <h4 style={{ margin: 0 }}>Alarmregeln ({rules.length})</h4>
+                <button style={styles.btnPrimary} onClick={startNew}>+ Neue Regel</button>
+            </div>
+            {rules.length === 0 && (
+                <p style={{ color: '#888', fontSize: 13 }}>
+                    Noch keine Regeln definiert. Klicke auf „+ Neue Regel" um z.B. eine VPD-Grenzwert-Benachrichtigung anzulegen.
+                </p>
+            )}
+            {rules.map((rule, idx) => {
+                const groupName = groups.find(g => g.id === rule.groupId)?.name ?? rule.groupId;
+                const condText = rule.condition === 'above'   ? `> ${rule.threshold}`
+                    : rule.condition === 'below'   ? `< ${rule.threshold}`
+                    : rule.condition === 'outside' ? `außerhalb ${rule.thresholdMin}–${rule.thresholdMax}`
+                    : `innerhalb ${rule.thresholdMin}–${rule.thresholdMax}`;
+                return (
+                    <div key={rule.id} style={{ ...styles.listRow, opacity: rule.enabled ? 1 : 0.5, borderLeft: `4px solid ${SEVERITY_COLORS[rule.severity]}` }}>
+                        <div style={{ flex: 1 }}>
+                            <strong>{rule.name}</strong>
+                            <span style={{ marginLeft: 8, fontSize: 12, color: '#666' }}>
+                                {groupName} · {METRIC_LABELS[rule.metric]} {condText}
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <span style={{ fontSize: 11, color: SEVERITY_COLORS[rule.severity], fontWeight: 600 }}>
+                                {rule.severity.toUpperCase()}
+                            </span>
+                            <button style={styles.btnSecondary} onClick={() => toggleRule(idx)}>
+                                {rule.enabled ? 'Deaktivieren' : 'Aktivieren'}
+                            </button>
+                            <button style={styles.btnSecondary} onClick={() => startEdit(idx)}>Bearbeiten</button>
+                            <button style={{ ...styles.btnSecondary, color: '#d32f2f' }} onClick={() => deleteRule(idx)}>Löschen</button>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
 // ---- AlarmView ---------------------------------------------
 
 interface AlarmRecord {
@@ -2900,8 +3127,35 @@ const App: React.FC = () => {
                     </div>
                 );
 
-            case 'alarms':
-                return <AlarmView alarms={alarms} onAck={handleAck} />;
+            case 'alarms': {
+                const [alarmSubTab, setAlarmSubTab] = React.useState<'active' | 'rules'>('active');
+                const subTabStyle = (t: 'active' | 'rules'): React.CSSProperties => ({
+                    padding: '6px 18px', cursor: 'pointer', background: 'none', border: 'none',
+                    fontSize: 13, fontWeight: alarmSubTab === t ? 600 : 400,
+                    borderBottom: alarmSubTab === t ? '2px solid #2e7d32' : '2px solid transparent',
+                    color: alarmSubTab === t ? '#2e7d32' : '#555',
+                });
+                return (
+                    <div>
+                        <div style={{ display: 'flex', borderBottom: '1px solid #e0e0e0', marginBottom: 16 }}>
+                            <button style={subTabStyle('active')} onClick={() => setAlarmSubTab('active')}>
+                                Aktive Alarme {alarms.filter(a => a.active).length > 0 ? `(${alarms.filter(a => a.active).length})` : ''}
+                            </button>
+                            <button style={subTabStyle('rules')} onClick={() => setAlarmSubTab('rules')}>
+                                Alarmregeln ({(config.customAlertRules ?? []).length})
+                            </button>
+                        </div>
+                        {alarmSubTab === 'active'
+                            ? <AlarmView alarms={alarms} onAck={handleAck} />
+                            : <CustomAlertRulesEditor
+                                rules={config.customAlertRules ?? []}
+                                groups={config.groups}
+                                onChange={rules => { setConfig(prev => ({ ...prev, customAlertRules: rules })); setDirty(true); }}
+                              />
+                        }
+                    </div>
+                );
+            }
 
             case 'settings':
                 return (
