@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.49",
+    "version": "0.2.50",
     "news": {
+      "0.2.50": {
+        "en": "Fix control logic: dehumidifier blocked when VPD already too high (voting path); humidifier blocked when VPD already too low; outdoor guard applied to shared supply/exhaust fans via voting loop; participant view shows current voting result instead of stale last-command; pending indicator also shown when Soll=AUS but Ist=EIN",
+        "de": "Fix Regellogik: Entfeuchter gesperrt wenn VPD bereits zu hoch (auch im Voting-Pfad); Befeuchter gesperrt wenn VPD bereits zu niedrig; Outdoor-Guard greift jetzt auch für geteilte Zu-/Abluft-Aktoren im Voting-Loop; Teilnehmer-Ansicht zeigt aktuelles Abstimmungsergebnis statt veralteten letzten Befehl; Pending-Indikator ⏳ auch bei Soll=AUS/Ist=EIN"
+      },
       "0.2.49": {
         "en": "Fix voting tooltip clipping: use fixed-position JS overlay to escape card overflow:hidden boundary; add pending indicator when Soll=EIN but Ist=AUS with no active block",
         "de": "Fix Abstimmungs-Tooltip Abschneiden: Fixed-Position JS-Overlay escaped overflow:hidden der Card; Pending-Indikator wenn Soll=EIN aber Ist=AUS ohne aktive Sperre"

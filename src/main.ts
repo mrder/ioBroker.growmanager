@@ -750,9 +750,28 @@ class GrowManagerAdapter extends utils.Adapter {
 
                     // Eigentümer-Stimme: aktuellen Klimabedarf berechnen (gleiche Logik wie Teilnehmer)
                     const ownerGs = this.groupStates.get(group.id);
-                    const ownerNeed = ownerGs
+                    let ownerNeed = ownerGs
                         ? this.computeParticipantNeed(actuatorConfig.type, ownerGs, 3)
                         : { wantsOn: false, urgency: 0 };
+
+                    // Outdoor-Guard für Lüfter: Außenluft nur einsetzen wenn innen wärmer als außen
+                    if (ownerNeed.wantsOn &&
+                        (actuatorConfig.type === 'supplyFan' || actuatorConfig.type === 'exhaustFan') &&
+                        actuatorConfig.outdoorGuardEnabled) {
+                        const outdoorCfg = group.outdoorSensor;
+                        if (outdoorCfg?.enabled && outdoorCfg.tempStateId) {
+                            const outTemp = this.outdoorValues.get(outdoorCfg.tempStateId) ?? null;
+                            const inTemp = ownerGs?.temperature ?? null;
+                            if (outTemp !== null && inTemp !== null) {
+                                const minDelta = outdoorCfg.minTempDeltaCelsius ?? 2;
+                                if (inTemp - outTemp < minDelta) {
+                                    this.log.debug(`SharedAktor ${actuatorConfig.name}: Outdoor-Guard – Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C, Delta < ${minDelta}°C → blockiert`);
+                                    ownerNeed = { wantsOn: false, urgency: 0 };
+                                }
+                            }
+                        }
+                    }
+
                     this.sharedActorManager.submitVote(actuatorConfig.id, {
                         groupId: group.id,
                         groupName: group.name,
@@ -1277,6 +1296,10 @@ class GrowManagerAdapter extends utils.Adapter {
 
         switch (actuatorType) {
             case 'dehumidifier': {
+                // Wenn VPD bereits zu hoch (Luft zu trocken): Entfeuchter würde VPD weiter erhöhen → blockieren
+                if (vpdMax !== null && gs.vpd !== null && gs.vpd > vpdMax) {
+                    return { wantsOn: false, urgency: 0 };
+                }
                 const target = humSetpoint ?? 60;
                 const hum = gs.humidity;
                 if (hum === null) return { wantsOn: false, urgency: 0 };
@@ -1290,6 +1313,10 @@ class GrowManagerAdapter extends utils.Adapter {
                 return { wantsOn: false, urgency: 0 };
             }
             case 'humidifier': {
+                // Wenn VPD bereits zu niedrig (Luft zu feucht): Befeuchter würde VPD weiter senken → blockieren
+                if (vpdMin !== null && gs.vpd !== null && gs.vpd < vpdMin) {
+                    return { wantsOn: false, urgency: 0 };
+                }
                 const target = humSetpoint ?? 50;
                 const hum = gs.humidity;
                 if (hum === null) return { wantsOn: false, urgency: 0 };
@@ -1472,7 +1499,7 @@ class GrowManagerAdapter extends utils.Adapter {
                             id: a.id,
                             name: a.name,
                             type: a.type,
-                            command: as?.requested ?? null,
+                            command: this.votingResults.get(a.id) ?? as?.requested ?? null,
                             effectiveState: as?.effectiveState ?? null,
                             feedback: as?.feedback ?? null,
                             health: as?.health ?? 'unknown',

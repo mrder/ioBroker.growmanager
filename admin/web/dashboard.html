@@ -1400,6 +1400,8 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   // Soll≠Ist ohne sonstigen Grund: Befehl unterwegs oder Gerät reagiert nicht
   if (!countdownHtml && hasFeedback && sollOn && !istOn) {
     countdownHtml = `<span class="act-pending" title="Befehl EIN gesendet – warte auf Gerät-Feedback (Alarm folgt wenn Gerät nicht reagiert)">⏳</span>`;
+  } else if (!countdownHtml && hasFeedback && !sollOn && istOn) {
+    countdownHtml = `<span class="act-pending" title="Befehl AUS gesendet – Gerät noch EIN (Alarm folgt wenn Gerät nicht reagiert)">⏳</span>`;
   }
 
   const ctrlBtns = isManualMode || ov
