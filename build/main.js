@@ -54,6 +54,7 @@ class GrowManagerAdapter extends utils.Adapter {
         // Laufzeit-Zustände
         this.groupStates = new Map();
         this.votingResults = new Map(); // letzte Voting-Entscheidung je Aktor-ID
+        this.switchBlocks = new Map(); // canSwitch-Sperren für Dashboard
         this.lightChangeTimes = new Map();
         this.subscribedStateIds = new Set();
         // Letzte bekannte Tag/Nacht-Zustände für Wechselerkennung
@@ -739,6 +740,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     this.votingResults.set(actuatorConfig.id, finalCommand);
                     const can = this.actuatorService.canSwitch(actuatorConfig, finalCommand);
                     if (can.allowed) {
+                        this.switchBlocks.delete(actuatorConfig.id);
                         const changed = this.actuatorService.recordCommand(actuatorConfig, finalCommand);
                         if (changed) {
                             await this.setActuatorState(actuatorConfig.commandStateId, finalCommand);
@@ -747,6 +749,13 @@ class GrowManagerAdapter extends utils.Adapter {
                             }
                             this.log.info(`SharedAktor ${actuatorConfig.name} → ${finalCommand} (Abstimmung: ${votingMode})`);
                         }
+                    }
+                    else {
+                        // Sperre für Dashboard-Anzeige merken (Countdown-Timer statt ⏳)
+                        this.switchBlocks.set(actuatorConfig.id, {
+                            reason: can.reason ?? 'Gesperrt',
+                            until: Date.now() + (can.waitSeconds ?? 0) * 1000,
+                        });
                     }
                 }
             }
@@ -1177,8 +1186,12 @@ class GrowManagerAdapter extends utils.Adapter {
         }
         switch (actuatorType) {
             case 'dehumidifier': {
-                // Wenn VPD bereits zu hoch (Luft zu trocken): Entfeuchter würde VPD weiter erhöhen → blockieren
-                if (vpdMax !== null && gs.vpd !== null && gs.vpd > vpdMax) {
+                // Oberes Viertel des VPD-Sollbereichs schützen: Entfeuchter würde VPD weiter erhöhen
+                // → bereits bei 75% des Wegs zum Maximum blockieren
+                const dehum_vpdGuard = vpdMax !== null
+                    ? (vpdMin !== null ? vpdMax - (vpdMax - vpdMin) * 0.25 : vpdMax - 0.1)
+                    : null;
+                if (dehum_vpdGuard !== null && gs.vpd !== null && gs.vpd > dehum_vpdGuard) {
                     return { wantsOn: false, urgency: 0 };
                 }
                 const target = humSetpoint ?? 60;
@@ -1196,8 +1209,11 @@ class GrowManagerAdapter extends utils.Adapter {
                 return { wantsOn: false, urgency: 0 };
             }
             case 'humidifier': {
-                // Wenn VPD bereits zu niedrig (Luft zu feucht): Befeuchter würde VPD weiter senken → blockieren
-                if (vpdMin !== null && gs.vpd !== null && gs.vpd < vpdMin) {
+                // Unteres Viertel des VPD-Sollbereichs schützen: Befeuchter würde VPD weiter senken
+                const hum_vpdGuard = vpdMin !== null
+                    ? (vpdMax !== null ? vpdMin + (vpdMax - vpdMin) * 0.25 : vpdMin + 0.1)
+                    : null;
+                if (hum_vpdGuard !== null && gs.vpd !== null && gs.vpd < hum_vpdGuard) {
                     return { wantsOn: false, urgency: 0 };
                 }
                 const target = humSetpoint ?? 50;
@@ -1342,9 +1358,13 @@ class GrowManagerAdapter extends utils.Adapter {
                 .filter(a => a.enabled)
                 .map(a => {
                 const as = this.actuatorService.getState(a.id);
+                const switchBlock = this.switchBlocks.get(a.id);
                 const blockSecondsLeft = as?.blockedUntil
                     ? Math.max(0, Math.round((as.blockedUntil - now2) / 1000))
-                    : undefined;
+                    : switchBlock && switchBlock.until > now2
+                        ? Math.max(0, Math.round((switchBlock.until - now2) / 1000))
+                        : undefined;
+                const blockReason = as?.blockedReason ?? switchBlock?.reason;
                 const wsInfo = a.circulationMode === 'windSimulator'
                     ? this.actuatorService.getWindSimInfo(a.id)
                     : undefined;
@@ -1367,7 +1387,7 @@ class GrowManagerAdapter extends utils.Adapter {
                         : undefined,
                     manualLock: as?.manualLock ?? false,
                     blocked: as?.blocked ?? false,
-                    blockReason: as?.blockedReason,
+                    blockReason: blockReason,
                     blockSecondsLeft: blockSecondsLeft && blockSecondsLeft > 0 ? blockSecondsLeft : undefined,
                     windSimIsOn: wsInfo?.isOn,
                     windSimNextChangeAt: wsInfo?.nextChangeAt,

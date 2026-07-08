@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.53",
+    "version": "0.2.54",
     "news": {
+      "0.2.54": {
+        "en": "Fix VPD guard zone: block dehumidifier in upper 25% of VPD range (not just above max) and humidifier in lower 25%; add switchBlocks map so minimumOff/On countdown timer shows in dashboard instead of pending indicator",
+        "de": "Fix VPD-Schutzzone: Entfeuchter wird im oberen Viertel des VPD-Bereichs blockiert (nicht erst ueber Maximum); Befeuchter im unteren Viertel; switchBlocks-Map zeigt Mindestauszeit-Countdown im Dashboard statt ⏳"
+      },
       "0.2.53": {
         "en": "Fix shared actor command never sent: executeDecision was calling recordCommand() for shared actors with participants, consuming the state-change flag before the voting loop could detect it — setActuatorState was never called; removed the premature recordCommand call",
         "de": "Fix Shared-Aktor Befehl wurde nie gesendet: executeDecision rief recordCommand() fuer geteilte Aktoren mit Teilnehmern auf, verbrauchte das changed-Flag bevor die Voting-Loop es sehen konnte — setActuatorState wurde nie aufgerufen; falschen recordCommand-Aufruf entfernt"
