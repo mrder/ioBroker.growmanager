@@ -301,6 +301,37 @@ class GrowManagerAdapter extends utils.Adapter {
                 await this.setStateAsync(`lifestyle.${groupId}`, { val: JSON.stringify(data), ack: true });
             },
         );
+        this.webDashboard.setStrainsCallbacks(
+            async () => {
+                const state = await this.getStateAsync('database.strains');
+                if (state?.val && typeof state.val === 'string') {
+                    try {
+                        const parsed = JSON.parse(state.val) as import('./services/WebDashboardService').StrainEntry[];
+                        if (Array.isArray(parsed)) return parsed;
+                    } catch { /* ignore */ }
+                }
+                return [];
+            },
+            async (strains) => {
+                await this.setStateAsync('database.strains', JSON.stringify(strains), true);
+            },
+        );
+        this.webDashboard.setAnalysesCallbacks(
+            async (groupId) => {
+                const state = await this.getStateAsync(`database.${groupId}.analyses`);
+                if (state?.val && typeof state.val === 'string') {
+                    try {
+                        const parsed = JSON.parse(state.val) as import('./services/WebDashboardService').AnalysisEntry[];
+                        if (Array.isArray(parsed)) return parsed;
+                    } catch { /* ignore */ }
+                }
+                return [];
+            },
+            async (groupId, analyses) => {
+                await this.setStateAsync(`database.${groupId}.analyses`, JSON.stringify(analyses), true);
+            },
+        );
+        await this.initGlobalDatabase();
         this.webDashboard.start(webPort, webBind);
 
         // Regelzyklus starten
@@ -1690,14 +1721,27 @@ class GrowManagerAdapter extends utils.Adapter {
         }
     }
 
+    private async initGlobalDatabase(): Promise<void> {
+        await this.setObjectNotExistsAsync('database', { type: 'folder', common: { name: 'Datenbank' }, native: {} });
+        await this.setObjectNotExistsAsync('database.strains', {
+            type: 'state',
+            common: { name: 'Sortenwiki', type: 'string', role: 'json', read: true, write: true, def: '[]' },
+            native: {},
+        });
+        const strainsState = await this.getStateAsync('database.strains');
+        if (!strainsState || !strainsState.val) {
+            await this.setStateAsync('database.strains', { val: '[]', ack: true });
+        }
+    }
+
     private async createDatabaseObjects(groupId: string): Promise<void> {
         const base = `database.${groupId}`;
         await this.setObjectNotExistsAsync('database', { type: 'folder', common: { name: 'Datenbank' }, native: {} });
         await this.setObjectNotExistsAsync(base, { type: 'folder', common: { name: `DB Gruppe ${groupId}` }, native: {} });
-        for (const key of ['stats', 'energy', 'irrigation']) {
+        for (const key of ['stats', 'energy', 'irrigation', 'analyses']) {
             await this.setObjectNotExistsAsync(`${base}.${key}`, {
                 type: 'state',
-                common: { name: key, type: 'string', role: 'json', read: true, write: false, def: '[]' },
+                common: { name: key, type: 'string', role: 'json', read: true, write: key === 'analyses', def: '[]' },
                 native: {},
             });
             const s = await this.getStateAsync(`${base}.${key}`);

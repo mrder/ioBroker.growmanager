@@ -128,6 +128,15 @@ export interface StrainEntry {
     updatedAt: number;
 }
 
+export interface AnalysisEntry {
+    id: number;
+    groupId: string;
+    groupName: string;
+    ts: number;
+    data: unknown;
+    starred: boolean;
+}
+
 const DEFAULT_STRAINS: StrainEntry[] = [
     {
         id: 'strain-dante-inferno',
@@ -230,6 +239,10 @@ export class WebDashboardService {
     private databaseCallback: ((groupId: string, type: 'stats' | 'energy' | 'irrigation') => unknown) | null = null;
     private lifestyleGetCallback: ((groupId: string) => Promise<unknown>) | null = null;
     private lifestyleSetCallback: ((groupId: string, data: unknown) => Promise<void>) | null = null;
+    private strainsGetCallback: (() => Promise<StrainEntry[]>) | null = null;
+    private strainsSetCallback: ((strains: StrainEntry[]) => Promise<void>) | null = null;
+    private analysesGetCallback: ((groupId: string) => Promise<AnalysisEntry[]>) | null = null;
+    private analysesSetCallback: ((groupId: string, analyses: AnalysisEntry[]) => Promise<void>) | null = null;
     private plantIdApiKey = '';
     private strainsFilePath = '';
 
@@ -253,13 +266,21 @@ export class WebDashboardService {
         set: (groupId: string, data: unknown) => Promise<void>,
     ): void { this.lifestyleGetCallback = get; this.lifestyleSetCallback = set; }
 
+    setStrainsCallbacks(
+        get: () => Promise<StrainEntry[]>,
+        set: (s: StrainEntry[]) => Promise<void>,
+    ): void { this.strainsGetCallback = get; this.strainsSetCallback = set; }
+
+    setAnalysesCallbacks(
+        get: (groupId: string) => Promise<AnalysisEntry[]>,
+        set: (groupId: string, analyses: AnalysisEntry[]) => Promise<void>,
+    ): void { this.analysesGetCallback = get; this.analysesSetCallback = set; }
+
     start(port: number, bindAddress: string): void {
         const htmlPath = path.join(this.adapterDir, 'admin', 'web', 'dashboard.html');
         this.strainsFilePath = path.join(this.adapterDir, 'strains.json');
-        // Standardsorten beim Start anlegen wenn noch keine Datei existiert
-        if (!fs.existsSync(this.strainsFilePath)) {
-            this.loadStrains();
-        }
+        // Sorten laden (async, um ioBroker-State-Callback zu verwenden wenn gesetzt)
+        this.loadStrains().catch(() => {});
         try {
             this.dashboardHtml = fs.readFileSync(htmlPath, 'utf-8');
         } catch {
@@ -274,7 +295,15 @@ export class WebDashboardService {
         });
     }
 
-    private loadStrains(): StrainEntry[] {
+    private async loadStrains(): Promise<StrainEntry[]> {
+        // Callback bevorzugen (ioBroker-State)
+        if (this.strainsGetCallback) {
+            try {
+                const data = await this.strainsGetCallback();
+                if (data.length > 0) return data;
+            } catch { /* ignore */ }
+        }
+        // Datei-Fallback (Migration von altem System)
         try {
             if (fs.existsSync(this.strainsFilePath)) {
                 const parsed = JSON.parse(fs.readFileSync(this.strainsFilePath, 'utf-8')) as StrainEntry[];
@@ -287,7 +316,7 @@ export class WebDashboardService {
             try {
                 const parsed = JSON.parse(fs.readFileSync(bundledPath, 'utf-8')) as StrainEntry[];
                 if (Array.isArray(parsed) && parsed.length > 0) {
-                    this.saveStrains(parsed);
+                    await this.saveStrains(parsed);
                     return parsed;
                 }
             } catch { /* ignore */ }
@@ -295,11 +324,17 @@ export class WebDashboardService {
         // Fallback: hardcodierte Defaults
         const now = Date.now();
         const seeded = DEFAULT_STRAINS.map(s => ({ ...s, createdAt: now, updatedAt: now }));
-        this.saveStrains(seeded);
+        await this.saveStrains(seeded);
         return seeded;
     }
 
-    private saveStrains(strains: StrainEntry[]): void {
+    private async saveStrains(strains: StrainEntry[]): Promise<void> {
+        // Callback bevorzugen (ioBroker-State)
+        if (this.strainsSetCallback) {
+            await this.strainsSetCallback(strains);
+            return;
+        }
+        // Fallback: Datei
         try {
             fs.writeFileSync(this.strainsFilePath, JSON.stringify(strains, null, 2), 'utf-8');
         } catch (e) {
@@ -316,35 +351,39 @@ export class WebDashboardService {
 
         if (!strainId) {
             // GET /api/strains
-            if (req.method === 'GET') { json(this.loadStrains()); return; }
+            if (req.method === 'GET') {
+                this.loadStrains().then(strains => json(strains)).catch(e => json({ error: String(e) }, 500));
+                return;
+            }
 
             // POST /api/strains
             if (req.method === 'POST') {
                 let body = '';
                 req.on('data', chunk => { body += chunk; if (body.length > 32768) { if (!res.headersSent) { res.writeHead(413); res.end(); } req.destroy(); } });
                 req.on('error', () => { /* ignore */ });
-                req.on('end', () => {
+                req.on('end', async () => {
                     try {
                         const strain = JSON.parse(body) as StrainEntry;
                         strain.id = `strain-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
                         strain.createdAt = Date.now();
                         strain.updatedAt = Date.now();
-                        const strains = this.loadStrains();
+                        const strains = await this.loadStrains();
                         strains.push(strain);
-                        this.saveStrains(strains);
+                        await this.saveStrains(strains);
                         json(strain, 201);
                     } catch (e) { json({ error: String(e) }, 400); }
                 });
                 return;
             }
         } else {
-            const strains = this.loadStrains();
-            const idx = strains.findIndex(s => s.id === strainId);
-
-            // GET /api/strains/:id
+            // GET /api/strains/:id, PUT /api/strains/:id, DELETE /api/strains/:id
             if (req.method === 'GET') {
-                if (idx < 0) { json({ error: 'Nicht gefunden' }, 404); return; }
-                json(strains[idx]); return;
+                this.loadStrains().then(strains => {
+                    const idx = strains.findIndex(s => s.id === strainId);
+                    if (idx < 0) { json({ error: 'Nicht gefunden' }, 404); return; }
+                    json(strains[idx]);
+                }).catch(e => json({ error: String(e) }, 500));
+                return;
             }
 
             // PUT /api/strains/:id
@@ -352,14 +391,16 @@ export class WebDashboardService {
                 let body = '';
                 req.on('data', chunk => { body += chunk; if (body.length > 32768) { if (!res.headersSent) { res.writeHead(413); res.end(); } req.destroy(); } });
                 req.on('error', () => { /* ignore */ });
-                req.on('end', () => {
+                req.on('end', async () => {
                     try {
+                        const strains = await this.loadStrains();
+                        const idx = strains.findIndex(s => s.id === strainId);
                         const updated = JSON.parse(body) as StrainEntry;
                         updated.id = strainId;
                         updated.updatedAt = Date.now();
                         if (idx < 0) { json({ error: 'Nicht gefunden' }, 404); return; }
                         strains[idx] = updated;
-                        this.saveStrains(strains);
+                        await this.saveStrains(strains);
                         json(updated);
                     } catch (e) { json({ error: String(e) }, 400); }
                 });
@@ -368,10 +409,14 @@ export class WebDashboardService {
 
             // DELETE /api/strains/:id
             if (req.method === 'DELETE') {
-                if (idx < 0) { json({ error: 'Nicht gefunden' }, 404); return; }
-                strains.splice(idx, 1);
-                this.saveStrains(strains);
-                json({ ok: true }); return;
+                this.loadStrains().then(async strains => {
+                    const idx = strains.findIndex(s => s.id === strainId);
+                    if (idx < 0) { json({ error: 'Nicht gefunden' }, 404); return; }
+                    strains.splice(idx, 1);
+                    await this.saveStrains(strains);
+                    json({ ok: true });
+                }).catch(e => json({ error: String(e) }, 500));
+                return;
             }
         }
         json({ error: 'Method not allowed' }, 405);
@@ -400,7 +445,7 @@ export class WebDashboardService {
         }
     }
 
-    private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+    private async handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
         const url = (req.url ?? '/').split('?')[0];
 
         // CORS für lokale Entwicklung
@@ -524,6 +569,35 @@ export class WebDashboardService {
         if (strainIdMatch) {
             this.handleStrains(req, res, strainIdMatch[1]);
             return;
+        }
+
+        // GET|PUT /api/analyses/:groupId
+        const analysesMatch = url.match(/^\/api\/analyses\/([^/]+)$/);
+        if (analysesMatch) {
+            const groupId = analysesMatch[1];
+            const jsonA = (data: unknown, status = 200) => {
+                if (res.headersSent) return;
+                res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.end(JSON.stringify(data));
+            };
+            if (req.method === 'GET') {
+                const list = this.analysesGetCallback ? await this.analysesGetCallback(groupId) : [];
+                jsonA(list);
+                return;
+            }
+            if (req.method === 'PUT') {
+                let body = '';
+                req.on('data', chunk => { body += chunk; if (body.length > 524288) { if (!res.headersSent) { res.writeHead(413); res.end(); } req.destroy(); } });
+                req.on('error', () => { /* ignore */ });
+                req.on('end', async () => {
+                    try {
+                        const analyses = JSON.parse(body) as AnalysisEntry[];
+                        if (this.analysesSetCallback) await this.analysesSetCallback(groupId, analyses);
+                        jsonA({ ok: true });
+                    } catch (e) { jsonA({ error: String(e) }, 400); }
+                });
+                return;
+            }
         }
 
         // Camera proxy: fetches image from local camera URL server-side, avoids browser CORS

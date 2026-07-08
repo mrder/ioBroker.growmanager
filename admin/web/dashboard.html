@@ -1697,7 +1697,7 @@ function render(state) {
     for (const k of Object.keys(camUrls)) delete camUrls[k];
     grid.innerHTML = state.groups.map(groupCardHtml).join('');
     initCamThumbs();
-    restorePlantResults();
+    restorePlantResults().catch(() => {});
   });
 }
 
@@ -2361,7 +2361,7 @@ async function doCropAnalyze() {
     });
     const data = await resp.json();
     closeCropModal();
-    addAnalysisToHistory(cropGroupId, data);
+    await addAnalysisToHistory(cropGroupId, data);
     _plantPanelOpen.add(cropGroupId);
     renderPlantResult(cropGroupId);
   } catch(e) {
@@ -2371,51 +2371,62 @@ async function doCropAnalyze() {
 }
 
 // ============================================================
-// Analyse-Historie (localStorage, letzten 10 + Sterne unlimitiert)
+// Analyse-Historie (ioBroker DB via /api/analyses/:groupId)
 // ============================================================
-const HISTORY_KEY = 'growmanager_analysis_history';
 const HISTORY_MAX_REGULAR = 10; // normale (nicht gestirnte) Einträge
+const _analysisCache = new Map(); // groupId → AnalysisEntry[]
 
-function loadHistory() {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
-}
-function saveHistory(list) {
-  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); } catch {}
+async function loadHistoryAsync(groupId) {
+  if (_analysisCache.has(groupId)) return _analysisCache.get(groupId);
+  try {
+    const r = await fetch(`/api/analyses/${groupId}`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const list = await r.json();
+    _analysisCache.set(groupId, Array.isArray(list) ? list : []);
+  } catch { _analysisCache.set(groupId, []); }
+  return _analysisCache.get(groupId);
 }
 
-function addAnalysisToHistory(groupId, data) {
+async function saveHistoryAsync(groupId, list) {
+  _analysisCache.set(groupId, list);
+  try {
+    await fetch(`/api/analyses/${groupId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(list),
+    });
+  } catch { /* ignore */ }
+}
+
+async function addAnalysisToHistory(groupId, data) {
   const ts = Date.now();
-  // Gruppenname aus aktuellem State holen
   const groupName = (window._dashState?.groups?.find(g => g.id === groupId)?.name) || groupId;
   const entry = { id: ts, groupId, groupName, ts, data, starred: false };
-  let list = loadHistory();
-  list.unshift(entry);
-  // Nicht-gestirnte auf MAX_REGULAR begrenzen
+  let list = await loadHistoryAsync(groupId);
+  list = [entry, ...list];
   const starred = list.filter(e => e.starred);
   const regular = list.filter(e => !e.starred).slice(0, HISTORY_MAX_REGULAR);
   list = [...starred, ...regular].sort((a, b) => b.ts - a.ts);
-  saveHistory(list);
+  await saveHistoryAsync(groupId, list);
 }
 
-function toggleStar(entryId) {
-  let list = loadHistory();
+async function toggleStar(entryId, groupId) {
+  let list = await loadHistoryAsync(groupId);
   const entry = list.find(e => e.id === entryId);
   if (!entry) return;
   entry.starred = !entry.starred;
-  // Nicht-gestirnte wieder auf MAX begrenzen falls wir entstirnen
   const starred = list.filter(e => e.starred);
   const regular = list.filter(e => !e.starred).slice(0, HISTORY_MAX_REGULAR);
   list = [...starred, ...regular].sort((a, b) => b.ts - a.ts);
-  saveHistory(list);
-  // Alle History-Anzeigen aktualisieren
+  await saveHistoryAsync(groupId, list);
   document.querySelectorAll('[data-history-group]').forEach(el => {
     renderPlantResult(el.dataset.historyGroup);
   });
 }
 
-function deleteHistoryEntry(entryId) {
-  let list = loadHistory().filter(e => e.id !== entryId);
-  saveHistory(list);
+async function deleteHistoryEntry(entryId, groupId) {
+  let list = (await loadHistoryAsync(groupId)).filter(e => e.id !== entryId);
+  await saveHistoryAsync(groupId, list);
   document.querySelectorAll('[data-history-group]').forEach(el => {
     renderPlantResult(el.dataset.historyGroup);
   });
@@ -2522,7 +2533,7 @@ function buildResultHtml(data, compact) {
 function renderPlantResult(groupId) {
   const container = document.getElementById('plant-result-' + groupId);
   if (!container) return;
-  const list = loadHistory().filter(e => e.groupId === groupId);
+  const list = (_analysisCache.get(groupId) || []);
   if (list.length === 0) { container.style.display = 'none'; return; }
 
   const latest = list[0];
@@ -2535,12 +2546,12 @@ function renderPlantResult(groupId) {
     const starIcon = e.starred ? '⭐' : '☆';
     const label = idx === 0 ? '<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;border-radius:3px;padding:1px 5px;margin-left:4px">NEU</span>' : '';
     return `<div class="analysis-entry ${e.starred ? 'analysis-entry-starred' : ''}">
-      <span class="analysis-entry-star" onclick="toggleStar(${e.id})" title="${e.starred ? 'Stern entfernen' : 'Als wichtig markieren'}">${starIcon}</span>
+      <span class="analysis-entry-star" onclick="toggleStar(${e.id}, '${e.groupId}')" title="${e.starred ? 'Stern entfernen' : 'Als wichtig markieren'}">${starIcon}</span>
       <div class="analysis-entry-body">
         <div class="analysis-entry-ts">${edt}${label}</div>
         <div>${buildResultHtml(e.data, true)}</div>
       </div>
-      <span onclick="deleteHistoryEntry(${e.id})" style="cursor:pointer;color:#aaa;font-size:13px;flex-shrink:0" title="Loeschen">✕</span>
+      <span onclick="deleteHistoryEntry(${e.id}, '${e.groupId}')" style="cursor:pointer;color:#aaa;font-size:13px;flex-shrink:0" title="Loeschen">✕</span>
     </div>`;
   }).join('');
 
@@ -2577,10 +2588,12 @@ function toggleHistoryList(titleEl) {
 }
 
 // Nach SSE-Re-render: alle Gruppen mit History neu rendern
-function restorePlantResults() {
-  const list = loadHistory();
-  const groups = [...new Set(list.map(e => e.groupId))];
-  groups.forEach(gid => renderPlantResult(gid));
+async function restorePlantResults() {
+  if (!window._dashState?.groups) return;
+  for (const g of window._dashState.groups) {
+    await loadHistoryAsync(g.id);
+    renderPlantResult(g.id);
+  }
 }
 
 // State-Referenz für Gruppenname-Lookup

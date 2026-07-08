@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.41",
+    "version": "0.2.42",
     "news": {
+      "0.2.42": {
+        "en": "Persistent cross-device storage: KI-Analysen migrated from browser localStorage to ioBroker state (database.{groupId}.analyses); Sortenwiki strains migrated from file to ioBroker state (database.strains) — all data now accessible from every browser and future app connections",
+        "de": "Persistente geraeteuebergreifende Speicherung: KI-Analysen von browser localStorage in ioBroker-State migriert (database.{groupId}.analyses); Sortenwiki-Sorten von Datei in ioBroker-State migriert (database.strains) — alle Daten jetzt von jedem Browser und kuenftigen App-Verbindungen zugaenglich"
+      },
       "0.2.41": {
         "en": "Fix shared actuator Soll display (voting result shown, not owner's local command); Wiki button moved to stats bar next to Version; strains.json seeded on adapter start and bundled in repo",
         "de": "Fix geteilter Aktor Soll-Anzeige (Voting-Ergebnis statt Eigentuemerbefehl); Wiki-Button in Stats-Leiste neben Version verschoben; strains.json wird beim Adapter-Start angelegt und liegt im Repo"
