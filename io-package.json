@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.56",
+    "version": "0.2.57",
     "news": {
+      "0.2.57": {
+        "en": "Fix Soll display for non-shared actuators: now shows current controller desire instead of last sent command; blocked dehumidifier now shows Soll=ON with timer instead of Soll=OFF with confusing timer",
+        "de": "Fix Soll-Anzeige fuer direkte Aktoren: zeigt jetzt aktuellen Reglerwunsch statt letzten gesendeten Befehl; blockierter Entfeuchter zeigt Soll=EIN mit Timer statt Soll=AUS mit verwirrenden Timer"
+      },
       "0.2.56": {
         "en": "Fix countdown timer not showing for direct (non-shared) actuators with minimumOff/On blocks; fix timer only showing with explicit blocked flag; now displays for all timing-based blocks",
         "de": "Fix Countdown-Timer fehlte bei direkten Aktoren mit Mindestauszeit/Mindestlaufzeit; Timer wurde nur bei expliziter Sperre angezeigt; jetzt fuer alle zeitbasierten Sperren sichtbar"

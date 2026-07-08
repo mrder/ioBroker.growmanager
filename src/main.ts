@@ -67,6 +67,7 @@ class GrowManagerAdapter extends utils.Adapter {
     // Laufzeit-Zustände
     private readonly groupStates = new Map<string, GroupState>();
     private readonly votingResults = new Map<string, boolean | number>(); // letzte Voting-Entscheidung je Aktor-ID
+    private readonly directDesires = new Map<string, boolean | number>(); // aktueller Reglerwunsch für direkte Aktoren
     private readonly switchBlocks = new Map<string, { reason: string; until: number }>(); // canSwitch-Sperren für Dashboard
     private readonly lightChangeTimes = new Map<string, number>();
     private readonly subscribedStateIds = new Set<string>();
@@ -1229,6 +1230,9 @@ class GrowManagerAdapter extends utils.Adapter {
                 continue;
             }
 
+            // Aktuellen Reglerwunsch für Dashboard-Anzeige speichern (unabhängig von canSwitch)
+            this.directDesires.set(actuatorConfig.id, action.requested);
+
             const canSwitch = this.actuatorService.canSwitch(actuatorConfig, action.requested);
             if (!canSwitch.allowed) {
                 this.log.debug(
@@ -1505,10 +1509,13 @@ class GrowManagerAdapter extends utils.Adapter {
                         const wsInfo = a.circulationMode === 'windSimulator'
                             ? this.actuatorService.getWindSimInfo(a.id)
                             : undefined;
-                        // Für shared Aktoren mit Teilnehmern: Voting-Ergebnis als Soll anzeigen
+                        // Soll-Anzeige: aktueller Reglerwunsch (unabhängig von canSwitch)
+                        // - Geteilte Aktoren mit Teilnehmern → Voting-Ergebnis
+                        // - Direkte Aktoren → Reglerwunsch aus letztem executeDecision-Aufruf
+                        // - Fallback → letzter gesendeter Befehl
                         const displayCommand = (a.shared && a.sharedParticipants?.length)
                             ? (this.votingResults.get(a.id) ?? as?.requested ?? null)
-                            : (as?.requested ?? null);
+                            : (this.directDesires.get(a.id) ?? as?.requested ?? null);
                         return {
                             id: a.id,
                             name: a.name,

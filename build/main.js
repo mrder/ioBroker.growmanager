@@ -54,6 +54,7 @@ class GrowManagerAdapter extends utils.Adapter {
         // Laufzeit-Zustände
         this.groupStates = new Map();
         this.votingResults = new Map(); // letzte Voting-Entscheidung je Aktor-ID
+        this.directDesires = new Map(); // aktueller Reglerwunsch für direkte Aktoren
         this.switchBlocks = new Map(); // canSwitch-Sperren für Dashboard
         this.lightChangeTimes = new Map();
         this.subscribedStateIds = new Set();
@@ -1128,6 +1129,8 @@ class GrowManagerAdapter extends utils.Adapter {
                 // weil sonst die Voting-Loop changed=false sieht und setActuatorState nie sendet.
                 continue;
             }
+            // Aktuellen Reglerwunsch für Dashboard-Anzeige speichern (unabhängig von canSwitch)
+            this.directDesires.set(actuatorConfig.id, action.requested);
             const canSwitch = this.actuatorService.canSwitch(actuatorConfig, action.requested);
             if (!canSwitch.allowed) {
                 this.log.debug(`Aktor ${actuatorConfig.name}: gesperrt – ${canSwitch.reason} (${canSwitch.waitSeconds}s)`);
@@ -1373,10 +1376,13 @@ class GrowManagerAdapter extends utils.Adapter {
                 const wsInfo = a.circulationMode === 'windSimulator'
                     ? this.actuatorService.getWindSimInfo(a.id)
                     : undefined;
-                // Für shared Aktoren mit Teilnehmern: Voting-Ergebnis als Soll anzeigen
+                // Soll-Anzeige: aktueller Reglerwunsch (unabhängig von canSwitch)
+                // - Geteilte Aktoren mit Teilnehmern → Voting-Ergebnis
+                // - Direkte Aktoren → Reglerwunsch aus letztem executeDecision-Aufruf
+                // - Fallback → letzter gesendeter Befehl
                 const displayCommand = (a.shared && a.sharedParticipants?.length)
                     ? (this.votingResults.get(a.id) ?? as?.requested ?? null)
-                    : (as?.requested ?? null);
+                    : (this.directDesires.get(a.id) ?? as?.requested ?? null);
                 return {
                     id: a.id,
                     name: a.name,
