@@ -194,12 +194,16 @@ export class SharedActorManager {
                 break;
             }
             case 'majority': {
-                // Gewichtete Mehrheit: Summe der EIN-Gewichte vs AUS-Gewichte
+                // Gewichtete Mehrheit mit Dringlichkeits-Bonus:
+                // Wer klar außerhalb des Sollbereichs ist (urgency > 0) bekommt mehr Gewicht.
+                // Effektives Gewicht = konfiguriertes Gewicht × (1 + urgency)
+                // → am Rand (urgency≈0): Basis-Gewicht; weit außerhalb (urgency=1): doppeltes Gewicht
                 let onWeight = 0;
                 let offWeight = 0;
                 for (const v of voteList) {
-                    if (v.wantsOn) onWeight += v.weight;
-                    else offWeight += v.weight;
+                    const eff = v.weight * (1 + v.urgency);
+                    if (v.wantsOn) onWeight += eff;
+                    else offWeight += eff;
                 }
                 rawCommand = onWeight > offWeight;
                 break;

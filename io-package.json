@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.61",
+    "version": "0.2.62",
     "news": {
+      "0.2.62": {
+        "en": "Majority voting urgency bonus: effective weight = configured% x (1+urgency); groups far outside setpoint get up to 2x their configured weight; dashboard tooltip shows base%->effective% when boosted",
+        "de": "Mehrheits-Abstimmung mit Dringlichkeits-Bonus: effektives Gewicht = konfiguriert% x (1+Dringlichkeit); Gruppen weit ausserhalb des Sollwerts erhalten bis zu 2x ihr konfiguriertes Gewicht; Dashboard-Tooltip zeigt Basis%->effektiv% bei Boost"
+      },
       "0.2.61": {
         "en": "VPD-priority mode for shared dehumidifier/humidifier: when VPD setpoints are configured, only VPD decides (dehumidify if VPD<min, humidify if VPD>max, pause if VPD in range); humidity setpoint no longer drives dehumidification when VPD is already in target range",
         "de": "VPD-Vorrang fuer geteilte Ent-/Befeuchter: wenn VPD-Sollwerte konfiguriert, entscheidet nur der VPD (Entfeuchten wenn VPD<min, Befeuchten wenn VPD>max, pausieren wenn VPD im Bereich); RH-Setpoint treibt Entfeuchter nicht mehr an wenn VPD bereits im Sollbereich liegt"
