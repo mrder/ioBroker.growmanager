@@ -51,7 +51,7 @@ export class DatabaseService {
     // Akkumulator für laufende Energiewerte pro Gruppe/Aktor
     private readonly energyAcc    = new Map<string, Map<string, { wh: number; runtimeMin: number; name: string; lastOnTs: number }>>();
 
-    private lastMidnightFlush = new Date().toDateString();
+    private readonly lastMidnightFlush = new Map<string, string>();
 
     constructor(
         private readonly log: ILogger,
@@ -158,8 +158,8 @@ export class DatabaseService {
 
     async tickMidnight(groupId: string): Promise<void> {
         const today = new Date().toDateString();
-        if (today === this.lastMidnightFlush) return;
-        this.lastMidnightFlush = today;
+        if (today === this.lastMidnightFlush.get(groupId)) return;
+        this.lastMidnightFlush.set(groupId, today);
         await this.flushDay(groupId);
     }
 

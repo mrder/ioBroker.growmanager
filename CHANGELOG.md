@@ -2,6 +2,42 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.3.0] - 2026-07-13
+
+### Qualitäts-Release — umfassender Bug-Fix-Zyklus, alle 24 Review-Findings behoben
+
+Diese Version markiert das Ergebnis einer vollständigen Code-Revision nach dem 0.2.x-Entwicklungszyklus.
+Ein mehrstufiges Review über alle Quelldateien ergab 24 Findings — alle wurden behoben.
+255 Unit-Tests grün in 3 aufeinanderfolgenden Durchläufen.
+
+---
+
+### Behoben — Kritische Bugs
+
+#### Korrektheit & Logik
+- **Midnight-Flush lief nur einmal für alle Gruppen** (`DatabaseService`): `lastMidnightFlush` war ein einzelner String statt einer `Map<string, string>` — nach der ersten Gruppe wurden alle anderen Gruppen an dem Tag nicht mehr geflusht. Fix: pro-Gruppe-Tracking.
+- **Priorität-Vertauschung bei kritischer Untertemperatur** (`ClimateController`): Priorität 2 (Kondensationsrisiko) kehrte vorzeitig zurück und verhinderte, dass Priorität 3 (kritische Untertemperatur) die Heizung aktivieren konnte. Fix: Untertemperatur kommt jetzt vor Kondensation.
+- **VPD-Sensor nicht verfügbar → RH-Fallback** (`computeParticipantNeed`): Wenn VPD konfiguriert aber `gs.vpd === null`, fiel der Code auf den RH-Setpoint zurück. Fix: bei konfiguriertem VPD ohne Sensor-Wert wird der Aktor sicher gestoppt.
+- **Outdoor-Guard fehlte für Teilnehmer-Stimmen** (`main.ts`): Der Außenluft-Guard wurde für den Eigentümer berechnet, aber nicht auf Teilnehmer-Stimmen angewendet. Teilnehmer-Gruppen prüfen jetzt ihren eigenen Outdoor-Sensor.
+- **`trackActuatorOff` fehlte bei `ratedPowerW=0`** (`main.ts`): Bei Aktoren ohne Leistungsdaten wurde `trackActuatorOff` nicht aufgerufen, `lastOnTs` blieb gesetzt und verhinderte künftige Laufzeit-Erfassung. Fix: `trackActuatorOff` wird immer aufgerufen (mit 0 W).
+- **Energie-Tracking im Legacy-`resolveAll()`-Pfad fehlte** (`main.ts`): Geteilte Aktoren ohne `sharedParticipants` wurden nicht in der Energiestatistik erfasst. Fix: Tracking auch im Legacy-Pfad.
+- **Aktive Alarme gelöschter Gruppen** (`AlarmService`): Wenn eine Gruppe aus der Konfiguration entfernt wurde, blieben ihre aktiven Alarme für immer im Speicher. Fix: `cleanup()` akzeptiert jetzt bekannte Gruppen-IDs und löscht Alarme für nicht mehr existierende Gruppen.
+
+#### Actuator-Service
+- **`noFeedback`-Fehlalarm beim Adapter-Start** (`ActuatorService`): `timeSince` war riesig wenn `lastSwitchTs=0` (kein Befehl seit Start). Fix: Guard `state.lastSwitchTs > 0` vor dem Health-Check.
+- **`firstSync` zählte als echter Schaltvorgang** (`ActuatorService`): Beim ersten Sync nach dem Start wurde `switchCount` und `lastHourSwitches` erhöht, auch wenn sich der Zustand nicht änderte. Fix: Zähler nur bei echtem Zustandswechsel (`wasOn !== isNowOn`).
+
+#### Dashboard
+- **XSS in Vote-Tooltip** (`dashboard.html`): `v.reason`, `v.groupName`, `v.groupId` wurden unescaped in `innerHTML` eingefügt. Fix: `esc()` für alle Felder.
+- **XSS im onclick-Attribut** (`dashboard.html`): `a.name` wurde unescaped in `onclick="sendControl(..., '${a.name} ...')"` eingefügt. Fix: `esc(a.name)`.
+- **Sperrzeit-Countdown war statisch** (`dashboard.html`): `blockSecondsLeft` wurde nur beim SSE-Update gesetzt und tickte nicht live. Fix: Backend sendet `blockUntil`-Timestamp; Frontend hat `setInterval` das `blk-cd`-Elemente sekündlich aktualisiert.
+- **Kein Doppelklick-Schutz** (`dashboard.html`): `sendControl`/`sendMode` konnten doppelt ausgelöst werden. Fix: `_sendInFlight`-Flag verhindert parallele Requests.
+
+#### Sonstiges
+- **Verify-Timer bei numerischem Befehl nicht abgebrochen** (`main.ts`): Beim Wechsel von booleschem auf numerischen Befehl blieb der alte Verify-Timer aktiv und konnte einen Fehlalarm auslösen. Fix: Pending Verify wird bei numerischen Befehlen explizit abgebrochen.
+
+---
+
 ## [0.2.0] - 2026-07-05
 
 ### Stabiles Release — 6 Audit-Runden, alle Bugs behoben

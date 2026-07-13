@@ -135,12 +135,15 @@ class AlarmService {
         return null;
     }
     /**
-     * Bereinigt alte, gelöschte Alarme.
+     * Bereinigt alte, gelöschte Alarme und aktive Alarme für nicht mehr existierende Gruppen.
      */
-    cleanup() {
+    cleanup(validGroupIds) {
         const cutoff = Date.now() - this.retentionDays * 86400000;
         for (const [key, alarm] of this.alarms.entries()) {
             if (!alarm.active && (alarm.clearedAt ?? 0) < cutoff) {
+                this.alarms.delete(key);
+            }
+            else if (alarm.active && validGroupIds && !validGroupIds.has(alarm.groupId)) {
                 this.alarms.delete(key);
             }
         }

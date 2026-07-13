@@ -26,6 +26,7 @@ export interface DashboardActuatorState {
     blocked?: boolean;
     blockReason?: string;
     blockSecondsLeft?: number;
+    blockUntil?: number;
     windSimIsOn?: boolean;
     windSimNextChangeAt?: number;
     power?: number | null;

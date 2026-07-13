@@ -824,7 +824,10 @@ function resolvePinDialog(pin) {
   if (pinResolve) { pinResolve(pin); pinResolve = null; }
 }
 
+let _sendInFlight = false;
 async function sendMode(groupId, mode, groupName) {
+  if (_sendInFlight) return;
+  _sendInFlight = true;
   let pin = '';
   if (window._pinRequired) {
     pin = await showPinDialog(`${groupName} → ${mode === 'manual' ? 'MANUELL' : 'AUTO'}`);
@@ -845,14 +848,16 @@ async function sendMode(groupId, mode, groupName) {
       });
       if (r2.status === 403) { pinError.textContent = 'Falsche PIN'; pinModal.classList.add('visible'); }
     }
-  } catch(e) { console.error('Mode-Fehler:', e); }
+  } catch(e) { console.error('Mode-Fehler:', e); } finally { _sendInFlight = false; }
 }
 
 async function sendControl(groupId, actuatorId, command, label) {
+  if (_sendInFlight) return;
+  _sendInFlight = true;
   let pin = '';
   if (window._pinRequired) {
     pin = await showPinDialog(label);
-    if (pin === null) return;
+    if (pin === null) { _sendInFlight = false; return; }
   }
   try {
     const r = await fetch('/api/control', {
@@ -862,14 +867,14 @@ async function sendControl(groupId, actuatorId, command, label) {
     if (r.status === 403) {
       window._pinRequired = true;
       pin = await showPinDialog(label);
-      if (pin === null) return;
+      if (pin === null) { _sendInFlight = false; return; }
       const r2 = await fetch('/api/control', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupId, actuatorId, command, durationMinutes: 60, pin }),
       });
       if (r2.status === 403) { pinError.textContent = 'Falsche PIN'; pinModal.classList.add('visible'); }
     }
-  } catch(e) { console.error('Control-Fehler:', e); }
+  } catch(e) { console.error('Control-Fehler:', e); } finally { _sendInFlight = false; }
 }
 
 // Trend-Popup
@@ -1370,12 +1375,12 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
       const weightHtml = isMajority && effPct !== pct
         ? `${pct}%<span style="color:var(--accent)">→${effPct}%</span>`
         : `${pct}%`;
-      const reasonHtml = v.reason ? `<div class="v-vote-reason">${v.reason}</div>` : '';
+      const reasonHtml = v.reason ? `<div class="v-vote-reason">${esc(v.reason)}</div>` : '';
       return `<div class="v-vote-row">
         <div class="v-vote-dot" style="background:${dotColor}"></div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px">
-            <span class="v-vote-name">${v.groupName ?? v.groupId}</span>
+            <span class="v-vote-name">${esc(v.groupName ?? v.groupId)}</span>
             <span class="v-vote-val" style="color:${dotColor}">${label}</span>
             <span style="font-size:10px;opacity:0.6">${weightHtml}${v.urgency > 0 ? ' u:'+v.urgency.toFixed(1) : ''}</span>
           </div>
@@ -1408,7 +1413,8 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
     const mins = Math.floor(a.blockSecondsLeft / 60);
     const secs = a.blockSecondsLeft % 60;
     const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-    countdownHtml = `<span class="act-countdown" title="${a.blockReason ?? 'Sperrzeit läuft'}">⏱ ${timeStr}</span>`;
+    const untilAttr = a.blockUntil ? ` data-until="${a.blockUntil}"` : '';
+    countdownHtml = `<span class="act-countdown blk-cd" id="blk-cd-${a.id}"${untilAttr} title="${esc(a.blockReason ?? 'Sperrzeit läuft')}">⏱ ${timeStr}</span>`;
   } else if (a.windSimNextChangeAt !== undefined) {
     const wsOn = a.windSimIsOn;
     const wsColor = wsOn ? 'var(--accent)' : 'var(--muted)';
@@ -1427,8 +1433,8 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   }
 
   const ctrlBtns = isManualMode || ov
-    ? `<button class="act-toggle on-btn"  onclick="sendControl('${groupId}','${a.id}',true,'${a.name} einschalten')">EIN</button>
-       <button class="act-toggle off-btn" onclick="sendControl('${groupId}','${a.id}',false,'${a.name} ausschalten')">AUS</button>`
+    ? `<button class="act-toggle on-btn"  onclick="sendControl('${groupId}','${a.id}',true,'${esc(a.name)} einschalten')">EIN</button>
+       <button class="act-toggle off-btn" onclick="sendControl('${groupId}','${a.id}',false,'${esc(a.name)} ausschalten')">AUS</button>`
     : '';
 
   const unreachable = a.health === 'unreachable';
@@ -2159,7 +2165,7 @@ setInterval(() => {
   if (!connected) fetch('/api/state').then(r=>r.json()).then(s=>{ if (!connected) { render(s); updateTimestamp(); setConnected(true); } }).catch(()=>{});
 }, 15000);
 
-// Wind-Sim Countdown: tickt sekündlich im Browser — unabhängig vom SSE-Zyklus
+// Wind-Sim & Block-Countdown: tickt sekündlich im Browser — unabhängig vom SSE-Zyklus
 setInterval(() => {
   const now = Date.now();
   document.querySelectorAll('.ws-cd').forEach(el => {
@@ -2170,6 +2176,13 @@ setInterval(() => {
     const timeStr = m > 0 ? `${m}m ${s.toString().padStart(2,'0')}s` : `${s}s`;
     el.textContent = `🌀 ${isOn ? 'EIN' : 'AUS'} noch ${timeStr}`;
     el.style.color = isOn ? 'var(--accent)' : 'var(--muted)';
+  });
+  document.querySelectorAll('.blk-cd[data-until]').forEach(el => {
+    const until = +el.dataset.until;
+    const rem = Math.max(0, Math.round((until - now) / 1000));
+    const m = Math.floor(rem / 60), s = rem % 60;
+    const timeStr = m > 0 ? `${m}m ${s}s` : `${s}s`;
+    el.textContent = `⏱ ${timeStr}`;
   });
 }, 1000);
 

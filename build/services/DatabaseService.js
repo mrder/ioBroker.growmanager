@@ -23,7 +23,7 @@ class DatabaseService {
         this.sensorAcc = new Map();
         // Akkumulator für laufende Energiewerte pro Gruppe/Aktor
         this.energyAcc = new Map();
-        this.lastMidnightFlush = new Date().toDateString();
+        this.lastMidnightFlush = new Map();
     }
     // ---- Initialisierung: Caches aus States laden -------------
     async loadGroup(groupId) {
@@ -127,9 +127,9 @@ class DatabaseService {
     // ---- Tagesabschluss: Acc → DB schreiben ------------------
     async tickMidnight(groupId) {
         const today = new Date().toDateString();
-        if (today === this.lastMidnightFlush)
+        if (today === this.lastMidnightFlush.get(groupId))
             return;
-        this.lastMidnightFlush = today;
+        this.lastMidnightFlush.set(groupId, today);
         await this.flushDay(groupId);
     }
     async flushDay(groupId) {

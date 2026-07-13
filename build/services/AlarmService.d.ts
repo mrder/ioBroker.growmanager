@@ -68,9 +68,9 @@ export declare class AlarmService {
      */
     getHighestSeverity(groupId?: string): AlarmSeverity | null;
     /**
-     * Bereinigt alte, gelöschte Alarme.
+     * Bereinigt alte, gelöschte Alarme und aktive Alarme für nicht mehr existierende Gruppen.
      */
-    cleanup(): void;
+    cleanup(validGroupIds?: Set<string>): void;
     /**
      * Sendet Alarm an konfigurierte Kanäle.
      */

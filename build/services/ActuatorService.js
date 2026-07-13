@@ -131,19 +131,21 @@ class ActuatorService {
         }
         if (changing) {
             state.lastSwitchTs = Date.now();
-            state.switchCount++;
             const rt = this.runTime.get(config.id);
-            rt.switchCount++;
-            rt.lastHourSwitches.push(Date.now());
-            // Array trimmen: nur Timestamps der letzten Stunde behalten
-            const oneHourAgo = Date.now() - 3600000;
-            rt.lastHourSwitches = rt.lastHourSwitches.filter(ts => ts > oneHourAgo);
-            if (!isNowOn && rt.startTs > 0) {
-                rt.totalSeconds += (Date.now() - rt.startTs) / 1000;
-                rt.startTs = 0;
-            }
-            else if (isNowOn) {
-                rt.startTs = Date.now();
+            // firstSync-only (kein echter Zustandswechsel): Zähler nicht erhöhen
+            if (wasOn !== isNowOn) {
+                state.switchCount++;
+                rt.switchCount++;
+                rt.lastHourSwitches.push(Date.now());
+                const oneHourAgo = Date.now() - 3600000;
+                rt.lastHourSwitches = rt.lastHourSwitches.filter(ts => ts > oneHourAgo);
+                if (!isNowOn && rt.startTs > 0) {
+                    rt.totalSeconds += (Date.now() - rt.startTs) / 1000;
+                    rt.startTs = 0;
+                }
+                else if (isNowOn) {
+                    rt.startTs = Date.now();
+                }
             }
         }
         return changing;
@@ -359,10 +361,11 @@ class ActuatorService {
         if (!config.shared && !requestedOn && effectiveOn && state.lastSwitchTs > 0 && timeSince > config.offDelaySeconds + 30) {
             return 'stuckOn';
         }
-        // Kein Feedback innerhalb der Frist
+        // Kein Feedback innerhalb der Frist (lastSwitchTs=0 = Adapter-Start, noch kein Befehl → überspringen)
         if (requestedOn &&
             state.feedback === null &&
             config.feedbackStateId &&
+            state.lastSwitchTs > 0 &&
             timeSince > config.minimumOnSeconds) {
             return 'noFeedback';
         }

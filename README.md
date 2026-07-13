@@ -283,6 +283,33 @@ test/unit/                          # Jest Unit-Tests (255 Tests, alle grün)
 
 ## Changelog
 
+### 0.3.0 (2026-07-13) — Qualitäts-Release
+
+Umfassender Bug-Fix-Zyklus nach vollständigem Code-Review aller Quelldateien (24 Findings, alle behoben).
+255 Unit-Tests, 3 saubere Durchläufe.
+
+**Korrektheit & Logik:**
+- Fix: `DatabaseService.lastMidnightFlush` war global statt pro Gruppe → nur erste Gruppe wurde täglich geflusht
+- Fix: Kritische Untertemperatur (Prio 2) wurde von Kondensationsrisiko (Prio 3) blockiert — Prioritätsreihenfolge getauscht
+- Fix: VPD konfiguriert, Sensor nicht verfügbar → fiel auf RH-Fallback zurück statt sicher zu stoppen
+- Fix: Outdoor-Guard fehlte für Teilnehmer-Stimmen bei geteilten Zu-/Abluft-Aktoren
+- Fix: `trackActuatorOff` fehlte bei Aktoren ohne Leistungsdaten (`ratedPowerW=0`) → `lastOnTs` blieb gesetzt
+- Fix: Energie-Tracking fehlte im Legacy-`resolveAll()`-Pfad für geteilte Aktoren ohne Teilnehmer
+- Fix: Aktive Alarme gelöschter Gruppen akkumulierten ohne Bereinigung; `cleanup()` löscht nun Alarme für unbekannte Gruppen
+
+**ActuatorService:**
+- Fix: `noFeedback`-Alarm beim Adapter-Start — `lastSwitchTs=0` ergab riesige `timeSince`, Guard hinzugefügt
+- Fix: `firstSync` inkrementierte `switchCount` und `lastHourSwitches` ohne echten Zustandswechsel
+
+**Dashboard:**
+- Fix: XSS in Vote-Tooltip (`v.reason`, `v.groupName`, `v.groupId` unescaped in `innerHTML`)
+- Fix: XSS im `onclick`-Attribut (`a.name` unescaped in `sendControl()`-Aufruf)
+- Neu: Sperrzeit-Countdown tickt jetzt live im Browser (`blk-cd` mit `data-until`-Timestamp)
+- Neu: Doppelklick-Schutz für `sendControl` und `sendMode` via `_sendInFlight`-Flag
+
+**Sonstiges:**
+- Fix: Verify-Timer wurde bei numerischem Befehl nicht abgebrochen → möglicher Fehlalarm
+
 ### 0.2.40 (2026-07-07)
 
 - Sicherheit: XSS-Schutz in Sortenwiki — `esc()`-Helper für alle nutzergesteuerten `innerHTML`-Einfügungen

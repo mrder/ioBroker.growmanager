@@ -342,7 +342,7 @@ class GrowManagerAdapter extends utils.Adapter {
         // Watchdog
         this.watchdogTimer = this.setInterval(() => {
             this.actuatorService.tickOverrides();
-            this.alarmService.cleanup();
+            this.alarmService.cleanup(new Set(this.growConfig.groups.map(g => g.id)));
             // Tagesabschluss kurz nach Mitternacht
             for (const group of this.growConfig.groups) {
                 this.databaseService.tickMidnight(group.id).catch(e => this.log.error(`DB Midnight: ${e}`));
@@ -805,7 +805,23 @@ class GrowManagerAdapter extends utils.Adapter {
                         const pState = this.groupStates.get(participant.groupId);
                         if (!pState) continue;
                         const pGroup = this.growConfig.groups.find(g => g.id === participant.groupId);
-                        const need = this.computeParticipantNeed(actuatorConfig.type, pState, 3);
+                        let need = this.computeParticipantNeed(actuatorConfig.type, pState, 3);
+                        // Outdoor-Guard für Teilnehmer-Stimmen (Zuluft/Abluft)
+                        if (need.wantsOn &&
+                            (actuatorConfig.type === 'supplyFan' || actuatorConfig.type === 'exhaustFan') &&
+                            actuatorConfig.outdoorGuardEnabled) {
+                            const pOutdoorCfg = pGroup?.outdoorSensor;
+                            if (pOutdoorCfg?.enabled && pOutdoorCfg.tempStateId) {
+                                const outTemp = this.outdoorValues.get(pOutdoorCfg.tempStateId) ?? null;
+                                const inTemp = pState.temperature ?? null;
+                                if (outTemp !== null && inTemp !== null) {
+                                    const minDelta = pOutdoorCfg.minTempDeltaCelsius ?? 2;
+                                    if (inTemp - outTemp < minDelta) {
+                                        need = { wantsOn: false, urgency: 0, reason: `Außenluft-Guard (Teilnehmer): Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C (Δ<${minDelta}°C)` };
+                                    }
+                                }
+                            }
+                        }
                         this.sharedActorManager.submitVote(actuatorConfig.id, {
                             groupId: participant.groupId,
                             groupName: pGroup?.name ?? participant.groupId,
@@ -881,6 +897,15 @@ class GrowManagerAdapter extends utils.Adapter {
                                     this.setActuatorStateWithVerify(act, result.winningGroupId, result.finalCommand);
                                 }
                                 this.log.info(`SharedAktor ${act.name} → ${result.finalCommand} (Gruppe ${result.winningGroupId}: ${result.reason})`);
+                                // Energie-Tracking für Legacy-Pfad
+                                if (act.energyStateUnit !== 'kWh') {
+                                    const isOn = result.finalCommand === true || (typeof result.finalCommand === 'number' && result.finalCommand > 0);
+                                    if (isOn) {
+                                        this.databaseService.trackActuatorOn(result.winningGroupId, act.id, act.name);
+                                    } else {
+                                        this.databaseService.trackActuatorOff(result.winningGroupId, act.id, act.ratedPowerW ?? 0);
+                                    }
+                                }
                             }
                         }
                         break;
@@ -1278,13 +1303,17 @@ class GrowManagerAdapter extends utils.Adapter {
                 await this.setActuatorState(actuatorConfig.commandStateId, action.requested);
                 if (typeof action.requested === 'boolean') {
                     this.setActuatorStateWithVerify(actuatorConfig, config.id, action.requested);
+                } else {
+                    // Numerischer Befehl: laufende Verify-Timer abbrechen (kein Feedback-Check für Prozentwerte)
+                    const pending = this.pendingVerify.get(actuatorConfig.id);
+                    if (pending) { this.clearTimeout(pending); this.pendingVerify.delete(actuatorConfig.id); }
                 }
                 // Energie-Tracking: ratedPowerW-Fallback (nur wenn kein kWh-Sensor konfiguriert)
                 if (actuatorConfig.energyStateUnit !== 'kWh') {
                     if (action.requested === true || (typeof action.requested === 'number' && action.requested > 0)) {
                         this.databaseService.trackActuatorOn(config.id, actuatorConfig.id, actuatorConfig.name);
-                    } else if (!action.requested && actuatorConfig.ratedPowerW) {
-                        this.databaseService.trackActuatorOff(config.id, actuatorConfig.id, actuatorConfig.ratedPowerW);
+                    } else {
+                        this.databaseService.trackActuatorOff(config.id, actuatorConfig.id, actuatorConfig.ratedPowerW ?? 0);
                     }
                 }
                 this.log.info(
@@ -1345,7 +1374,11 @@ class GrowManagerAdapter extends utils.Adapter {
                 // VPD-Modus: wenn beide VPD-Grenzen konfiguriert sind, entscheidet nur der VPD.
                 // Entfeuchter senkt Feuchte → erhöht VPD und erzeugt Abwärme → darf VPD
                 // nicht in den Überbereich treiben.
-                if (vpdMin !== null && vpdMax !== null && gs.vpd !== null) {
+                if (vpdMin !== null && vpdMax !== null) {
+                    if (gs.vpd === null) {
+                        // VPD konfiguriert aber Sensor nicht verfügbar → sicherer Stopp
+                        return { wantsOn: false, urgency: 0, reason: 'VPD konfiguriert, aber kein Sensor – Entfeuchter gesperrt' };
+                    }
                     if (gs.vpd < vpdMin) {
                         const deficit = vpdMin - gs.vpd;
                         return { wantsOn: true, urgency: Math.min(1, deficit / 0.5), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu niedrig (Soll >${vpdMin.toFixed(2)}) – Entfeuchten` };
@@ -1375,7 +1408,10 @@ class GrowManagerAdapter extends utils.Adapter {
                 if (hum === null) return { wantsOn: false, urgency: 0, reason: 'Kein Feuchtesensor' };
 
                 // VPD-Modus: wenn beide VPD-Grenzen konfiguriert sind, entscheidet nur der VPD.
-                if (vpdMin !== null && vpdMax !== null && gs.vpd !== null) {
+                if (vpdMin !== null && vpdMax !== null) {
+                    if (gs.vpd === null) {
+                        return { wantsOn: false, urgency: 0, reason: 'VPD konfiguriert, aber kein Sensor – Befeuchter gesperrt' };
+                    }
                     if (gs.vpd > vpdMax) {
                         const excess = gs.vpd - vpdMax;
                         return { wantsOn: true, urgency: Math.min(1, excess / 0.5), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch (Soll <${vpdMax.toFixed(2)}) – Befeuchten` };
@@ -1562,11 +1598,8 @@ class GrowManagerAdapter extends utils.Adapter {
                     .map(a => {
                         const as = this.actuatorService.getState(a.id);
                         const switchBlock = this.switchBlocks.get(a.id);
-                        const blockSecondsLeft = as?.blockedUntil
-                            ? Math.max(0, Math.round((as.blockedUntil - now2) / 1000))
-                            : switchBlock && switchBlock.until > now2
-                            ? Math.max(0, Math.round((switchBlock.until - now2) / 1000))
-                            : undefined;
+                        const blockUntilTs = as?.blockedUntil ?? (switchBlock && switchBlock.until > now2 ? switchBlock.until : undefined);
+                        const blockSecondsLeft = blockUntilTs ? Math.max(0, Math.round((blockUntilTs - now2) / 1000)) : undefined;
                         const blockReason = as?.blockedReason ?? switchBlock?.reason;
                         const wsInfo = a.circulationMode === 'windSimulator'
                             ? this.actuatorService.getWindSimInfo(a.id)
@@ -1595,6 +1628,7 @@ class GrowManagerAdapter extends utils.Adapter {
                             blocked: as?.blocked ?? false,
                             blockReason: blockReason,
                             blockSecondsLeft: blockSecondsLeft && blockSecondsLeft > 0 ? blockSecondsLeft : undefined,
+                            blockUntil: blockUntilTs && (blockSecondsLeft ?? 0) > 0 ? blockUntilTs : undefined,
                             windSimIsOn: wsInfo?.isOn,
                             windSimNextChangeAt: wsInfo?.nextChangeAt,
                             power: as?.power ?? null,

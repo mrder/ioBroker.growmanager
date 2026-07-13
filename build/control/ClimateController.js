@@ -76,7 +76,19 @@ class ClimateController {
             this.alarmService.clear(AlarmService_1.ALARM_CODES.TEMPERATURE_HIGH, config.id, 'climate');
         }
         // --------------------------------------------------------
-        // Priorität 2: Kondensations- und Schimmelgefahr
+        // Priorität 2: Kritische Untertemperatur (vor Kondensation, da Frost-Schutz wichtiger)
+        // --------------------------------------------------------
+        if (temp !== null && temp < setpoint.temperatureMin - 3) {
+            this.alarmService.raise(AlarmService_1.ALARM_CODES.TEMPERATURE_LOW, config.id, 'climate', 'fault', `Kritische Untertemperatur: ${temp.toFixed(1)} °C`);
+            primaryReason = `Untertemperatur ${temp.toFixed(1)} °C – Heizung`;
+            this.requestByTarget(config, 'temperature', 'up', actions, true, 0, primaryReason, null, null);
+            return this.buildDecision(config, state, primaryReason, actions, shadowMode);
+        }
+        else if (temp !== null && temp >= setpoint.temperatureMin - 1) {
+            this.alarmService.clear(AlarmService_1.ALARM_CODES.TEMPERATURE_LOW, config.id, 'climate');
+        }
+        // --------------------------------------------------------
+        // Priorität 3: Kondensations- und Schimmelgefahr
         // --------------------------------------------------------
         if (temp !== null && hum !== null && (0, calculations_1.condensationRisk)(temp, hum)) {
             this.alarmService.raise(AlarmService_1.ALARM_CODES.CONDENSATION_RISK, config.id, 'climate', 'fault', `Kondensationsrisiko: T=${temp.toFixed(1)}°C RH=${hum.toFixed(0)}%`);
@@ -87,19 +99,6 @@ class ClimateController {
         }
         else if (temp !== null && hum !== null) {
             this.alarmService.clear(AlarmService_1.ALARM_CODES.CONDENSATION_RISK, config.id, 'climate');
-        }
-        // --------------------------------------------------------
-        // Priorität 3: Kritische Untertemperatur
-        // --------------------------------------------------------
-        if (temp !== null && temp < setpoint.temperatureMin - 3) {
-            this.alarmService.raise(AlarmService_1.ALARM_CODES.TEMPERATURE_LOW, config.id, 'climate', 'fault', `Kritische Untertemperatur: ${temp.toFixed(1)} °C`);
-            primaryReason = `Untertemperatur ${temp.toFixed(1)} °C – Heizung`;
-            this.requestByTarget(config, 'temperature', 'up', actions, true, 0, primaryReason, null, null);
-            return this.buildDecision(config, state, primaryReason, actions, shadowMode);
-        }
-        else if (temp !== null && temp >= setpoint.temperatureMin - 1) {
-            // Hysterese: Alarm erst löschen wenn 2°C über Auslöseschwelle
-            this.alarmService.clear(AlarmService_1.ALARM_CODES.TEMPERATURE_LOW, config.id, 'climate');
         }
         // --------------------------------------------------------
         // Per-Aktor Routing (Normalfall)

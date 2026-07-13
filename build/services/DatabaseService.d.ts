@@ -38,7 +38,7 @@ export declare class DatabaseService {
     private readonly irrCache;
     private readonly sensorAcc;
     private readonly energyAcc;
-    private lastMidnightFlush;
+    private readonly lastMidnightFlush;
     constructor(log: ILogger, setState: SetStateFn, getState: GetStateFn);
     loadGroup(groupId: string): Promise<void>;
     trackSensorValue(groupId: string, sensorId: string, value: number, name?: string): void;
