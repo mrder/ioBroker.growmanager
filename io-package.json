@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.62",
+    "version": "0.2.63",
     "news": {
+      "0.2.63": {
+        "en": "Fix energy tracking: ratedPowerW fallback now fires correctly (runtimeMin===0 check was wrong); add energy tracking for shared actors in voting loop; supply/exhaust fan now runs preventively when temp>setpoint or VPD in upper half of range",
+        "de": "Fix Energieerfassung: ratedPowerW-Fallback funktioniert jetzt korrekt (runtimeMin===0-Pruefung war fehlerhaft); Energie-Tracking fuer geteilte Aktoren im Voting-Loop ergaenzt; Zu-/Abluft laeuft jetzt praeventiv wenn Temp>Soll oder VPD in oberer Haelfte des Bereichs"
+      },
       "0.2.62": {
         "en": "Majority voting urgency bonus: effective weight = configured% x (1+urgency); groups far outside setpoint get up to 2x their configured weight; dashboard tooltip shows base%->effective% when boosted",
         "de": "Mehrheits-Abstimmung mit Dringlichkeits-Bonus: effektives Gewicht = konfiguriert% x (1+Dringlichkeit); Gruppen weit ausserhalb des Sollwerts erhalten bis zu 2x ihr konfiguriertes Gewicht; Dashboard-Tooltip zeigt Basis%->effektiv% bei Boost"

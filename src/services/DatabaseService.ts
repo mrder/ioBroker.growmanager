@@ -106,11 +106,11 @@ export class DatabaseService {
         const cur = group.get(actuatorId);
         if (!cur || cur.lastOnTs === 0) return;
         const durationMin = (Date.now() - cur.lastOnTs) / 60_000;
-        cur.runtimeMin += durationMin;
-        // ratedWatts nur nutzen wenn keine realen Wh per Power-Sample akkumuliert wurden
-        if (ratedWatts > 0 && cur.wh === 0 && cur.runtimeMin === 0) {
+        // ratedWatts-Fallback: nur wenn keine echten Power-Samples vorliegen
+        if (ratedWatts > 0 && cur.wh === 0) {
             cur.wh += (ratedWatts * durationMin) / 60;
         }
+        cur.runtimeMin += durationMin;
         cur.lastOnTs = 0;
     }
 

@@ -825,6 +825,15 @@ class GrowManagerAdapter extends utils.Adapter {
                                 this.setActuatorStateWithVerify(actuatorConfig, group.id, finalCommand);
                             }
                             this.log.info(`SharedAktor ${actuatorConfig.name} → ${finalCommand} (Abstimmung: ${votingMode})`);
+                            // Energie-Tracking für geteilte Aktoren
+                            if (actuatorConfig.energyStateUnit !== 'kWh') {
+                                const isOn = finalCommand === true || (typeof finalCommand === 'number' && finalCommand > 0);
+                                if (isOn) {
+                                    this.databaseService.trackActuatorOn(group.id, actuatorConfig.id, actuatorConfig.name);
+                                } else if (actuatorConfig.ratedPowerW) {
+                                    this.databaseService.trackActuatorOff(group.id, actuatorConfig.id, actuatorConfig.ratedPowerW);
+                                }
+                            }
                         }
                     } else {
                         // Sperre für Dashboard-Anzeige merken (Countdown-Timer statt ⏳)
@@ -1382,10 +1391,23 @@ class GrowManagerAdapter extends utils.Adapter {
                     const excess = temp - (target + tempHyst);
                     if (excess > 0) return { wantsOn: true, urgency: Math.min(1, excess / 5), reason: `T ${temp.toFixed(1)}°C > Soll ${target}°C – Lüftung/Kühlung` };
                 }
-                // VPD-basiert: zu hoch → Lüftung/Kühlung hilft
+                // VPD klar zu hoch → Lüftung/Kühlung hilft
                 if (vpdMax !== null && gs.vpd !== null && gs.vpd > vpdMax + 0.2) {
                     const excess = gs.vpd - vpdMax;
                     return { wantsOn: true, urgency: Math.min(1, excess / 0.5), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch – Lüftung` };
+                }
+                // Präventiv (nur Zuluft/Abluft): Temp schon über Sollwert → frühzeitig lüften
+                // bevor Hysterese überschritten wird. Outdoor-Guard blockiert bei ungünstiger Außenluft.
+                if (actuatorType === 'supplyFan' || actuatorType === 'exhaustFan') {
+                    if (temp !== null && tempSetpoint !== null && temp > tempSetpoint) {
+                        return { wantsOn: true, urgency: 0.1, reason: `T ${temp.toFixed(1)}°C > Sollwert ${tempSetpoint}°C – präventive Lüftung` };
+                    }
+                    if (vpdMax !== null && vpdMin !== null && gs.vpd !== null) {
+                        const mid = vpdMin + (vpdMax - vpdMin) * 0.5;
+                        if (gs.vpd > mid) {
+                            return { wantsOn: true, urgency: 0.1, reason: `VPD ${gs.vpd.toFixed(2)} kPa in oberer Hälfte (>${mid.toFixed(2)}) – präventive Lüftung` };
+                        }
+                    }
                 }
                 return { wantsOn: false, urgency: 0, reason: `T/VPD im Sollbereich` };
             }
