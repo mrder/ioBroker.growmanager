@@ -691,7 +691,8 @@ class GrowManagerAdapter extends utils.Adapter {
                     let ownerNeed = ownerGs
                         ? this.computeParticipantNeed(actuatorConfig.type, ownerGs, 3)
                         : { wantsOn: false, urgency: 0, reason: 'Kein Gruppenstatus' };
-                    // Outdoor-Guard für Lüfter: Außenluft nur einsetzen wenn innen wärmer als außen
+                    // Outdoor-Guard für Lüfter: Außenluft nur einsetzen wenn innen wärmer als außen.
+                    // Ausnahme: VPD zu hoch (innen zu trocken) + Außenluft feuchter → Feuchte-Zuluft erlauben.
                     if (ownerNeed.wantsOn &&
                         (actuatorConfig.type === 'supplyFan' || actuatorConfig.type === 'exhaustFan') &&
                         actuatorConfig.outdoorGuardEnabled) {
@@ -702,8 +703,25 @@ class GrowManagerAdapter extends utils.Adapter {
                             if (outTemp !== null && inTemp !== null) {
                                 const minDelta = outdoorCfg.minTempDeltaCelsius ?? 2;
                                 if (inTemp - outTemp < minDelta) {
-                                    this.log.debug(`SharedAktor ${actuatorConfig.name}: Outdoor-Guard – Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C, Delta < ${minDelta}°C → blockiert`);
-                                    ownerNeed = { wantsOn: false, urgency: 0, reason: `Außenluft-Guard: Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C (Δ<${minDelta}°C)` };
+                                    // Ausnahme: Feuchte-Zuluft wenn Innen-VPD zu hoch und Außenluft feuchter
+                                    let humidityException = false;
+                                    if (outdoorCfg.humidityStateId) {
+                                        const outHum = this.outdoorValues.get(outdoorCfg.humidityStateId) ?? null;
+                                        const inHum = ownerGs?.humidity ?? null;
+                                        const inVpd = ownerGs?.vpd ?? null;
+                                        const spKey = ownerGs?.dayNight === 'night' ? 'night' : 'day';
+                                        const vpdMax = ownerGs?.activeProfile?.[spKey]?.vpdMax ?? null;
+                                        if (outHum !== null && inHum !== null && inVpd !== null && vpdMax !== null
+                                            && inVpd > vpdMax && outHum > inHum) {
+                                            humidityException = true;
+                                            ownerNeed = { wantsOn: true, urgency: Math.min(1, (inVpd - vpdMax) / 0.3), reason: `VPD ${inVpd.toFixed(2)} kPa zu hoch + Außenluft feuchter (${outHum.toFixed(0)}% > ${inHum.toFixed(0)}%) – Feuchte-Zuluft` };
+                                            this.log.debug(`SharedAktor ${actuatorConfig.name}: Feuchte-Zuluft-Ausnahme – Außen ${outHum.toFixed(0)}% > Innen ${inHum.toFixed(0)}%, VPD ${inVpd.toFixed(2)} > Max ${vpdMax.toFixed(2)}`);
+                                        }
+                                    }
+                                    if (!humidityException) {
+                                        this.log.debug(`SharedAktor ${actuatorConfig.name}: Outdoor-Guard – Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C, Delta < ${minDelta}°C → blockiert`);
+                                        ownerNeed = { wantsOn: false, urgency: 0, reason: `Außenluft-Guard: Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C (Δ<${minDelta}°C)` };
+                                    }
                                 }
                             }
                         }

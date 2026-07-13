@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.2.63",
+    "version": "0.2.64",
     "news": {
+      "0.2.64": {
+        "en": "Supply fan humidity exception: when indoor VPD exceeds max (too dry) and outdoor humidity is higher than indoor, supply fan is allowed despite temperature guard – brings in more humid outdoor air to lower VPD",
+        "de": "Zuluft Feuchte-Ausnahme: wenn Innen-VPD zu hoch (zu trocken) und Aussenluft feuchter als Innenluft ist, wird Zuluft trotz Temperatur-Guard erlaubt – feuchte Aussenluft senkt VPD"
+      },
       "0.2.63": {
         "en": "Fix energy tracking: ratedPowerW fallback now fires correctly (runtimeMin===0 check was wrong); add energy tracking for shared actors in voting loop; supply/exhaust fan now runs preventively when temp>setpoint or VPD in upper half of range",
         "de": "Fix Energieerfassung: ratedPowerW-Fallback funktioniert jetzt korrekt (runtimeMin===0-Pruefung war fehlerhaft); Energie-Tracking fuer geteilte Aktoren im Voting-Loop ergaenzt; Zu-/Abluft laeuft jetzt praeventiv wenn Temp>Soll oder VPD in oberer Haelfte des Bereichs"
