@@ -2,6 +2,16 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.3.1] - 2026-07-14
+
+### Patch — 3 Nachbesserungen aus Code-Review nach v0.3.0
+
+- **`lastSwitchTs` wurde bei firstSync gesetzt** (`ActuatorService`): Beim ersten Sync nach dem Start wurde `state.lastSwitchTs = Date.now()` gesetzt, auch wenn sich der Zustand nicht änderte. Folge: `minimumOffSeconds`/`minimumOnSeconds` blockierten Befehle direkt nach dem Neustart, und der stuckOn-Startup-Grace (`lastSwitchTs=0`) funktionierte nicht. Fix: `lastSwitchTs` nur noch innerhalb des `if (wasOn !== isNowOn)`-Blocks setzen.
+- **`lastMidnightFlush` nicht vorgemerkt in `loadGroup()`** (`DatabaseService`): Die Map für den Midnight-Flush wurde bei Adapterstart nicht initialisiert. Der erste Watchdog-Tick (~60s nach Start) sah `undefined !== today` und rief `flushDay()` auf — mit noch fast leeren Akkumulatoren. Fix: `loadGroup()` setzt den heutigen Tag in die Map, sodass der erste echte Flush erst um Mitternacht stattfindet.
+- **Teilnehmer-Outdoor-Guard ohne Feuchte-Zuluft-Ausnahme** (`main.ts`): Der Outdoor-Guard für Teilnehmer-Stimmen blockierte Lüfter auch dann, wenn VPD zu hoch war und Außenluft feuchter als Innenluft — also genau den Fall, in dem die Zuluft sinnvoll wäre. Fix: gleiche Feuchte-Zuluft-Ausnahme wie beim Eigentümer-Guard ergänzt.
+
+---
+
 ## [0.3.0] - 2026-07-13
 
 ### Qualitäts-Release — umfassender Bug-Fix-Zyklus, alle 24 Review-Findings behoben

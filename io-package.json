@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "news": {
+      "0.3.1": {
+        "en": "v0.3.1 patch: fix lastSwitchTs set on firstSync (broke minimumOffSeconds on restart); pre-seed lastMidnightFlush in loadGroup to prevent spurious early flush; add Feuchte-Zuluft humidity exception to participant outdoor guard (parity with owner guard)",
+        "de": "v0.3.1 Patch: Fix lastSwitchTs wurde bei firstSync gesetzt (minimumOffSeconds war nach Neustart falsch); lastMidnightFlush in loadGroup vormerken um vorzeitigen Flush zu verhindern; Feuchte-Zuluft-Ausnahme zum Teilnehmer-Outdoor-Guard ergaenzt (Parität mit Eigentümer-Guard)"
+      },
       "0.3.0": {
         "en": "v0.3.0 quality release: fix midnight flush running only once for all groups; fix noFeedback false-positive on adapter start; fix firstSync phantom switch counter; fix critical undertemperature blocked by condensation check (priority swap); fix VPD null sensor falling through to RH fallback; apply outdoor guard to participant votes; fix trackActuatorOff missing when ratedPowerW=0; add energy tracking to legacy resolveAll path; fix deleted group alarms accumulating forever; cancel verify timer on numeric command; live block-countdown in dashboard; XSS escaping for vote tooltip; double-click guard on sendControl/sendMode",
         "de": "v0.3.0 Qualitaets-Release: Fix Midnight-Flush lief nur einmal fuer alle Gruppen; Fix noFeedback-Fehlalarm beim Adapter-Start; Fix firstSync zaehlt faelschlicherweise als Schaltvorgang; Fix kritische Untertemperatur wurde von Kondensationspruefung blockiert (Prioritaetsreihenfolge getauscht); Fix VPD-Sensor nicht verfuegbar fiel auf RH-Fallback zurueck; Outdoor-Guard auf Teilnehmer-Stimmen angewendet; Fix trackActuatorOff fehlte bei ratedPowerW=0; Energie-Tracking in Legacy resolveAll-Pfad ergaenzt; Fix aktive Alarme geloeschter Gruppen haeufen sich auf; Verify-Timer bei numerischem Befehl abbrechen; Live-Countdown fuer Sperrzeiten im Dashboard; XSS-Escaping fuer Vote-Tooltip; Doppelklick-Schutz fuer sendControl/sendMode"

@@ -158,10 +158,10 @@ export class ActuatorService {
         }
 
         if (changing) {
-            state.lastSwitchTs = Date.now();
             const rt = this.runTime.get(config.id)!;
-            // firstSync-only (kein echter Zustandswechsel): Zähler nicht erhöhen
+            // firstSync-only (kein echter Zustandswechsel): Zähler + lastSwitchTs nicht setzen
             if (wasOn !== isNowOn) {
+                state.lastSwitchTs = Date.now();
                 state.switchCount++;
                 rt.switchCount++;
                 rt.lastHourSwitches.push(Date.now());

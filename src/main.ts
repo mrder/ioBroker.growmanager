@@ -817,7 +817,25 @@ class GrowManagerAdapter extends utils.Adapter {
                                 if (outTemp !== null && inTemp !== null) {
                                     const minDelta = pOutdoorCfg.minTempDeltaCelsius ?? 2;
                                     if (inTemp - outTemp < minDelta) {
-                                        need = { wantsOn: false, urgency: 0, reason: `Außenluft-Guard (Teilnehmer): Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C (Δ<${minDelta}°C)` };
+                                        // Ausnahme: Feuchte-Zuluft wenn Innen-VPD zu hoch und Außenluft feuchter
+                                        let humidityException = false;
+                                        if (pOutdoorCfg.humidityStateId) {
+                                            const outHum = this.outdoorValues.get(pOutdoorCfg.humidityStateId) ?? null;
+                                            const inHum = pState.humidity ?? null;
+                                            const inVpd = pState.vpd ?? null;
+                                            const spKey = pState.dayNight === 'night' ? 'night' : 'day';
+                                            const vpdMax = pState.activeProfile?.[spKey]?.vpdMax ?? null;
+                                            if (outHum !== null && inHum !== null && inVpd !== null && vpdMax !== null
+                                                && inVpd > vpdMax && outHum > inHum) {
+                                                humidityException = true;
+                                                need = { wantsOn: true, urgency: Math.min(1, (inVpd - vpdMax) / 0.3), reason: `VPD ${inVpd.toFixed(2)} kPa zu hoch + Außenluft feuchter (${outHum.toFixed(0)}% > ${inHum.toFixed(0)}%) – Feuchte-Zuluft (Teilnehmer)` };
+                                                this.log.debug(`SharedAktor ${actuatorConfig.name} (Teilnehmer ${participant.groupId}): Feuchte-Zuluft-Ausnahme – Außen ${outHum.toFixed(0)}% > Innen ${inHum.toFixed(0)}%, VPD ${inVpd.toFixed(2)} > Max ${vpdMax.toFixed(2)}`);
+                                            }
+                                        }
+                                        if (!humidityException) {
+                                            this.log.debug(`SharedAktor ${actuatorConfig.name} (Teilnehmer ${participant.groupId}): Outdoor-Guard – Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C, Delta < ${minDelta}°C → blockiert`);
+                                            need = { wantsOn: false, urgency: 0, reason: `Außenluft-Guard (Teilnehmer): Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C (Δ<${minDelta}°C)` };
+                                        }
                                     }
                                 }
                             }

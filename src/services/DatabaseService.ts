@@ -67,6 +67,9 @@ export class DatabaseService {
         this.irrCache.set(groupId, await this.readJson<IrrigationEvent[]>(`database.${groupId}.irrigation`, []));
         this.sensorAcc.set(groupId, new Map());
         this.energyAcc.set(groupId, new Map());
+        // Heutigen Tag vormerken – verhindert dass der erste Watchdog-Tick
+        // tickMidnight() feuert und die leeren Akkumulatoren flusht.
+        this.lastMidnightFlush.set(groupId, new Date().toDateString());
     }
 
     // ---- Sensordaten akkumulieren -----------------------------
