@@ -283,106 +283,29 @@ test/unit/                          # Jest Unit-Tests (255 Tests, alle grün)
 
 ## Changelog
 
+> Nur Meilenstein-Versionen. Vollständige Patch-History: [CHANGELOG.md im master-Branch](../../blob/master/CHANGELOG.md)
+
 ### 0.3.0 (2026-07-13) — Qualitäts-Release
 
-Umfassender Bug-Fix-Zyklus nach vollständigem Code-Review aller Quelldateien (24 Findings, alle behoben).
-255 Unit-Tests, 3 saubere Durchläufe.
+Bug-Fix-Zyklus nach vollständigem Code-Review. 255 Unit-Tests, 3 saubere Durchläufe.
 
-**Korrektheit & Logik:**
-- Fix: `DatabaseService.lastMidnightFlush` war global statt pro Gruppe → nur erste Gruppe wurde täglich geflusht
-- Fix: Kritische Untertemperatur (Prio 2) wurde von Kondensationsrisiko (Prio 3) blockiert — Prioritätsreihenfolge getauscht
-- Fix: VPD konfiguriert, Sensor nicht verfügbar → fiel auf RH-Fallback zurück statt sicher zu stoppen
-- Fix: Outdoor-Guard fehlte für Teilnehmer-Stimmen bei geteilten Zu-/Abluft-Aktoren
-- Fix: `trackActuatorOff` fehlte bei Aktoren ohne Leistungsdaten (`ratedPowerW=0`) → `lastOnTs` blieb gesetzt
-- Fix: Energie-Tracking fehlte im Legacy-`resolveAll()`-Pfad für geteilte Aktoren ohne Teilnehmer
-- Fix: Aktive Alarme gelöschter Gruppen akkumulierten ohne Bereinigung; `cleanup()` löscht nun Alarme für unbekannte Gruppen
+- **Klimaregelung:** Prioritätsreihenfolge korrigiert (Untertemperatur vor Kondensation), VPD-Sensor-Ausfall sicher abgefangen, Outdoor-Guard für Teilnehmer-Stimmen
+- **Energieerfassung:** Midnight-Flush per Gruppe, alle Tracking-Pfade lückenlos, Laufzeit auch ohne `ratedPowerW`
+- **Aktor-Service:** Keine Fehlalarme beim Adapter-Start (`noFeedback`, `stuckOn`, `firstSync`)
+- **Dashboard:** XSS-Schutz, live Sperrzeit-Countdown, Doppelklick-Schutz
+- **Alarmverwaltung:** Alarme gelöschter Gruppen werden automatisch bereinigt
 
-**ActuatorService:**
-- Fix: `noFeedback`-Alarm beim Adapter-Start — `lastSwitchTs=0` ergab riesige `timeSince`, Guard hinzugefügt
-- Fix: `firstSync` inkrementierte `switchCount` und `lastHourSwitches` ohne echten Zustandswechsel
+### 0.2.0 (2026-07-05) — Stabiles Release
 
-**Dashboard:**
-- Fix: XSS in Vote-Tooltip (`v.reason`, `v.groupName`, `v.groupId` unescaped in `innerHTML`)
-- Fix: XSS im `onclick`-Attribut (`a.name` unescaped in `sendControl()`-Aufruf)
-- Neu: Sperrzeit-Countdown tickt jetzt live im Browser (`blk-cd` mit `data-until`-Timestamp)
-- Neu: Doppelklick-Schutz für `sendControl` und `sendMode` via `_sendInFlight`-Flag
+Erstes stabiles Release nach Implementierung aller Kernfunktionen und 6 Code-Audit-Runden.
 
-**Sonstiges:**
-- Fix: Verify-Timer wurde bei numerischem Befehl nicht abgebrochen → möglicher Fehlalarm
-
-### 0.2.40 (2026-07-07)
-
-- Sicherheit: XSS-Schutz in Sortenwiki — `esc()`-Helper für alle nutzergesteuerten `innerHTML`-Einfügungen
-- Sicherheit: Inline-`onclick` in Listeneinträgen durch Event-Delegation mit `data-strain-id` ersetzt
-- `wikiLoad` und `wikiDelete` prüfen HTTP-Status vor Weiterverarbeitung; Array-Guard für API-Antwort
-- Null-Guards für numerische Felder in Sortendetailansicht
-- `importConfig`: Callback wird jetzt **vor** `restart()` gesendet, damit die Antwort den Client erreicht
-- REST API: PUT `/api/strains/:id` gibt 404 zurück wenn die Sorte nicht existiert (vorher: neue Sorte angelegt)
-- `DEFAULT_STRAINS`-Timestamps werden konsistent beim ersten Seed gesetzt
-
-### 0.2.39 (2026-07-07)
-
-- **Sortenwiki**: Globale Sortendatenbank über 📖-Button im Dashboard-Header
-- Vollständiger CRUD über REST API (`/api/strains`), Daten in `strains.json` auf dem Adapter-Host
-- Vorbelegt mit: Dante Inferno, Purple Punch, Seriousa
-- Suche, Typ-/Schwierigkeitsbadges, Detailansicht mit Klimazielen, Formular zum Anlegen/Bearbeiten
-
-### 0.2.38 (2026-07-06)
-
-- Fix: Zuluftaktor erhielt nach Adapter-Neustart keinen AUS-Befehl (Bedingung `supplyCommand !== false` entfernt)
-- Fix: Geteilte Aktoren wurden doppelt befehligt (Air-System-Pfad + Voting) → `!a.shared`-Filter im Air-System
-- Fix: Owner-Vote nutzte veralteten `state.requested` statt aktuellem Klimabedarf (`computeParticipantNeed`)
-
-### 0.2.37 (2026-07-06)
-
-- ioBroker-Übersichtsseite: GrowManager erscheint als Kachel mit direktem Dashboard-Link (`localLinks` in `io-package.json`)
-
-### 0.2.35 – 0.2.36 (2026-07-05)
-
-- Diverse Laufzeit-Bugfixes: `_plantPanelOpen` ReferenceError, `dbSwitchTab` Null-Guard, SSE-Reconnect Timer-Leak
-- IrrigationService: Trockenläufer-Alarm nur bei konfiguriertem Flusssensor
-- `importConfig` löst Adapter-Neustart aus; `detectAdapters` nutzt vollständige Instanz-ID
-- Body-Limit sendet 413 vor `req.destroy()`; Fallback-Fetch überschreibt keine neueren SSE-Daten
-
-### 0.2.34 (2026-07-05)
-
-- Fix: Admin-UI zeigte veraltete Live-Daten nach Adapter-Neustart
-- Fix: Aktor-Sync bei Adapter-Start: `needsSync`-Flag stellt Sollzustand nach Toleranzzeit wieder her
-
-### 0.2.26 – 0.2.33 (2026-07-03 – 2026-07-04)
-
-- Kamera-UX: Proxy-Auslieferung über Adapter-Port, flackerfreier Thumbnail-Cache via ObjectURL
-- KI-Analyse: Zoom-Steuerung im Modal, persistente Verlaufshistorie mit Sternchen-Markierung
-- Plant.id: Ergebnisdarstellung mit deutschen Übersetzungen und Konfidenz-Balken
-- Kamera/Analyse-Bereich im Dashboard unterhalb der Aktoren positioniert
-
-### 0.2.21 – 0.2.25 (2026-07-03)
-
-- **Energie-Tracking**: Laufzeit- und Schaltstatistik für alle Aktoren
-- Admin-UI: Encoding-Fixes für deutsche Sonderzeichen im IIFE-Bundle (zuverlässige `\uXXXX`-Escape-Methode)
-
-### 0.2.0 (2026-07-02)
-
-Erstes stabiles Release.
-
-- Geteilte Aktoren: Abstimmungsmodi `any`, `majority`, `primary`
-- Befehlsverifizierung: Retry nach 10 s, Alarm bei ausbleibendem Feedback
-- Benachrichtigungsservice: Discord, E-Mail, Telegram mit Quiet-Hours und Cooldown
-- History-Trends: `history.0`, `influxdb.0`, `sql.0` mit internem Fallback-Puffer
-- Shadow- und Wartungsmodus: Licht-Aktoren laufen immer durch
-
-### 0.1.0 – 0.1.26 (2026-06-30 – 2026-07-03)
-
-Entwicklungsversionen. Vollständige Implementierung aller Kernfunktionen:
-
-- Gruppen-basierte Klimaregelung (VPD / Temperatur / Feuchte / CO₂)
-- PID-Regler mit Anti-Windup, bumpless Transfer, Derivative Filter
-- Fähigkeitsbasierte Degradierung (FULL → FAULT)
-- Bewässerungssteuerung, Luftstrommanagement, Kamera-Modul
-- 4-Ebenen-Diagnose, Alarmzentrale, Geteilte Aktoren
-- Live-Dashboard (Port 8097), React Admin-UI
-- Sensor-Stabilitätszeit, Aggregationsoptionen, Sensor-Glättung
-- Außenluft-Guard, Admin-UI Objektpicker, Klimaprofil-Presets
+- **Geteilte Aktoren:** Abstimmungsmodi `any` / `majority` (mit Dringlichkeits-Bonus) / `primary`, Hysterese, Stimmgewichte
+- **VPD-Regelung:** VPD-Modus überstimmt RH-Setpoint, Schutzzone, Außenluft-Guard mit Feuchte-Ausnahme
+- **Befehlsverifizierung:** Retry nach 10 s, `ACTUATOR_NO_FEEDBACK` Alarm bei ausbleibendem Feedback
+- **Energiestatistik:** Laufzeit- und Verbrauchserfassung, 30-Tage-History im ioBroker-Objektbaum
+- **Bewässerung & Kamera:** Zonensteuerung, Timelapse, KI-Analyse (Plant.id), Sortenwiki
+- **Diagnose & Alarm:** 4-Ebenen-Diagnose, Effekt-Checks, Alarmzentrale mit Discord/E-Mail/Telegram
+- **Dashboard & Admin-UI:** Live-Dashboard Port 8097 (SSE, dark theme, Trend-Charts), React Admin-UI
 
 ---
 
