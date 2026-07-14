@@ -392,6 +392,7 @@ class GrowManagerAdapter extends utils.Adapter {
             dewPoint: null,
             absoluteHumidity: null,
             condensationRisk: false,
+            co2: null,
             sensorQuality: 0,
             sensors: new Map(),
             actuators: new Map(),
@@ -977,6 +978,7 @@ class GrowManagerAdapter extends utils.Adapter {
 
         state.temperature = tempAgg.value;
         state.humidity = humAgg.value;
+        state.co2 = this.sensorService.aggregate(config.sensors, 'co2', config.aggregationMethod, stab).value;
 
         // Abgeleitete Größen
         if (state.temperature !== null && state.humidity !== null) {
@@ -1002,6 +1004,7 @@ class GrowManagerAdapter extends utils.Adapter {
         if (state.temperature !== null) this.diagnosticsEngine.recordValue(config.id, 'temperature', state.temperature);
         if (state.humidity !== null) this.diagnosticsEngine.recordValue(config.id, 'humidity', state.humidity);
         if (state.vpd !== null) this.diagnosticsEngine.recordValue(config.id, 'vpd', state.vpd);
+        if (state.co2 !== null) this.diagnosticsEngine.recordValue(config.id, 'co2', state.co2);
 
         // 3) Degradationsstufe bestimmen
         state.degradation = this.safetyService.computeDegradation(state, config);

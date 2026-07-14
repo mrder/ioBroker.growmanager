@@ -192,7 +192,7 @@ export class DiagnosticsEngine {
     /**
      * Fügt einen Messwert zum Trend-Puffer hinzu.
      */
-    recordValue(groupId: string, variable: 'temperature' | 'humidity' | 'vpd', value: number): void {
+    recordValue(groupId: string, variable: 'temperature' | 'humidity' | 'vpd' | 'co2', value: number): void {
         const key = `${groupId}:${variable}`;
         let points = this.trendBuffers.get(key);
         if (!points) {

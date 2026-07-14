@@ -209,6 +209,8 @@ export interface ClimateSetpoint {
     // Optionale Sollwerte für weitere Regelgrößen
     co2Target?: number;
     co2Tolerance?: number;
+    co2Max?: number;       // Warnschwelle ppm (überschritten → Alarm 'warning'); default: target + tolerance * 4
+    co2Critical?: number;  // Kritisch-Schwelle ppm (überschritten → Alarm 'critical'); default: max(5000, target + tolerance * 8)
     soilMoistureTarget?: number;
     soilMoistureTolerance?: number;
 }
@@ -582,6 +584,7 @@ export interface GroupState {
     dewPoint: number | null;
     absoluteHumidity: number | null;
     condensationRisk: boolean;
+    co2: number | null;
     sensorQuality: number;
     activeProfile?: ClimateProfile;
     lastDecision?: ControlDecision;

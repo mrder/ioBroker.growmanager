@@ -2,6 +2,19 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.3.2] - 2026-07-14
+
+### Feature — CO₂-Regelung + Admin-Logo
+
+- **CO₂-Zweipunkt-Regelung** (`ClimateController`): `decideCo2Act()` war bisher ein leerer Platzhalter. Jetzt echte Regelung: CO₂-Ventil oder -Generator (Aktor `co2Valve`, `controlDirection: up`) schaltet EIN wenn CO₂ < Ziel − Toleranz, AUS wenn Zielbereich erreicht. Abluft-Aktor (`controlDirection: down`) für CO₂-Abbau analog. Zweipunkt-Hysterese via `hysteresisCheck()`.
+- **CO₂ im GroupState** (`config.ts`, `main.ts`): Feld `co2: number | null` in `GroupState` ergänzt. Wird im Watchdog-Zyklus via `sensorService.aggregate()` befüllt und an `ClimateController.decide()` übergeben. CO₂-Trend wird in `DiagnosticsEngine.recordValue()` aufgezeichnet.
+- **CO₂-Alarme** (`AlarmService`): Neue Alarm-Codes `CO2_HIGH` (warning ab `co2Max`, critical ab `co2Critical`) und `CO2_LOW` (warning wenn CO₂ < Ziel − 3 × Toleranz). Schwellen konfigurierbar im `ClimateSetpoint`, sinnvolle Defaults wenn nicht gesetzt.
+- **Neue ClimateSetpoint-Felder**: `co2Max` (Warnschwelle ppm, Default: Ziel + Toleranz × 4) und `co2Critical` (Kritisch-Schwelle ppm, Default: max(5000, Ziel + Toleranz × 8)).
+- **CO₂-Anzeige im Dashboard**: War bereits implementiert — zeigt ppm mit Farbkodierung und Trend-Klick (keine Dashboard-Änderung nötig).
+- **Admin-Logo `admin/growmanager.png`**: 256 × 256 px PNG mit Pflanzensymbol auf dunkelgrünem Hintergrund. Pflichtfeld für ioBroker-Repository-Veröffentlichung.
+
+---
+
 ## [0.3.1] - 2026-07-14
 
 ### Patch — 3 Nachbesserungen aus Code-Review nach v0.3.0

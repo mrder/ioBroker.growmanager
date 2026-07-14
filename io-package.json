@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.1",
+    "version": "0.3.2",
     "news": {
+      "0.3.2": {
+        "en": "v0.3.2: CO2 control via co2Valve/exhaustFan with two-point hysteresis regulation; CO2_HIGH and CO2_LOW alarms; co2Target/co2Tolerance/co2Max/co2Critical in ClimateSetpoint; CO2 already shown in dashboard; add admin logo growmanager.png",
+        "de": "v0.3.2: CO2-Regelung ueber co2Valve/exhaustFan mit Zweipunkt-Hysterese; Alarme CO2_HIGH und CO2_LOW; co2Target/co2Tolerance/co2Max/co2Critical im ClimateSetpoint; CO2-Anzeige bereits im Dashboard; Admin-Logo growmanager.png ergaenzt"
+      },
       "0.3.1": {
         "en": "v0.3.1 patch: fix lastSwitchTs set on firstSync (broke minimumOffSeconds on restart); pre-seed lastMidnightFlush in loadGroup to prevent spurious early flush; add Feuchte-Zuluft humidity exception to participant outdoor guard (parity with owner guard)",
         "de": "v0.3.1 Patch: Fix lastSwitchTs wurde bei firstSync gesetzt (minimumOffSeconds war nach Neustart falsch); lastMidnightFlush in loadGroup vormerken um vorzeitigen Flush zu verhindern; Feuchte-Zuluft-Ausnahme zum Teilnehmer-Outdoor-Guard ergaenzt (Parität mit Eigentümer-Guard)"
