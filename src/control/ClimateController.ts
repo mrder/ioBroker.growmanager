@@ -145,6 +145,13 @@ export class ClimateController {
         }
 
         // --------------------------------------------------------
+        // CO₂-Alarme (einmalig pro Gruppe, unabhängig von Aktor-Anzahl)
+        // --------------------------------------------------------
+        if (co2 !== null && setpoint.co2Target) {
+            this.raiseCo2Alarms(co2, config.id, setpoint);
+        }
+
+        // --------------------------------------------------------
         // Per-Aktor Routing (Normalfall)
         // --------------------------------------------------------
         const reasons: string[] = [];
@@ -458,32 +465,6 @@ export class ClimateController {
 
         const target = sp.co2Target;
         const tolerance = sp.co2Tolerance ?? 50;
-        const co2Max = sp.co2Max ?? target + tolerance * 4;
-        const co2Critical = sp.co2Critical ?? Math.max(5000, target + tolerance * 8);
-
-        // Alarm-Logik
-        if (co2 > co2Critical) {
-            this.alarmService.raise(
-                ALARM_CODES.CO2_HIGH, groupId, 'climate', 'critical',
-                `Kritischer CO₂-Wert: ${co2.toFixed(0)} ppm (Schwelle: ${co2Critical.toFixed(0)} ppm)`
-            );
-        } else if (co2 > co2Max) {
-            this.alarmService.raise(
-                ALARM_CODES.CO2_HIGH, groupId, 'climate', 'warning',
-                `CO₂ erhöht: ${co2.toFixed(0)} ppm (Max: ${co2Max.toFixed(0)} ppm)`
-            );
-        } else {
-            this.alarmService.clear(ALARM_CODES.CO2_HIGH, groupId, 'climate');
-        }
-
-        if (co2 < target - tolerance * 3) {
-            this.alarmService.raise(
-                ALARM_CODES.CO2_LOW, groupId, 'climate', 'warning',
-                `CO₂ zu niedrig: ${co2.toFixed(0)} ppm (Ziel: ${target.toFixed(0)} ppm)`
-            );
-        } else if (co2 >= target - tolerance) {
-            this.alarmService.clear(ALARM_CODES.CO2_LOW, groupId, 'climate');
-        }
 
         // Zweipunkt-Regelung mit Hysterese
         hyst.co2 = hysteresisCheck(co2, target, tolerance * 2, hyst.co2);
@@ -661,6 +642,36 @@ export class ClimateController {
                 );
             }
             // else: Stufe-1 läuft lang genug → Stufe-2 darf schalten
+        }
+    }
+
+    private raiseCo2Alarms(co2: number, groupId: string, sp: ClimateSetpoint): void {
+        const target = sp.co2Target!;
+        const tolerance = sp.co2Tolerance ?? 50;
+        const co2Max = sp.co2Max ?? target + tolerance * 4;
+        const co2Critical = sp.co2Critical ?? Math.max(5000, target + tolerance * 8);
+
+        if (co2 > co2Critical) {
+            this.alarmService.raise(
+                ALARM_CODES.CO2_HIGH, groupId, 'climate', 'critical',
+                `Kritischer CO₂-Wert: ${co2.toFixed(0)} ppm (Schwelle: ${co2Critical.toFixed(0)} ppm)`
+            );
+        } else if (co2 > co2Max) {
+            this.alarmService.raise(
+                ALARM_CODES.CO2_HIGH, groupId, 'climate', 'warning',
+                `CO₂ erhöht: ${co2.toFixed(0)} ppm (Max: ${co2Max.toFixed(0)} ppm)`
+            );
+        } else {
+            this.alarmService.clear(ALARM_CODES.CO2_HIGH, groupId, 'climate');
+        }
+
+        if (co2 < target - tolerance * 3) {
+            this.alarmService.raise(
+                ALARM_CODES.CO2_LOW, groupId, 'climate', 'warning',
+                `CO₂ zu niedrig: ${co2.toFixed(0)} ppm (Ziel: ${target.toFixed(0)} ppm)`
+            );
+        } else {
+            this.alarmService.clear(ALARM_CODES.CO2_LOW, groupId, 'climate');
         }
     }
 

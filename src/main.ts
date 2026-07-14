@@ -1708,7 +1708,6 @@ class GrowManagerAdapter extends utils.Adapter {
 
                 // Zusätzliche Sensorwerte: Einzelwerte für Typen wo mehrere sinnvoll sind
                 const soilAggDb = this.sensorService.aggregate(g.sensors, 'soilMoisture', g.aggregationMethod);
-                const co2Agg = this.sensorService.aggregate(g.sensors, 'co2', g.aggregationMethod);
                 const leafTempAggDb = this.sensorService.aggregate(g.sensors, 'leafTemperature', g.aggregationMethod);
 
                 const soilSensors = g.sensors
@@ -1771,7 +1770,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     vpd: state?.vpd ?? null,
                     soilMoisture: soilAggDb.value,
                     soilSensors,
-                    co2: co2Agg.value,
+                    co2: state?.co2 ?? null,
                     leafTemperature: leafTempAggDb.value,
                     leafSensors,
                     sensorDetails,

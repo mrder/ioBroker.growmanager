@@ -402,9 +402,9 @@ export class ActuatorService {
         const timeSince = (Date.now() - state.lastSwitchTs) / 1000;
 
         // Kleben prüfen (EIN obwohl AUS befohlen)
-        // lastSwitchTs=0: Adapter-Start, noch kein Schaltbefehl ausgeführt → kein stuckOn
+        // needsSync=true: Adapter-Start, firstSync noch nicht ausgeführt → kein stuckOn
         // Bei geteilten Aktoren überspringen: eine andere Gruppe kann den Aktor halten
-        if (!config.shared && !requestedOn && effectiveOn && state.lastSwitchTs > 0 && timeSince > config.offDelaySeconds + 30) {
+        if (!config.shared && !requestedOn && effectiveOn && !state.needsSync && timeSince > config.offDelaySeconds + 30) {
             return 'stuckOn';
         }
 

@@ -2,6 +2,17 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.3.3] - 2026-07-14
+
+### Patch — 4 Nachbesserungen an CO₂-Regelung + stuckOn-Fix
+
+- **CO₂_LOW-Alarm blieb im Dead-Zone-Bereich stecken** (`ClimateController`): `else if (co2 >= target - tolerance)` ließ den Alarm zwischen `target - 3×tol` und `target - tol` weder erhöhen noch löschen. Fix: `else` — Alarm wird immer gelöscht sobald kein Raise-Kriterium mehr zutrifft.
+- **Doppelte Alarm-Notifications bei mehreren co2Valve-Aktoren** (`ClimateController`): `decideCo2Act()` wurde pro Aktor aufgerufen; jede Invocation rief `alarmService.raise()` mit demselben Key auf → zweiter Aufruf inkrementierte `repeatCount` und feuerte Listener erneut (Push-Duplikate). Fix: Alarm-Logik in neue Methode `raiseCo2Alarms()` ausgelagert, die einmalig pro Gruppe vor dem Aktor-Loop aufgerufen wird.
+- **stuckOn-Erkennung blind für dauerhaft-AUS-befohle Aktoren** (`ActuatorService`): Guard `state.lastSwitchTs > 0` blockierte stuckOn-Alarm für Aktoren die seit Adapterstart nur OFF befohlen wurden (z.B. Licht in Nachtphase). Da `lastSwitchTs` nach v0.3.1 nur bei echten Zustandswechseln gesetzt wird, blieb es bei 0 → kein Alarm. Fix: Guard geändert auf `!state.needsSync` — nach dem ersten Sync-Befehl (firstSync=false) ist die Startup-Grace abgelaufen.
+- **Dashboard CO₂ nutzte dritte unabhängige Aggregation** (`main.ts`): CO₂ wurde für Controller (mit Stabilität), Dashboard und ioBroker-State-Schreibung dreimal unabhängig aggregiert → unterschiedliche Werte möglich. Fix: Dashboard liest `state?.co2` aus dem GroupState (bereits mit Stabilität aus dem Watchdog-Zyklus).
+
+---
+
 ## [0.3.2] - 2026-07-14
 
 ### Feature — CO₂-Regelung + Admin-Logo
