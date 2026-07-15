@@ -350,6 +350,7 @@ class GrowManagerAdapter extends utils.Adapter {
             dewPoint: null,
             absoluteHumidity: null,
             condensationRisk: false,
+            co2: null,
             sensorQuality: 0,
             sensors: new Map(),
             actuators: new Map(),
@@ -434,7 +435,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     ? (typeof actState.effectiveState === 'boolean' ? actState.effectiveState : actState.effectiveState > 0)
                     : false;
                 if (isOn && actuator.energyStateUnit !== 'kWh') {
-                    this.databaseService.trackActuatorOn(group.id, actuator.id, actuator.name);
+                    this.databaseService.trackActuatorOn(group.id, actuator.id, actuator.name, actuator.ratedPowerW ?? 0);
                 }
             }
             if (actuator.healthStateId && !this.subscribedStateIds.has(actuator.healthStateId)) {
@@ -751,7 +752,25 @@ class GrowManagerAdapter extends utils.Adapter {
                                 if (outTemp !== null && inTemp !== null) {
                                     const minDelta = pOutdoorCfg.minTempDeltaCelsius ?? 2;
                                     if (inTemp - outTemp < minDelta) {
-                                        need = { wantsOn: false, urgency: 0, reason: `Außenluft-Guard (Teilnehmer): Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C (Δ<${minDelta}°C)` };
+                                        // Ausnahme: Feuchte-Zuluft wenn Innen-VPD zu hoch und Außenluft feuchter
+                                        let humidityException = false;
+                                        if (pOutdoorCfg.humidityStateId) {
+                                            const outHum = this.outdoorValues.get(pOutdoorCfg.humidityStateId) ?? null;
+                                            const inHum = pState.humidity ?? null;
+                                            const inVpd = pState.vpd ?? null;
+                                            const spKey = pState.dayNight === 'night' ? 'night' : 'day';
+                                            const vpdMax = pState.activeProfile?.[spKey]?.vpdMax ?? null;
+                                            if (outHum !== null && inHum !== null && inVpd !== null && vpdMax !== null
+                                                && inVpd > vpdMax && outHum > inHum) {
+                                                humidityException = true;
+                                                need = { wantsOn: true, urgency: Math.min(1, (inVpd - vpdMax) / 0.3), reason: `VPD ${inVpd.toFixed(2)} kPa zu hoch + Außenluft feuchter (${outHum.toFixed(0)}% > ${inHum.toFixed(0)}%) – Feuchte-Zuluft (Teilnehmer)` };
+                                                this.log.debug(`SharedAktor ${actuatorConfig.name} (Teilnehmer ${participant.groupId}): Feuchte-Zuluft-Ausnahme – Außen ${outHum.toFixed(0)}% > Innen ${inHum.toFixed(0)}%, VPD ${inVpd.toFixed(2)} > Max ${vpdMax.toFixed(2)}`);
+                                            }
+                                        }
+                                        if (!humidityException) {
+                                            this.log.debug(`SharedAktor ${actuatorConfig.name} (Teilnehmer ${participant.groupId}): Outdoor-Guard – Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C, Delta < ${minDelta}°C → blockiert`);
+                                            need = { wantsOn: false, urgency: 0, reason: `Außenluft-Guard (Teilnehmer): Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C (Δ<${minDelta}°C)` };
+                                        }
                                     }
                                 }
                             }
@@ -787,7 +806,7 @@ class GrowManagerAdapter extends utils.Adapter {
                             if (actuatorConfig.energyStateUnit !== 'kWh') {
                                 const isOn = finalCommand === true || (typeof finalCommand === 'number' && finalCommand > 0);
                                 if (isOn) {
-                                    this.databaseService.trackActuatorOn(group.id, actuatorConfig.id, actuatorConfig.name);
+                                    this.databaseService.trackActuatorOn(group.id, actuatorConfig.id, actuatorConfig.name, actuatorConfig.ratedPowerW ?? 0);
                                 }
                                 else if (actuatorConfig.ratedPowerW) {
                                     this.databaseService.trackActuatorOff(group.id, actuatorConfig.id, actuatorConfig.ratedPowerW);
@@ -827,7 +846,7 @@ class GrowManagerAdapter extends utils.Adapter {
                                 if (act.energyStateUnit !== 'kWh') {
                                     const isOn = result.finalCommand === true || (typeof result.finalCommand === 'number' && result.finalCommand > 0);
                                     if (isOn) {
-                                        this.databaseService.trackActuatorOn(result.winningGroupId, act.id, act.name);
+                                        this.databaseService.trackActuatorOn(result.winningGroupId, act.id, act.name, act.ratedPowerW ?? 0);
                                     }
                                     else {
                                         this.databaseService.trackActuatorOff(result.winningGroupId, act.id, act.ratedPowerW ?? 0);
@@ -881,6 +900,7 @@ class GrowManagerAdapter extends utils.Adapter {
             this.log.warn(`Gruppe ${config.name}: Feuchte-Backup-Sensor aktiv (primary ausgefallen)`);
         state.temperature = tempAgg.value;
         state.humidity = humAgg.value;
+        state.co2 = this.sensorService.aggregate(config.sensors, 'co2', config.aggregationMethod, stab).value;
         // Abgeleitete Größen
         if (state.temperature !== null && state.humidity !== null) {
             state.vpd = (0, calculations_1.calculateVPD)(state.temperature, state.humidity);
@@ -906,6 +926,8 @@ class GrowManagerAdapter extends utils.Adapter {
             this.diagnosticsEngine.recordValue(config.id, 'humidity', state.humidity);
         if (state.vpd !== null)
             this.diagnosticsEngine.recordValue(config.id, 'vpd', state.vpd);
+        if (state.co2 !== null)
+            this.diagnosticsEngine.recordValue(config.id, 'co2', state.co2);
         // 3) Degradationsstufe bestimmen
         state.degradation = this.safetyService.computeDegradation(state, config);
         // 4) Aktives Profil laden
@@ -1132,7 +1154,7 @@ class GrowManagerAdapter extends utils.Adapter {
                         // Energie-Tracking (Nennleistung)
                         if (act.energyStateUnit !== 'kWh') {
                             if (wantsOn)
-                                this.databaseService.trackActuatorOn(config.id, act.id, act.name);
+                                this.databaseService.trackActuatorOn(config.id, act.id, act.name, act.ratedPowerW ?? 0);
                             else if (act.ratedPowerW)
                                 this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW);
                         }
@@ -1212,7 +1234,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 // Energie-Tracking: ratedPowerW-Fallback (nur wenn kein kWh-Sensor konfiguriert)
                 if (actuatorConfig.energyStateUnit !== 'kWh') {
                     if (action.requested === true || (typeof action.requested === 'number' && action.requested > 0)) {
-                        this.databaseService.trackActuatorOn(config.id, actuatorConfig.id, actuatorConfig.name);
+                        this.databaseService.trackActuatorOn(config.id, actuatorConfig.id, actuatorConfig.name, actuatorConfig.ratedPowerW ?? 0);
                     }
                     else {
                         this.databaseService.trackActuatorOff(config.id, actuatorConfig.id, actuatorConfig.ratedPowerW ?? 0);
@@ -1557,7 +1579,6 @@ class GrowManagerAdapter extends utils.Adapter {
             }
             // Zusätzliche Sensorwerte: Einzelwerte für Typen wo mehrere sinnvoll sind
             const soilAggDb = this.sensorService.aggregate(g.sensors, 'soilMoisture', g.aggregationMethod);
-            const co2Agg = this.sensorService.aggregate(g.sensors, 'co2', g.aggregationMethod);
             const leafTempAggDb = this.sensorService.aggregate(g.sensors, 'leafTemperature', g.aggregationMethod);
             const soilSensors = g.sensors
                 .filter(s => s.enabled && s.type === 'soilMoisture')
@@ -1617,7 +1638,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 vpd: state?.vpd ?? null,
                 soilMoisture: soilAggDb.value,
                 soilSensors,
-                co2: co2Agg.value,
+                co2: state?.co2 ?? null,
                 leafTemperature: leafTempAggDb.value,
                 leafSensors,
                 sensorDetails,

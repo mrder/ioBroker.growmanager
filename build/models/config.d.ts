@@ -123,6 +123,8 @@ export interface ClimateSetpoint {
     condensationRiskMaxHumidity: number;
     co2Target?: number;
     co2Tolerance?: number;
+    co2Max?: number;
+    co2Critical?: number;
     soilMoistureTarget?: number;
     soilMoistureTolerance?: number;
 }
@@ -378,6 +380,7 @@ export interface GroupState {
     dewPoint: number | null;
     absoluteHumidity: number | null;
     condensationRisk: boolean;
+    co2: number | null;
     sensorQuality: number;
     activeProfile?: ClimateProfile;
     lastDecision?: ControlDecision;

@@ -61,6 +61,7 @@ class ClimateController {
         const temp = state.temperature;
         const hum = state.humidity;
         const vpd = state.vpd;
+        const co2 = state.co2 ?? null;
         let primaryReason = 'Keine Regelung notwendig';
         // --------------------------------------------------------
         // Priorität 1: Übertemperatur-Notfall
@@ -101,6 +102,12 @@ class ClimateController {
             this.alarmService.clear(AlarmService_1.ALARM_CODES.CONDENSATION_RISK, config.id, 'climate');
         }
         // --------------------------------------------------------
+        // CO₂-Alarme (einmalig pro Gruppe, unabhängig von Aktor-Anzahl)
+        // --------------------------------------------------------
+        if (co2 !== null && setpoint.co2Target) {
+            this.raiseCo2Alarms(co2, config.id, setpoint);
+        }
+        // --------------------------------------------------------
         // Per-Aktor Routing (Normalfall)
         // --------------------------------------------------------
         const reasons = [];
@@ -137,7 +144,7 @@ class ClimateController {
                     break;
                 }
                 case 'co2': {
-                    const r = this.decideCo2Act(act, dir, setpoint, hyst, actions);
+                    const r = this.decideCo2Act(act, dir, co2, config.id, setpoint, hyst, actions);
                     if (r)
                         reasons.push(r);
                     break;
@@ -359,14 +366,40 @@ class ClimateController {
         return null;
     }
     // ============================================================
-    // CO₂-Aktor
+    // CO₂-Aktor (Zweipunkt mit Hysterese)
     // ============================================================
-    decideCo2Act(act, dir, sp, hyst, actions) {
+    decideCo2Act(act, dir, co2, groupId, sp, hyst, actions) {
         if (!sp.co2Target)
             return null;
-        // CO₂ wird über separate Sensor-States gelesen — hier Platzhalter
-        // Die eigentliche CO₂-Regelung benötigt einen co2-Sensor in der Gruppe
-        this.pushAction(actions, act, false, 'CO₂-Regelung: kein Sensor', false);
+        if (co2 === null) {
+            this.pushAction(actions, act, false, 'CO₂-Regelung: kein Sensor', false);
+            return null;
+        }
+        const target = sp.co2Target;
+        const tolerance = sp.co2Tolerance ?? 50;
+        // Zweipunkt-Regelung mit Hysterese
+        hyst.co2 = (0, calculations_1.hysteresisCheck)(co2, target, tolerance * 2, hyst.co2);
+        if (dir === 'up') {
+            // CO₂-Ventil / Generator: EIN wenn CO₂ zu niedrig
+            if (hyst.co2 === -1) {
+                this.pushAction(actions, act, true, `CO₂ ${co2.toFixed(0)} ppm < Ziel ${target.toFixed(0)} ppm`, false);
+                return `CO₂-Ventil EIN (${co2.toFixed(0)} ppm zu niedrig)`;
+            }
+            else {
+                this.pushAction(actions, act, false, `CO₂ im Zielbereich (${co2.toFixed(0)} ppm)`, false);
+            }
+        }
+        else if (dir === 'down') {
+            // Abluft für CO₂-Abbau: EIN wenn CO₂ zu hoch
+            if (hyst.co2 === 1) {
+                const val = act.supportsPercent ? 60 : true;
+                this.pushAction(actions, act, val, `CO₂ ${co2.toFixed(0)} ppm > Ziel ${target.toFixed(0)} ppm – Abluft`, false);
+                return `Abluft CO₂-Abbau EIN (${co2.toFixed(0)} ppm)`;
+            }
+            else {
+                this.pushAction(actions, act, false, `CO₂ im Zielbereich (${co2.toFixed(0)} ppm)`, false);
+            }
+        }
         return null;
     }
     // ============================================================
@@ -491,6 +524,27 @@ class ClimateController {
                 this.log.debug(`${config.name}: ${act.name} (Stufe 2) gesperrt – Stufe 1 läuft seit ${Math.floor(runningMinutes)} min, braucht ${delayMinutes} min`);
             }
             // else: Stufe-1 läuft lang genug → Stufe-2 darf schalten
+        }
+    }
+    raiseCo2Alarms(co2, groupId, sp) {
+        const target = sp.co2Target;
+        const tolerance = sp.co2Tolerance ?? 50;
+        const co2Max = sp.co2Max ?? target + tolerance * 4;
+        const co2Critical = sp.co2Critical ?? Math.max(5000, target + tolerance * 8);
+        if (co2 > co2Critical) {
+            this.alarmService.raise(AlarmService_1.ALARM_CODES.CO2_HIGH, groupId, 'climate', 'critical', `Kritischer CO₂-Wert: ${co2.toFixed(0)} ppm (Schwelle: ${co2Critical.toFixed(0)} ppm)`);
+        }
+        else if (co2 > co2Max) {
+            this.alarmService.raise(AlarmService_1.ALARM_CODES.CO2_HIGH, groupId, 'climate', 'warning', `CO₂ erhöht: ${co2.toFixed(0)} ppm (Max: ${co2Max.toFixed(0)} ppm)`);
+        }
+        else {
+            this.alarmService.clear(AlarmService_1.ALARM_CODES.CO2_HIGH, groupId, 'climate');
+        }
+        if (co2 < target - tolerance * 3) {
+            this.alarmService.raise(AlarmService_1.ALARM_CODES.CO2_LOW, groupId, 'climate', 'warning', `CO₂ zu niedrig: ${co2.toFixed(0)} ppm (Ziel: ${target.toFixed(0)} ppm)`);
+        }
+        else {
+            this.alarmService.clear(AlarmService_1.ALARM_CODES.CO2_LOW, groupId, 'climate');
         }
     }
     getHystStates(groupId) {

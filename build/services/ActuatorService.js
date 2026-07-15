@@ -130,10 +130,10 @@ class ActuatorService {
             state.effectiveState = requested;
         }
         if (changing) {
-            state.lastSwitchTs = Date.now();
             const rt = this.runTime.get(config.id);
-            // firstSync-only (kein echter Zustandswechsel): Zähler nicht erhöhen
+            // firstSync-only (kein echter Zustandswechsel): Zähler + lastSwitchTs nicht setzen
             if (wasOn !== isNowOn) {
+                state.lastSwitchTs = Date.now();
                 state.switchCount++;
                 rt.switchCount++;
                 rt.lastHourSwitches.push(Date.now());
@@ -356,9 +356,9 @@ class ActuatorService {
         const effectiveOn = this.isEffectivelyOn(config, state);
         const timeSince = (Date.now() - state.lastSwitchTs) / 1000;
         // Kleben prüfen (EIN obwohl AUS befohlen)
-        // lastSwitchTs=0: Adapter-Start, noch kein Schaltbefehl ausgeführt → kein stuckOn
+        // needsSync=true: Adapter-Start, firstSync noch nicht ausgeführt → kein stuckOn
         // Bei geteilten Aktoren überspringen: eine andere Gruppe kann den Aktor halten
-        if (!config.shared && !requestedOn && effectiveOn && state.lastSwitchTs > 0 && timeSince > config.offDelaySeconds + 30) {
+        if (!config.shared && !requestedOn && effectiveOn && !state.needsSync && timeSince > config.offDelaySeconds + 30) {
             return 'stuckOn';
         }
         // Kein Feedback innerhalb der Frist (lastSwitchTs=0 = Adapter-Start, noch kein Befehl → überspringen)

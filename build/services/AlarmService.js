@@ -28,6 +28,8 @@ exports.ALARM_CODES = {
     SENSOR_DEGRADED: 'SENSOR_DEGRADED',
     EMERGENCY_STOP: 'EMERGENCY_STOP',
     CUSTOM_ALERT: 'CUSTOM_ALERT',
+    CO2_HIGH: 'CO2_HIGH',
+    CO2_LOW: 'CO2_LOW',
 };
 class AlarmService {
     constructor(log) {

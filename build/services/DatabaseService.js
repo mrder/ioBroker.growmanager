@@ -32,6 +32,9 @@ class DatabaseService {
         this.irrCache.set(groupId, await this.readJson(`database.${groupId}.irrigation`, []));
         this.sensorAcc.set(groupId, new Map());
         this.energyAcc.set(groupId, new Map());
+        // Heutigen Tag vormerken – verhindert dass der erste Watchdog-Tick
+        // tickMidnight() feuert und die leeren Akkumulatoren flusht.
+        this.lastMidnightFlush.set(groupId, new Date().toDateString());
     }
     // ---- Sensordaten akkumulieren -----------------------------
     trackSensorValue(groupId, sensorId, value, name) {
@@ -54,7 +57,7 @@ class DatabaseService {
         }
     }
     // ---- Energiedaten akkumulieren ----------------------------
-    trackActuatorOn(groupId, actuatorId, name) {
+    trackActuatorOn(groupId, actuatorId, name, ratedWatts = 0) {
         const group = this.energyAcc.get(groupId);
         if (!group)
             return;
@@ -62,9 +65,11 @@ class DatabaseService {
         if (cur && cur.lastOnTs === 0) {
             cur.lastOnTs = Date.now();
             cur.name = name;
+            if (ratedWatts > 0)
+                cur.ratedWatts = ratedWatts;
         }
         else if (!cur) {
-            group.set(actuatorId, { wh: 0, runtimeMin: 0, name, lastOnTs: Date.now() });
+            group.set(actuatorId, { wh: 0, runtimeMin: 0, name, lastOnTs: Date.now(), ratedWatts });
         }
     }
     trackActuatorOff(groupId, actuatorId, ratedWatts) {
@@ -107,7 +112,7 @@ class DatabaseService {
             return;
         const cur = group.get(actuatorId);
         if (!cur) {
-            group.set(actuatorId, { wh: deltaWh, runtimeMin: durationMin, name, lastOnTs: 0 });
+            group.set(actuatorId, { wh: deltaWh, runtimeMin: durationMin, name, lastOnTs: 0, ratedWatts: 0 });
         }
         else {
             cur.wh += deltaWh;
@@ -162,9 +167,12 @@ class DatabaseService {
                 let extra = 0;
                 if (acc.lastOnTs > 0)
                     extra = (Date.now() - acc.lastOnTs) / 60000;
+                // Wh: Ø-Watt aus abgeschlossenen Perioden; falls keine → Nennleistung
+                const avgWFlush = acc.runtimeMin > 0 ? (acc.wh / acc.runtimeMin) * 60 : acc.ratedWatts;
+                const whTotal = acc.wh + (extra > 0 && avgWFlush > 0 ? (avgWFlush * extra / 60) : 0);
                 entry.actuators[aid] = {
                     name: acc.name,
-                    wh: +acc.wh.toFixed(1),
+                    wh: +whTotal.toFixed(1),
                     runtimeMin: +(acc.runtimeMin + extra).toFixed(1),
                 };
             }
@@ -221,8 +229,8 @@ class DatabaseService {
         for (const [aid, acc] of eGroup) {
             const extra = acc.lastOnTs > 0 ? (now - acc.lastOnTs) / 60000 : 0;
             const runtimeMin = acc.runtimeMin + extra;
-            // Ø-Watt aus abgeschlossenen Perioden hochrechnen für laufende Periode
-            const avgW = acc.runtimeMin > 0 ? (acc.wh / acc.runtimeMin) * 60 : 0;
+            // Ø-Watt aus abgeschlossenen Perioden; falls keine → Nennleistung als Fallback
+            const avgW = acc.runtimeMin > 0 ? (acc.wh / acc.runtimeMin) * 60 : acc.ratedWatts;
             const wh = acc.wh + (extra > 0 && avgW > 0 ? (avgW * extra / 60) : 0);
             todayEntry.actuators[aid] = {
                 name: acc.name,

@@ -42,7 +42,7 @@ export declare class DatabaseService {
     constructor(log: ILogger, setState: SetStateFn, getState: GetStateFn);
     loadGroup(groupId: string): Promise<void>;
     trackSensorValue(groupId: string, sensorId: string, value: number, name?: string): void;
-    trackActuatorOn(groupId: string, actuatorId: string, name: string): void;
+    trackActuatorOn(groupId: string, actuatorId: string, name: string, ratedWatts?: number): void;
     trackActuatorOff(groupId: string, actuatorId: string, ratedWatts: number): void;
     /**
      * Wird bei jedem Live-W-Wert aufgerufen (energyStateUnit='W').

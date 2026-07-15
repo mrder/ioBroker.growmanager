@@ -24,6 +24,8 @@ export declare const ALARM_CODES: {
     readonly SENSOR_DEGRADED: "SENSOR_DEGRADED";
     readonly EMERGENCY_STOP: "EMERGENCY_STOP";
     readonly CUSTOM_ALERT: "CUSTOM_ALERT";
+    readonly CO2_HIGH: "CO2_HIGH";
+    readonly CO2_LOW: "CO2_LOW";
 };
 export type AlarmCode = typeof ALARM_CODES[keyof typeof ALARM_CODES];
 export interface AlarmRaisedEvent {

@@ -26,6 +26,7 @@ export declare class ClimateController {
      * Stufe 1 = Lüftung (primär), Stufe 2 = Klimagerät / Heizung (Eskalation).
      */
     private applyEscalationBlocking;
+    private raiseCo2Alarms;
     private getHystStates;
 }
 //# sourceMappingURL=ClimateController.d.ts.map
