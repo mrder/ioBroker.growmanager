@@ -2,6 +2,15 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.3.4] - 2026-07-15
+
+### Patch — Fix Energie-Tracking: 0 Wh bei dauerlaufenden Aktoren
+
+- **0 Wh in Verlaufsdaten trotz konfigurierter IST-Leistung** (`DatabaseService`): `getEnergy()` berechnete den Ø-Watt aus abgeschlossenen EIN→AUS-Perioden (`acc.runtimeMin > 0 ? acc.wh / acc.runtimeMin * 60 : 0`). Für Aktoren die seit Adapterstart durchgehend laufen (keine AUS-Schaltung), ist `runtimeMin = 0` und `wh = 0` → `avgW = 0` → angezeigte Wh = 0. Root-Cause: `ratedPowerW` war im Akkumulator nicht gespeichert und stand für den Fallback nicht zur Verfügung.
+- **Fix**: `ratedWatts`-Feld zum Energie-Akkumulator-Eintrag hinzugefügt. `trackActuatorOn()` nimmt jetzt optional `ratedWatts` entgegen und speichert es im Eintrag. `getEnergy()` (Live-Display) und `flushDay()` (Mitternachts-Flush) nutzen `acc.ratedWatts` als Fallback wenn `acc.runtimeMin === 0` (kein abgeschlossener Zyklus). Alle 5 `trackActuatorOn()`-Callsites in `main.ts` übergeben jetzt `actuatorConfig.ratedPowerW ?? 0`.
+
+---
+
 ## [0.3.3] - 2026-07-14
 
 ### Patch — 4 Nachbesserungen an CO₂-Regelung + stuckOn-Fix

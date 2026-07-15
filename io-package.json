@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.3",
+    "version": "0.3.4",
     "news": {
+      "0.3.4": {
+        "en": "v0.3.4 patch: fix energy tracking showing 0 Wh for actuators running continuously (never turned off); store ratedWatts in accumulator, use as avgW fallback in live display and midnight flush when no completed ON→OFF cycle exists",
+        "de": "v0.3.4 Patch: Fix Energietracking zeigte 0 Wh fuer dauerlaufende Aktoren (nie abgeschaltet); ratedWatts im Akkumulator gespeichert, als avgW-Fallback in Live-Anzeige und Midnight-Flush wenn kein abgeschlossener EIN→AUS-Zyklus vorhanden"
+      },
       "0.3.3": {
         "en": "v0.3.3 patch: fix CO2_LOW alarm stuck in dead zone (else if → else); extract CO2 alarms to raiseCo2Alarms() to prevent duplicate notifications with multiple co2Valve actuators; fix stuckOn detection for consistently-off actuators (needsSync guard); dashboard CO2 uses state.co2 instead of re-aggregating",
         "de": "v0.3.3 Patch: Fix CO2_LOW-Alarm klebte im Dead-Zone-Bereich (else if → else); CO2-Alarme in raiseCo2Alarms() ausgelagert um Doppel-Notifications bei mehreren co2Valve-Aktoren zu vermeiden; Fix stuckOn-Erkennung fuer dauerhaft-AUS-Aktoren (needsSync-Guard); Dashboard CO2 nutzt state.co2 statt erneuter Aggregation"

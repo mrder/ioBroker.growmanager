@@ -477,7 +477,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     ? (typeof actState.effectiveState === 'boolean' ? actState.effectiveState : (actState.effectiveState as number) > 0)
                     : false;
                 if (isOn && actuator.energyStateUnit !== 'kWh') {
-                    this.databaseService.trackActuatorOn(group.id, actuator.id, actuator.name);
+                    this.databaseService.trackActuatorOn(group.id, actuator.id, actuator.name, actuator.ratedPowerW ?? 0);
                 }
             }
             if (actuator.healthStateId && !this.subscribedStateIds.has(actuator.healthStateId)) {
@@ -882,7 +882,7 @@ class GrowManagerAdapter extends utils.Adapter {
                             if (actuatorConfig.energyStateUnit !== 'kWh') {
                                 const isOn = finalCommand === true || (typeof finalCommand === 'number' && finalCommand > 0);
                                 if (isOn) {
-                                    this.databaseService.trackActuatorOn(group.id, actuatorConfig.id, actuatorConfig.name);
+                                    this.databaseService.trackActuatorOn(group.id, actuatorConfig.id, actuatorConfig.name, actuatorConfig.ratedPowerW ?? 0);
                                 } else if (actuatorConfig.ratedPowerW) {
                                     this.databaseService.trackActuatorOff(group.id, actuatorConfig.id, actuatorConfig.ratedPowerW);
                                 }
@@ -920,7 +920,7 @@ class GrowManagerAdapter extends utils.Adapter {
                                 if (act.energyStateUnit !== 'kWh') {
                                     const isOn = result.finalCommand === true || (typeof result.finalCommand === 'number' && result.finalCommand > 0);
                                     if (isOn) {
-                                        this.databaseService.trackActuatorOn(result.winningGroupId, act.id, act.name);
+                                        this.databaseService.trackActuatorOn(result.winningGroupId, act.id, act.name, act.ratedPowerW ?? 0);
                                     } else {
                                         this.databaseService.trackActuatorOff(result.winningGroupId, act.id, act.ratedPowerW ?? 0);
                                     }
@@ -1250,7 +1250,7 @@ class GrowManagerAdapter extends utils.Adapter {
                         this.log.info(`Umluft ${act.name}: → ${wantsOn ? 'EIN' : 'AUS'} (windSimulator)`);
                         // Energie-Tracking (Nennleistung)
                         if (act.energyStateUnit !== 'kWh') {
-                            if (wantsOn) this.databaseService.trackActuatorOn(config.id, act.id, act.name);
+                            if (wantsOn) this.databaseService.trackActuatorOn(config.id, act.id, act.name, act.ratedPowerW ?? 0);
                             else if (act.ratedPowerW) this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW);
                         }
                     }
@@ -1332,7 +1332,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 // Energie-Tracking: ratedPowerW-Fallback (nur wenn kein kWh-Sensor konfiguriert)
                 if (actuatorConfig.energyStateUnit !== 'kWh') {
                     if (action.requested === true || (typeof action.requested === 'number' && action.requested > 0)) {
-                        this.databaseService.trackActuatorOn(config.id, actuatorConfig.id, actuatorConfig.name);
+                        this.databaseService.trackActuatorOn(config.id, actuatorConfig.id, actuatorConfig.name, actuatorConfig.ratedPowerW ?? 0);
                     } else {
                         this.databaseService.trackActuatorOff(config.id, actuatorConfig.id, actuatorConfig.ratedPowerW ?? 0);
                     }

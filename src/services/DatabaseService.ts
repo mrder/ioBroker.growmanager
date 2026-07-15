@@ -49,7 +49,7 @@ export class DatabaseService {
     private readonly sensorAcc    = new Map<string, Map<string, { sum: number; min: number; max: number; n: number; name: string }>>();
 
     // Akkumulator für laufende Energiewerte pro Gruppe/Aktor
-    private readonly energyAcc    = new Map<string, Map<string, { wh: number; runtimeMin: number; name: string; lastOnTs: number }>>();
+    private readonly energyAcc    = new Map<string, Map<string, { wh: number; runtimeMin: number; name: string; lastOnTs: number; ratedWatts: number }>>();
 
     private readonly lastMidnightFlush = new Map<string, string>();
 
@@ -91,15 +91,16 @@ export class DatabaseService {
 
     // ---- Energiedaten akkumulieren ----------------------------
 
-    trackActuatorOn(groupId: string, actuatorId: string, name: string): void {
+    trackActuatorOn(groupId: string, actuatorId: string, name: string, ratedWatts = 0): void {
         const group = this.energyAcc.get(groupId);
         if (!group) return;
         const cur = group.get(actuatorId);
         if (cur && cur.lastOnTs === 0) {
             cur.lastOnTs = Date.now();
             cur.name = name;
+            if (ratedWatts > 0) cur.ratedWatts = ratedWatts;
         } else if (!cur) {
-            group.set(actuatorId, { wh: 0, runtimeMin: 0, name, lastOnTs: Date.now() });
+            group.set(actuatorId, { wh: 0, runtimeMin: 0, name, lastOnTs: Date.now(), ratedWatts });
         }
     }
 
@@ -139,7 +140,7 @@ export class DatabaseService {
         if (!group) return;
         const cur = group.get(actuatorId);
         if (!cur) {
-            group.set(actuatorId, { wh: deltaWh, runtimeMin: durationMin, name, lastOnTs: 0 });
+            group.set(actuatorId, { wh: deltaWh, runtimeMin: durationMin, name, lastOnTs: 0, ratedWatts: 0 });
         } else {
             cur.wh += deltaWh;
             cur.runtimeMin += durationMin;
@@ -193,9 +194,12 @@ export class DatabaseService {
                 // Noch-laufende Aktoren: Laufzeit bis jetzt anrechnen
                 let extra = 0;
                 if (acc.lastOnTs > 0) extra = (Date.now() - acc.lastOnTs) / 60_000;
+                // Wh: Ø-Watt aus abgeschlossenen Perioden; falls keine → Nennleistung
+                const avgWFlush = acc.runtimeMin > 0 ? (acc.wh / acc.runtimeMin) * 60 : acc.ratedWatts;
+                const whTotal = acc.wh + (extra > 0 && avgWFlush > 0 ? (avgWFlush * extra / 60) : 0);
                 entry.actuators[aid] = {
                     name: acc.name,
-                    wh: +acc.wh.toFixed(1),
+                    wh: +whTotal.toFixed(1),
                     runtimeMin: +(acc.runtimeMin + extra).toFixed(1),
                 };
             }
@@ -252,8 +256,8 @@ export class DatabaseService {
         for (const [aid, acc] of eGroup) {
             const extra = acc.lastOnTs > 0 ? (now - acc.lastOnTs) / 60_000 : 0;
             const runtimeMin = acc.runtimeMin + extra;
-            // Ø-Watt aus abgeschlossenen Perioden hochrechnen für laufende Periode
-            const avgW = acc.runtimeMin > 0 ? (acc.wh / acc.runtimeMin) * 60 : 0;
+            // Ø-Watt aus abgeschlossenen Perioden; falls keine → Nennleistung als Fallback
+            const avgW = acc.runtimeMin > 0 ? (acc.wh / acc.runtimeMin) * 60 : acc.ratedWatts;
             const wh = acc.wh + (extra > 0 && avgW > 0 ? (avgW * extra / 60) : 0);
             todayEntry.actuators[aid] = {
                 name: acc.name,
