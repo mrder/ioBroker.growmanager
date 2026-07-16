@@ -292,16 +292,26 @@ class ClimateController {
             return null; // kein VPD-Sollwert konfiguriert
         const vpdMid = (sp.vpdMin + sp.vpdMax) / 2;
         let vpdState;
+        const prevAct = this.actuatorHystStates.get(act.id) ?? 0;
         if (act.actuatorHysteresis !== undefined && act.actuatorHysteresis > 0) {
-            const prevAct = this.actuatorHystStates.get(act.id) ?? 0;
             vpdState = (0, calculations_1.hysteresisCheck)(vpd, vpdMid, act.actuatorHysteresis * 2, prevAct);
-            this.actuatorHystStates.set(act.id, vpdState);
         }
         else {
-            const band = Math.max(0.05, sp.vpdMax - sp.vpdMin); // Mindestband 0.05 kPa gegen Bang-Bang
-            vpdState = (0, calculations_1.hysteresisCheck)(vpd, vpdMid, band, hyst.vpd);
-            hyst.vpd = vpdState;
+            // Richtungsbasierte Hysterese: Aktoren laufen bis zur Mitte des Sollbereichs (vpdMid),
+            // nicht nur bis zur Sollbereichsgrenze. Das schafft längere EIN/AUS-Zyklen.
+            // Entfeuchter/Abluft (dir='down'): EIN wenn VPD < vpdMin, AUS erst wenn VPD > vpdMid
+            // Befeuchter (dir='up'):           EIN wenn VPD > vpdMax, AUS erst wenn VPD < vpdMid
+            const halfRange = (sp.vpdMax - sp.vpdMin) / 2;
+            const band = Math.max(0.05, halfRange);
+            if (dir === 'up') {
+                vpdState = (0, calculations_1.hysteresisCheck)(vpd, sp.vpdMax - band / 2, band, prevAct);
+            }
+            else {
+                vpdState = (0, calculations_1.hysteresisCheck)(vpd, sp.vpdMin + band / 2, band, prevAct);
+            }
         }
+        this.actuatorHystStates.set(act.id, vpdState);
+        hyst.vpd = vpdState;
         if (vpdState === -1) {
             // VPD zu niedrig → Feuchte senken oder Temperatur erhöhen
             if (dir === 'down' || dir === 'both') {

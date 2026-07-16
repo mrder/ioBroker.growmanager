@@ -2,6 +2,22 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.3.7] - 2026-07-16
+
+### Dashboard — Wochen-Navigation für Statistik und Energie
+
+- **Wochen-Navigation** (`dashboard.html`): Stats- und Energie-Verlauf zeigt jetzt nur 7 Tage auf einmal. Über ◀/▶-Buttons kann Woche für Woche zurückgeblättert werden. 30 Tage werden weiterhin gespeichert. Bewässerungs-Tab unverändert (ereignisbasiert, keine Tages-Aggregation). Navigation zeigt Datums-Range der angezeigten Woche.
+
+### Klima — VPD-Hysterese richtungsbasiert (Laufen bis Sollbereichsmitte)
+
+- **`decideVpdAct()` geändert** (`ClimateController.ts`): VPD-Aktoren laufen jetzt bis zur **Mitte des Sollbereichs** (vpdMid), nicht nur bis zur unteren/oberen Sollbereichsgrenze.
+  - **Entfeuchter/Abluft (`dir='down'`)**: EIN wenn VPD < vpdMin, AUS erst wenn VPD > vpdMid
+  - **Befeuchter (`dir='up'`)**: EIN wenn VPD > vpdMax, AUS erst wenn VPD < vpdMid
+  - Per-Aktor-Hysterese-State (`actuatorHystStates`) wird immer verwendet, kein geteilter Gruppen-State mehr — verhindert den Startup-Bug bei dem `prevState=0` im Totband sofort AUS triggerte
+  - Aktoren mit explizit gesetztem `actuatorHysteresis` behalten ihr bisheriges Verhalten
+
+---
+
 ## [0.3.6] - 2026-07-16
 
 ### UI — Tages-Statistiken als Sensor-Cards

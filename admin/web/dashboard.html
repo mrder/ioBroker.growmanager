@@ -1093,6 +1093,7 @@ function renderLsBars() {
 let dbCurrentGroup = null;
 let dbCurrentTab = 'stats';
 let dbCurrentData = [];
+let dbWeekOffset = 0;
 
 async function showDb(groupId, groupName, tab = 'stats') {
   dbCurrentGroup = groupId;
@@ -1117,12 +1118,48 @@ async function dbSwitchTab(tab) {
   try {
     const res = await fetch(`/api/database/${dbCurrentGroup}/${tab}`);
     dbCurrentData = await res.json();
-    body.innerHTML = tab === 'stats'      ? renderStatsTable(dbCurrentData)
-                   : tab === 'energy'     ? renderEnergyTable(dbCurrentData)
-                   :                        renderIrrigationTable(dbCurrentData);
+    dbWeekOffset = 0;
+    dbReRender();
   } catch(e) {
     body.innerHTML = '<p style="color:var(--warn);padding:20px">Fehler beim Laden</p>';
   }
+}
+
+function dbWeekSlice(data) {
+  return data.slice(dbWeekOffset * 7, (dbWeekOffset + 1) * 7);
+}
+
+function renderWeekNav(data) {
+  const totalPages = Math.ceil(data.length / 7);
+  if (totalPages <= 1) return '';
+  const slice = dbWeekSlice(data);
+  const canOlder = dbWeekOffset < totalPages - 1;
+  const canNewer = dbWeekOffset > 0;
+  const first = (slice[0]?.date ?? '').split(' ')[0];
+  const last  = (slice[slice.length - 1]?.date ?? '').split(' ')[0];
+  const label = dbWeekOffset === 0
+    ? `Aktuelle Woche (${last} – ${first})`
+    : `Woche ${dbWeekOffset + 1} (${last} – ${first})`;
+  const btn = 'padding:4px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg-card,rgba(255,255,255,.06));color:var(--text);cursor:pointer;font-size:13px';
+  const dim = 'opacity:.3;cursor:default;pointer-events:none';
+  return `<div style="display:flex;align-items:center;gap:10px;padding:0 0 14px;user-select:none">
+    <button style="${btn}${canOlder?'':';'+dim}" onclick="dbWeekOffset++;dbReRender()">◀ Älter</button>
+    <span style="flex:1;text-align:center;font-size:13px;color:var(--text-dim)">${label}</span>
+    <button style="${btn}${canNewer?'':';'+dim}" onclick="dbWeekOffset--;dbReRender()">Neuer ▶</button>
+  </div>`;
+}
+
+function dbReRender() {
+  const body = document.getElementById('dbBody');
+  if (!body) return;
+  const isDayBased = dbCurrentTab === 'stats' || dbCurrentTab === 'energy';
+  const slice = isDayBased ? dbWeekSlice(dbCurrentData) : dbCurrentData;
+  const nav   = isDayBased && dbCurrentData.length > 7 ? renderWeekNav(dbCurrentData) : '';
+  body.innerHTML = nav + (
+    dbCurrentTab === 'stats'   ? renderStatsTable(slice)
+  : dbCurrentTab === 'energy'  ? renderEnergyTable(slice)
+  : renderIrrigationTable(dbCurrentData)
+  );
 }
 
 function renderStatsTable(data) {
