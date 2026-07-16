@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.4",
+    "version": "0.3.5",
     "news": {
+      "0.3.5": {
+        "en": "v0.3.5 patch: fix trackActuatorOff not called for actuators without ratedPowerW (SharedAktor + windSimulator paths), causing runtime to count through OFF periods; read initial W-sensor value at startup to prevent 0 Wh on static W values; redesign energy history table to per-actuator cards",
+        "de": "v0.3.5 Patch: Fix trackActuatorOff wurde bei Aktoren ohne Nennleistung nicht aufgerufen (SharedAktor + windSimulator), Laufzeit zaehlte durch AUS-Phasen; initialer W-Sensor-Wert beim Start lesen um 0 Wh bei konstantem W-Wert zu vermeiden; Energietabelle als Karten je Aktor neu gestaltet"
+      },
       "0.3.4": {
         "en": "v0.3.4 patch: fix energy tracking showing 0 Wh for actuators running continuously (never turned off); store ratedWatts in accumulator, use as avgW fallback in live display and midnight flush when no completed ON→OFF cycle exists",
         "de": "v0.3.4 Patch: Fix Energietracking zeigte 0 Wh fuer dauerlaufende Aktoren (nie abgeschaltet); ratedWatts im Akkumulator gespeichert, als avgW-Fallback in Live-Anzeige und Midnight-Flush wenn kein abgeschlossener EIN→AUS-Zyklus vorhanden"

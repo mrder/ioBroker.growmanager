@@ -1158,7 +1158,6 @@ function renderEnergyTable(data) {
   const names = {};
   data.forEach(d => Object.entries(d.actuators ?? {}).forEach(([id,a]) => { names[id] = a.name; }));
 
-  // Gesamtsummen pro Aktor berechnen
   const totals = {};
   actIds.forEach(id => { totals[id] = { wh: 0, runtimeMin: 0 }; });
   data.forEach(d => actIds.forEach(id => {
@@ -1167,41 +1166,38 @@ function renderEnergyTable(data) {
   }));
 
   const fmtRuntime = min => {
-    const h = Math.floor(min/60), m = Math.round(min%60);
+    const h = Math.floor(min / 60), m = Math.round(min % 60);
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   };
-  const fmtAvgW = (wh, runtimeMin) => runtimeMin > 0 ? (wh / (runtimeMin/60)).toFixed(0) + ' W' : '–';
+  const fmtAvgW = (wh, runtimeMin) => runtimeMin > 0 ? (wh / (runtimeMin / 60)).toFixed(0) + ' W' : '–';
+  const fmtWh = wh => wh >= 1000 ? (wh / 1000).toFixed(2) + ' kWh' : wh.toFixed(0) + ' Wh';
 
-  let html = `<table class="db-table"><thead><tr><th>Datum</th>`;
-  actIds.forEach(id => {
-    html += `<th>${names[id]??id}<br><small style="color:var(--text-dim);font-weight:400">Wh / kWh</small></th>`;
-    html += `<th><small style="color:var(--text-dim);font-weight:400">Laufzeit / Ø W</small></th>`;
-  });
-  html += '</tr></thead><tbody>';
-
-  for (const row of data) {
-    html += `<tr><td>${row.date}</td>`;
-    for (const id of actIds) {
+  let html = '<div style="display:flex;flex-wrap:wrap;gap:16px;padding:4px 0">';
+  for (const id of actIds) {
+    const tot = totals[id];
+    html += `<div style="flex:1 1 280px;min-width:260px;border:1px solid var(--border);border-radius:8px;overflow:hidden">`;
+    html += `<div style="padding:10px 14px;background:var(--bg-card, rgba(255,255,255,.04));border-bottom:1px solid var(--border);font-weight:600">${names[id] ?? id}</div>`;
+    html += `<table class="db-table" style="margin:0;border:none">`;
+    html += `<thead><tr><th>Datum</th><th style="text-align:right">Energie</th><th style="text-align:right">Laufzeit</th><th style="text-align:right">Ø W</th></tr></thead><tbody>`;
+    for (const row of data) {
       const a = row.actuators?.[id];
-      if (a) {
-        const kwh = (a.wh / 1000).toFixed(3);
-        html += `<td>${a.wh.toFixed(0)} Wh<br><small style="color:var(--text-dim)">${kwh} kWh</small></td>`;
-        html += `<td>${fmtRuntime(a.runtimeMin)}<br><small style="color:var(--text-dim)">${fmtAvgW(a.wh, a.runtimeMin)}</small></td>`;
-      } else html += `<td colspan="2" style="color:var(--text-dim)">–</td>`;
+      if (!a) continue;
+      html += `<tr>`;
+      html += `<td>${row.date}</td>`;
+      html += `<td style="text-align:right">${fmtWh(a.wh)}</td>`;
+      html += `<td style="text-align:right">${fmtRuntime(a.runtimeMin)}</td>`;
+      html += `<td style="text-align:right;color:var(--text-dim)">${fmtAvgW(a.wh, a.runtimeMin)}</td>`;
+      html += `</tr>`;
     }
-    html += '</tr>';
+    html += `<tr style="font-weight:600;border-top:2px solid var(--border)">`;
+    html += `<td>Gesamt</td>`;
+    html += `<td style="text-align:right;color:var(--accent)">${fmtWh(tot.wh)}</td>`;
+    html += `<td style="text-align:right">${fmtRuntime(tot.runtimeMin)}</td>`;
+    html += `<td style="text-align:right;color:var(--text-dim)">${fmtAvgW(tot.wh, tot.runtimeMin)}</td>`;
+    html += `</tr>`;
+    html += `</tbody></table></div>`;
   }
-
-  // Summenzeile
-  html += `<tr style="font-weight:600;border-top:2px solid var(--border)"><td>Gesamt (${data.length} Tage)</td>`;
-  actIds.forEach(id => {
-    const t = totals[id];
-    html += `<td>${t.wh.toFixed(0)} Wh<br><small style="color:var(--accent)">${(t.wh/1000).toFixed(3)} kWh</small></td>`;
-    html += `<td>${fmtRuntime(t.runtimeMin)}<br><small style="color:var(--text-dim)">${fmtAvgW(t.wh, t.runtimeMin)}</small></td>`;
-  });
-  html += '</tr>';
-
-  return html + '</tbody></table>';
+  return html + '</div>';
 }
 
 function renderIrrigationTable(data) {

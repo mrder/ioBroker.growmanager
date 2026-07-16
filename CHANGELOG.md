@@ -2,6 +2,16 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.3.5] - 2026-07-16
+
+### Patch — Energie-Tracking: Laufzeit + Wh-Berechnung + Darstellung
+
+- **`trackActuatorOff()` wurde für Aktoren ohne `ratedPowerW` nie aufgerufen** (`main.ts`): Im SharedAktor-Pfad stand `else if (actuatorConfig.ratedPowerW)` und im windSimulator-Pfad `else if (act.ratedPowerW)` — bei `ratedPowerW = 0` oder nicht konfiguriert wurde der OFF-Event nicht getracked. Folge: `lastOnTs` blieb auf dem Mitternachts-Reset stehen → angezeigte Laufzeit = aktuelle Uhrzeit statt tatsächliche Betriebszeit. Fix: `else` ohne Guard — `trackActuatorOff(…, 0)` setzt `lastOnTs = 0` und addiert `runtimeMin` korrekt, auch ohne Wh-Berechnung.
+- **0 Wh bei W-Sensor mit konstantem Wert** (`main.ts`): ioBroker sendet State-Events für `energyStateId` nur bei Wertänderungen. Bleibt der Sensor konstant (z.B. Lüfter immer 50 W), kommt kein Event → `updateActuatorPowerSample()` wird nie aufgerufen → `runtimeMin = 0`, `wh = 0`. Fix: beim Adapterstart den aktuellen W-Wert per `getForeignStateAsync()` lesen und als `ratedWatts`-Fallback in `trackActuatorOn()` übergeben, wenn keine `ratedPowerW` konfiguriert ist.
+- **Energietabelle katastrophale Darstellung** (`dashboard.html`): Pro Aktor 2 Spalten (Wh + Laufzeit) ergab eine extrem breite Tabelle die nicht scrollt. Neu: ein Card-Rahmen pro Aktor mit eigener kompakter Tabelle (Datum | Energie | Laufzeit | Ø W). Cards fließen per Flexbox nebeneinander.
+
+---
+
 ## [0.3.4] - 2026-07-15
 
 ### Patch — Fix Energie-Tracking: 0 Wh bei dauerlaufenden Aktoren

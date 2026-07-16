@@ -435,7 +435,15 @@ class GrowManagerAdapter extends utils.Adapter {
                     ? (typeof actState.effectiveState === 'boolean' ? actState.effectiveState : actState.effectiveState > 0)
                     : false;
                 if (isOn && actuator.energyStateUnit !== 'kWh') {
-                    this.databaseService.trackActuatorOn(group.id, actuator.id, actuator.name, actuator.ratedPowerW ?? 0);
+                    let startRatedW = actuator.ratedPowerW ?? 0;
+                    // W-Sensor: aktuellen Wert als Nennleistungs-Fallback lesen,
+                    // da ioBroker State-Events nur bei Wertänderungen feuern.
+                    if (actuator.energyStateUnit === 'W' && actuator.energyStateId && startRatedW === 0) {
+                        const wState = await this.getForeignStateAsync(actuator.energyStateId);
+                        if (typeof wState?.val === 'number' && wState.val > 0)
+                            startRatedW = wState.val;
+                    }
+                    this.databaseService.trackActuatorOn(group.id, actuator.id, actuator.name, startRatedW);
                 }
             }
             if (actuator.healthStateId && !this.subscribedStateIds.has(actuator.healthStateId)) {
@@ -808,8 +816,8 @@ class GrowManagerAdapter extends utils.Adapter {
                                 if (isOn) {
                                     this.databaseService.trackActuatorOn(group.id, actuatorConfig.id, actuatorConfig.name, actuatorConfig.ratedPowerW ?? 0);
                                 }
-                                else if (actuatorConfig.ratedPowerW) {
-                                    this.databaseService.trackActuatorOff(group.id, actuatorConfig.id, actuatorConfig.ratedPowerW);
+                                else {
+                                    this.databaseService.trackActuatorOff(group.id, actuatorConfig.id, actuatorConfig.ratedPowerW ?? 0);
                                 }
                             }
                         }
@@ -1155,8 +1163,8 @@ class GrowManagerAdapter extends utils.Adapter {
                         if (act.energyStateUnit !== 'kWh') {
                             if (wantsOn)
                                 this.databaseService.trackActuatorOn(config.id, act.id, act.name, act.ratedPowerW ?? 0);
-                            else if (act.ratedPowerW)
-                                this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW);
+                            else
+                                this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW ?? 0);
                         }
                     }
                     continue;
