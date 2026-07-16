@@ -1127,29 +1127,36 @@ async function dbSwitchTab(tab) {
 
 function renderStatsTable(data) {
   if (!data || data.length === 0) return '<p style="color:var(--text-dim);padding:20px">Noch keine Tagesdaten vorhanden.</p>';
-  // Alle Sensor-IDs sammeln
   const sensorIds = [...new Set(data.flatMap(d => Object.keys(d.sensors ?? {})))];
-  // Anzeigename: erst aus dem name-Feld des neuesten Eintrags, dann Fallbacks
-  const sensorLabels = { temperature:'Temp °C', humidity:'Feuchte %', vpd:'VPD kPa' };
-  const cols = sensorIds.map(id => {
+  const sensorLabels = { temperature: 'Temperatur °C', humidity: 'Feuchte %', vpd: 'VPD kPa', co2: 'CO₂ ppm' };
+  const getName = id => {
     if (sensorLabels[id]) return sensorLabels[id];
     for (const row of data) {
       const s = row.sensors?.[id];
-      if (s && s.name && s.name !== id) return s.name;
+      if (s?.name && s.name !== id) return s.name;
     }
     return id;
-  });
-  let html = `<table class="db-table"><thead><tr><th>Datum</th>${cols.map(c=>`<th>${c} Min</th><th>${c} Avg</th><th>${c} Max</th>`).join('')}</tr></thead><tbody>`;
-  for (const row of data) {
-    html += `<tr><td>${row.date}</td>`;
-    for (const id of sensorIds) {
+  };
+  let html = '<div style="display:flex;flex-wrap:wrap;gap:16px;padding:4px 0">';
+  for (const id of sensorIds) {
+    html += `<div style="flex:1 1 260px;min-width:220px;border:1px solid var(--border);border-radius:8px;overflow:hidden">`;
+    html += `<div style="padding:10px 14px;background:var(--bg-card,rgba(255,255,255,.04));border-bottom:1px solid var(--border);font-weight:600">${getName(id)}</div>`;
+    html += `<table class="db-table" style="margin:0;border:none"><thead>`;
+    html += `<tr><th>Datum</th><th style="text-align:right;color:#5bbddd">Min</th><th style="text-align:right">Avg</th><th style="text-align:right;color:#e87060">Max</th></tr>`;
+    html += `</thead><tbody>`;
+    for (const row of data) {
       const s = row.sensors?.[id];
-      if (s) html += `<td>${s.min != null ? s.min.toFixed(1) : '–'}</td><td style="font-weight:600">${s.avg != null ? s.avg.toFixed(1) : '–'}</td><td>${s.max != null ? s.max.toFixed(1) : '–'}</td>`;
-      else   html += `<td colspan="3" style="color:var(--text-dim)">–</td>`;
+      if (!s) continue;
+      html += `<tr>`;
+      html += `<td>${row.date}</td>`;
+      html += `<td style="text-align:right;color:#5bbddd">${s.min != null ? s.min.toFixed(1) : '–'}</td>`;
+      html += `<td style="text-align:right;font-weight:600">${s.avg != null ? s.avg.toFixed(1) : '–'}</td>`;
+      html += `<td style="text-align:right;color:#e87060">${s.max != null ? s.max.toFixed(1) : '–'}</td>`;
+      html += `</tr>`;
     }
-    html += '</tr>';
+    html += `</tbody></table></div>`;
   }
-  return html + '</tbody></table>';
+  return html + '</div>';
 }
 
 function renderEnergyTable(data) {

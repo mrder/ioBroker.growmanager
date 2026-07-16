@@ -2,6 +2,14 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.3.6] - 2026-07-16
+
+### UI — Tages-Statistiken als Sensor-Cards
+
+- **`renderStatsTable()` neu gestaltet** (`dashboard.html`): Ersetzt die extrem breite Tabelle (pro Sensor 3 Spalten: Min/Avg/Max × n Sensoren) durch das gleiche Card-Layout wie die Energie-Ansicht. Jeder Sensor bekommt eine eigene Card mit kompakter Tabelle: Datum | Min (blau) | Avg (fett) | Max (rot). Cards fließen per Flexbox nebeneinander. CO₂ in der Sensor-Label-Map ergänzt.
+
+---
+
 ## [0.3.5] - 2026-07-16
 
 ### Patch — Energie-Tracking: Laufzeit + Wh-Berechnung + Darstellung

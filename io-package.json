@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.5",
+    "version": "0.3.6",
     "news": {
+      "0.3.6": {
+        "en": "v0.3.6: redesign daily sensor statistics table to per-sensor cards (Date / Min / Avg / Max) matching the energy table layout; min in blue, max in red for quick scanning; add co2 label",
+        "de": "v0.3.6: Tages-Statistiken als Sensor-Karten neu gestaltet (Datum / Min / Avg / Max) passend zum Energie-Layout; Min in Blau, Max in Rot fuer schnelle Erfassung; CO2-Label ergaenzt"
+      },
       "0.3.5": {
         "en": "v0.3.5 patch: fix trackActuatorOff not called for actuators without ratedPowerW (SharedAktor + windSimulator paths), causing runtime to count through OFF periods; read initial W-sensor value at startup to prevent 0 Wh on static W values; redesign energy history table to per-actuator cards",
         "de": "v0.3.5 Patch: Fix trackActuatorOff wurde bei Aktoren ohne Nennleistung nicht aufgerufen (SharedAktor + windSimulator), Laufzeit zaehlte durch AUS-Phasen; initialer W-Sensor-Wert beim Start lesen um 0 Wh bei konstantem W-Wert zu vermeiden; Energietabelle als Karten je Aktor neu gestaltet"
