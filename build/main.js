@@ -697,8 +697,11 @@ class GrowManagerAdapter extends utils.Adapter {
                     const hysteresisSeconds = actuatorConfig.sharedVoteHysteresisSeconds ?? 60;
                     // Eigentümer-Stimme: aktuellen Klimabedarf berechnen (gleiche Logik wie Teilnehmer)
                     const ownerGs = this.groupStates.get(group.id);
+                    const sharedCurrentlyOn = this.votingResults.has(actuatorConfig.id)
+                        ? this.votingResults.get(actuatorConfig.id) !== false
+                        : false;
                     let ownerNeed = ownerGs
-                        ? this.computeParticipantNeed(actuatorConfig.type, ownerGs, 3)
+                        ? this.computeParticipantNeed(actuatorConfig.type, ownerGs, 3, sharedCurrentlyOn)
                         : { wantsOn: false, urgency: 0, reason: 'Kein Gruppenstatus' };
                     // Outdoor-Guard für Lüfter: Außenluft nur einsetzen wenn innen wärmer als außen.
                     // Ausnahme: VPD zu hoch (innen zu trocken) + Außenluft feuchter → Feuchte-Zuluft erlauben.
@@ -748,7 +751,7 @@ class GrowManagerAdapter extends utils.Adapter {
                         if (!pState)
                             continue;
                         const pGroup = this.growConfig.groups.find(g => g.id === participant.groupId);
-                        let need = this.computeParticipantNeed(actuatorConfig.type, pState, 3);
+                        let need = this.computeParticipantNeed(actuatorConfig.type, pState, 3, sharedCurrentlyOn);
                         // Outdoor-Guard für Teilnehmer-Stimmen (Zuluft/Abluft)
                         if (need.wantsOn &&
                             (actuatorConfig.type === 'supplyFan' || actuatorConfig.type === 'exhaustFan') &&
@@ -1266,7 +1269,7 @@ class GrowManagerAdapter extends utils.Adapter {
      * Berechnet ob eine Gruppe einen Aktor vom gegebenen Typ benötigt,
      * basierend auf dem aktuellen Gruppenstand und Klimaprofil-Sollwerten.
      */
-    computeParticipantNeed(actuatorType, gs, defaultHysteresis) {
+    computeParticipantNeed(actuatorType, gs, defaultHysteresis, currentlyOn = false) {
         const hyst = defaultHysteresis;
         const tempHyst = 1.5; // °C
         // Sollwerte aus aktivem Profil ermitteln
@@ -1305,7 +1308,13 @@ class GrowManagerAdapter extends utils.Adapter {
                         // VPD zu hoch → Entfeuchter würde es weiter verschlimmern → gesperrt
                         return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch – Entfeuchter gesperrt` };
                     }
-                    // VPD im Sollbereich → keine RH-Regelung; Entfeuchter würde VPD weiter erhöhen
+                    // Hysterese: wenn gerade EIN, bis Mitte des Sollbereichs weiterlaufen
+                    const vpdMid_dh = (vpdMin + vpdMax) / 2;
+                    if (currentlyOn && gs.vpd < vpdMid_dh) {
+                        const urgency = Math.max(0, (vpdMid_dh - gs.vpd) / (vpdMid_dh - vpdMin));
+                        return { wantsOn: true, urgency, reason: `VPD ${gs.vpd.toFixed(2)} kPa noch unter Mitte ${vpdMid_dh.toFixed(2)} – weiter Entfeuchten` };
+                    }
+                    // VPD im Sollbereich (oder über Mitte) → Entfeuchter pausiert
                     return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa im Sollbereich – Entfeuchter pausiert` };
                 }
                 // Feuchtemodus (kein VPD konfiguriert): RH-Setpoint mit Guard
@@ -1338,7 +1347,13 @@ class GrowManagerAdapter extends utils.Adapter {
                         // VPD zu niedrig → Befeuchter würde es weiter verschlimmern → gesperrt
                         return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa zu niedrig – Befeuchter gesperrt` };
                     }
-                    // VPD im Sollbereich → keine RH-Regelung
+                    // Hysterese: wenn gerade EIN, bis Mitte des Sollbereichs weiterlaufen
+                    const vpdMid_hum = (vpdMin + vpdMax) / 2;
+                    if (currentlyOn && gs.vpd > vpdMid_hum) {
+                        const urgency = Math.max(0, (gs.vpd - vpdMid_hum) / (vpdMax - vpdMid_hum));
+                        return { wantsOn: true, urgency, reason: `VPD ${gs.vpd.toFixed(2)} kPa noch über Mitte ${vpdMid_hum.toFixed(2)} – weiter Befeuchten` };
+                    }
+                    // VPD im Sollbereich (oder unter Mitte) → Befeuchter pausiert
                     return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa im Sollbereich – Befeuchter pausiert` };
                 }
                 // Feuchtemodus (kein VPD konfiguriert): RH-Setpoint mit Guard
