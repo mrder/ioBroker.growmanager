@@ -17,6 +17,7 @@ export interface DashboardActuatorState {
     effectiveState: boolean | number | string | null;
     feedback: boolean | number | string | null;
     health: string;
+    shared?: boolean;
     sharedVotingMode?: string;
     sharedParticipants?: Array<{ groupId: string; influenceFactor: number }>;
     votes?: Array<{ groupId: string; groupName?: string; wantsOn: boolean; weight: number; urgency: number; reason: string }>;
@@ -604,7 +605,7 @@ export class WebDashboardService {
             return;
         }
         let body = '';
-        req.on('data', chunk => { body += chunk; if (body.length > 8 * 1024 * 1024) req.destroy(); });
+        req.on('data', chunk => { body += chunk; if (body.length > 8 * 1024 * 1024) { if (!res.headersSent) { res.writeHead(413); res.end(); } req.destroy(); } });
         req.on('error', () => { /* ignore */ });
         req.on('end', () => {
             let imageBase64: string;
@@ -658,7 +659,7 @@ export class WebDashboardService {
 
     private handleMode(req: http.IncomingMessage, res: http.ServerResponse): void {
         let body = '';
-        req.on('data', chunk => { body += chunk; if (body.length > 65536) req.destroy(); });
+        req.on('data', chunk => { body += chunk; if (body.length > 65536) { if (!res.headersSent) { res.writeHead(413); res.end(); } req.destroy(); } });
         req.on('error', () => { /* intentional destroy on oversized body */ });
         req.on('end', async () => {
             try {
@@ -690,7 +691,7 @@ export class WebDashboardService {
 
     private handleControl(req: http.IncomingMessage, res: http.ServerResponse): void {
         let body = '';
-        req.on('data', chunk => { body += chunk; if (body.length > 65536) req.destroy(); });
+        req.on('data', chunk => { body += chunk; if (body.length > 65536) { if (!res.headersSent) { res.writeHead(413); res.end(); } req.destroy(); } });
         req.on('error', () => { /* intentional destroy on oversized body */ });
         req.on('end', async () => {
             try {

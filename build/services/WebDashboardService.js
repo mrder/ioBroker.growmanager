@@ -538,8 +538,13 @@ class WebDashboardService {
             return;
         }
         let body = '';
-        req.on('data', chunk => { body += chunk; if (body.length > 8 * 1024 * 1024)
-            req.destroy(); });
+        req.on('data', chunk => { body += chunk; if (body.length > 8 * 1024 * 1024) {
+            if (!res.headersSent) {
+                res.writeHead(413);
+                res.end();
+            }
+            req.destroy();
+        } });
         req.on('error', () => { });
         req.on('end', () => {
             let imageBase64;
@@ -591,8 +596,13 @@ class WebDashboardService {
     }
     handleMode(req, res) {
         let body = '';
-        req.on('data', chunk => { body += chunk; if (body.length > 65536)
-            req.destroy(); });
+        req.on('data', chunk => { body += chunk; if (body.length > 65536) {
+            if (!res.headersSent) {
+                res.writeHead(413);
+                res.end();
+            }
+            req.destroy();
+        } });
         req.on('error', () => { });
         req.on('end', async () => {
             try {
@@ -620,8 +630,13 @@ class WebDashboardService {
     }
     handleControl(req, res) {
         let body = '';
-        req.on('data', chunk => { body += chunk; if (body.length > 65536)
-            req.destroy(); });
+        req.on('data', chunk => { body += chunk; if (body.length > 65536) {
+            if (!res.headersSent) {
+                res.writeHead(413);
+                res.end();
+            }
+            req.destroy();
+        } });
         req.on('error', () => { });
         req.on('end', async () => {
             try {

@@ -267,7 +267,7 @@ class SensorService {
         const prev = this.states.get(config.id);
         if (!prev || typeof prev.processedValue !== 'number')
             return true;
-        const range = config.validMax - config.validMin;
+        const range = Math.abs(config.validMax - config.validMin); // abs: Fehlkonfiguration validMin>validMax absichern
         const maxJump = range * 0.25; // 25% Sprung als unplausibel
         return Math.abs(newValue - prev.processedValue) <= maxJump;
     }

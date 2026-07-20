@@ -1744,8 +1744,8 @@ function groupCardHtml(g) {
   return `<div class="group-card" id="card-${g.id}">
     <div class="card-header">
       <div class="card-name">
-        <div class="color-dot" style="background:${g.color}"></div>
-        ${g.name}
+        <div class="color-dot" style="background:${esc(g.color)}"></div>
+        ${esc(g.name)}
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         ${modeToggle}
@@ -1806,9 +1806,14 @@ function render(state) {
       <p>Lege Gruppen in der ioBroker Admin-Oberfläche an.</p></div>`;
     return;
   }
-  // Lifestyle-Daten laden (nur beim ersten Mal pro Gruppe), dann rendern
+  // Lifestyle-Daten laden (nur beim ersten Mal pro Gruppe), dann rendern.
+  // Generation-Counter verhindert Race Condition: wenn SSE schnell feuert und mehrere
+  // loadAllLifestyle-Promises in-flight sind, rendert nur das zuletzt gestartete.
   window._dashState = state;
+  if (!window._renderGen) window._renderGen = 0;
+  const myGen = ++window._renderGen;
   loadAllLifestyle(state.groups).then(() => {
+    if (window._renderGen !== myGen) return; // neueres render() ist bereits in-flight
     // Reset camUrls before re-render so stale groups are removed
     for (const k of Object.keys(camUrls)) delete camUrls[k];
     grid.innerHTML = state.groups.map(groupCardHtml).join('');
@@ -2201,12 +2206,12 @@ async function wikiDelete(id) {
 }
 
 connect();
-setInterval(() => {
+const _ivReconnect = setInterval(() => {
   if (!connected) fetch('/api/state').then(r=>r.json()).then(s=>{ if (!connected) { render(s); updateTimestamp(); setConnected(true); } }).catch(()=>{});
 }, 15000);
 
 // Wind-Sim & Block-Countdown: tickt sekündlich im Browser — unabhängig vom SSE-Zyklus
-setInterval(() => {
+const _ivCountdown = setInterval(() => {
   const now = Date.now();
   document.querySelectorAll('.ws-cd').forEach(el => {
     const until = +el.dataset.until;
@@ -2311,11 +2316,17 @@ function initCamThumbs() {
 }
 
 // Auto-Refresh alle 10 Sekunden
-setInterval(() => {
+const _ivCamRefresh = setInterval(() => {
   for (const [gid, url] of Object.entries(camUrls)) {
     refreshCamThumb(gid, url);
   }
 }, 10000);
+
+window.addEventListener('beforeunload', () => {
+  clearInterval(_ivReconnect);
+  clearInterval(_ivCountdown);
+  clearInterval(_ivCamRefresh);
+});
 
 // ---- Analyse-Modal ----
 let cropModal = null, cropCanvas = null, cropCtx = null, cropOverlay = null;

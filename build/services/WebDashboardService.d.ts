@@ -6,6 +6,7 @@ export interface DashboardActuatorState {
     effectiveState: boolean | number | string | null;
     feedback: boolean | number | string | null;
     health: string;
+    shared?: boolean;
     sharedVotingMode?: string;
     sharedParticipants?: Array<{
         groupId: string;

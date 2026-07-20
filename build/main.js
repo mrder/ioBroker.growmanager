@@ -1583,6 +1583,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     effectiveState: as?.effectiveState ?? null,
                     feedback: as?.feedback ?? null,
                     health: as?.health ?? 'unknown',
+                    shared: a.shared,
                     sharedVotingMode: a.sharedVotingMode,
                     sharedParticipants: a.sharedParticipants,
                     votes: (a.shared && a.sharedParticipants?.length)

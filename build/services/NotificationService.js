@@ -77,9 +77,10 @@ class NotificationService {
                 this.log.error(`NotificationService: Kanal ${ch.id} Fehler: ${err}`);
             }
         }
-        // Cooldown erst nach erfolgreichem Versand setzen — bei Netzfehler erneuter Versuch möglich
-        if (sentAtLeastOne)
-            this.lastSent.set(alarm.id, Date.now());
+        // Cooldown immer setzen — auch bei Totalausfall aller Kanäle, damit schnelle
+        // raise/clear-Oscillation nicht sofort erneut feuert. Bei echtem Netzfehler
+        // sorgt der Cooldown ebenfalls für eine Pause bis zum nächsten Versuch.
+        this.lastSent.set(alarm.id, Date.now());
     }
     async sendTest(channel) {
         const fakeAlarm = {
@@ -213,7 +214,10 @@ class NotificationService {
     }
     severityPasses(alarmSev, minSev) {
         const order = ['info', 'warning', 'fault', 'critical'];
-        return order.indexOf(alarmSev) >= order.indexOf(minSev);
+        const minIdx = order.indexOf(minSev);
+        if (minIdx === -1)
+            return true; // unbekannter minSeverity → alle durchlassen (Default: info)
+        return order.indexOf(alarmSev) >= minIdx;
     }
     isQuietHour(ch) {
         if (!ch.quietHoursEnabled)

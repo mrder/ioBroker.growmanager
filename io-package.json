@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.9",
+    "version": "0.3.10",
     "news": {
+      "0.3.10": {
+        "en": "v0.3.10: Fix XSS in group card HTML, 413 responses for oversized bodies in all POST handlers, setInterval cleanup on page unload, linearTrend null for identical timestamps, checkPlausibility with inverted validMin/validMax, shared actuator flag in dashboard state, async render race condition fixed",
+        "de": "v0.3.10: XSS in Gruppen-Karten-HTML behoben, 413-Antworten für zu große Request-Bodies in allen POST-Handlern, setInterval-Cleanup beim Seitenverlassen, linearTrend gibt null bei identischen Timestamps zurück, checkPlausibility mit vertauschten validMin/validMax, shared-Aktorfeld im Dashboard-State, asynchrone Render-Race-Condition behoben"
+      },
       "0.3.9": {
         "en": "v0.3.9: 7-round bug-fix pass — fix phantom hysteresis for shared actors, database date off-by-one, SafeState overridden by Override, dimmer percentage change detection, ScheduleService transition edge case, missing energy tracking for air/circulation/irrigation actuators, unhandled Promise rejections, ConfigurationService import without migration",
         "de": "v0.3.9: 7-Runden Bug-Fix-Pass — Phantom-Hysterese bei geteilten Aktoren, Datenbankdatum um einen Tag verschoben, SafeState wurde von Override überschrieben, Dimmer-Prozentwertänderung nicht erkannt, ScheduleService-Übergang bei exakter Startminute, fehlendes Energie-Tracking für Luft-/Umluft-/Bewässerungsaktoren, unbehandelte Promise-Rejections, ConfigurationService-Import ohne Migration"
