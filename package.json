@@ -1,6 +1,6 @@
 {
   "name": "iobroker.growmanager",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "GrowManager - monitoring and climate control adapter for ioBroker",
   "author": "GrowManager Contributors",
   "license": "MIT",

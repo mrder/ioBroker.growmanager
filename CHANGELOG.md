@@ -2,6 +2,12 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.3.9] - 2026-07-20
+
+Siehe Commit-Message `v0.3.9` — 7-Runden Bug-Fix-Pass (Energie-Tracking, SafeState, Dashboard, ConfigImport, VPD-Hysterese, Datum-Off-by-One, Promise-Rejection-Handling).
+
+---
+
 ## [0.3.8] - 2026-07-20
 
 ### Klima — VPD + Temperatur Hysterese für geteilte Aktoren (shared actors)
