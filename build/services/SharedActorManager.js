@@ -130,51 +130,61 @@ class SharedActorManager {
         const ownerWantsOn = ownerVote?.wantsOn ?? false;
         // Rohen Beschluss berechnen
         let rawCommand;
-        switch (mode) {
-            case 'any': {
-                // EIN wenn Eigentümer ODER irgendein Teilnehmer EIN will.
-                // Owner-AUS ist ein weiches Veto — kann von kritisch dringendem
-                // Teilnehmer (urgency >= 0.7) überstimmt werden.
-                const criticalParticipant = voteList.some(v => v.groupId !== ownerId && v.wantsOn && v.urgency >= 0.7);
-                if (ownerVote && !ownerWantsOn && !criticalParticipant) {
-                    rawCommand = false;
-                }
-                else {
-                    rawCommand = voteList.some(v => v.wantsOn);
-                }
-                break;
-            }
-            case 'majority': {
-                // Gewichtete Mehrheit mit Dringlichkeits-Bonus:
-                // Wer klar außerhalb des Sollbereichs ist (urgency > 0) bekommt mehr Gewicht.
-                // Effektives Gewicht = konfiguriertes Gewicht × (1 + urgency)
-                // → am Rand (urgency≈0): Basis-Gewicht; weit außerhalb (urgency=1): doppeltes Gewicht
-                let onWeight = 0;
-                let offWeight = 0;
-                for (const v of voteList) {
-                    const eff = v.weight * (1 + v.urgency);
-                    if (v.wantsOn)
-                        onWeight += eff;
-                    else
-                        offWeight += eff;
-                }
-                rawCommand = onWeight > offWeight;
-                break;
-            }
-            case 'primary': {
-                // Eigentümer entscheidet; aber Teilnehmer mit hohem Einfluss (>=0.8) kann überstimmen
-                if (ownerWantsOn) {
-                    rawCommand = true;
-                }
-                else {
-                    const highInfluenceOn = voteList.some(v => v.groupId !== ownerId && v.wantsOn && v.weight >= 0.8);
-                    rawCommand = highInfluenceOn;
-                }
-                break;
-            }
-            default:
-                rawCommand = ownerWantsOn;
+        // Hartes Veto: wenn ein TEILNEHMER (nicht der Eigentümer) kritisch außerhalb seines
+        // Sollbereichs ist (urgency >= 0.7 bei AUS-Stimme = Überschuss > ~0.2 kPa/°C),
+        // wird der Aktor gestoppt – unabhängig vom Voting-Mode.
+        // Verhindert dass eine dringende EIN-Stimme einer Gruppe den Sollbereich einer
+        // anderen Gruppe überschreitet.
+        const criticalBlock = voteList.some(v => v.groupId !== ownerId && !v.wantsOn && v.urgency >= 0.7);
+        if (criticalBlock) {
+            rawCommand = false;
         }
+        else
+            switch (mode) {
+                case 'any': {
+                    // EIN wenn Eigentümer ODER irgendein Teilnehmer EIN will.
+                    // Owner-AUS ist ein weiches Veto — kann von kritisch dringendem
+                    // Teilnehmer (urgency >= 0.7) überstimmt werden.
+                    const criticalParticipant = voteList.some(v => v.groupId !== ownerId && v.wantsOn && v.urgency >= 0.7);
+                    if (ownerVote && !ownerWantsOn && !criticalParticipant) {
+                        rawCommand = false;
+                    }
+                    else {
+                        rawCommand = voteList.some(v => v.wantsOn);
+                    }
+                    break;
+                }
+                case 'majority': {
+                    // Gewichtete Mehrheit mit Dringlichkeits-Bonus:
+                    // Wer klar außerhalb des Sollbereichs ist (urgency > 0) bekommt mehr Gewicht.
+                    // Effektives Gewicht = konfiguriertes Gewicht × (1 + urgency)
+                    // → am Rand (urgency≈0): Basis-Gewicht; weit außerhalb (urgency=1): doppeltes Gewicht
+                    let onWeight = 0;
+                    let offWeight = 0;
+                    for (const v of voteList) {
+                        const eff = v.weight * (1 + v.urgency);
+                        if (v.wantsOn)
+                            onWeight += eff;
+                        else
+                            offWeight += eff;
+                    }
+                    rawCommand = onWeight > offWeight;
+                    break;
+                }
+                case 'primary': {
+                    // Eigentümer entscheidet; aber Teilnehmer mit hohem Einfluss (>=0.8) kann überstimmen
+                    if (ownerWantsOn) {
+                        rawCommand = true;
+                    }
+                    else {
+                        const highInfluenceOn = voteList.some(v => v.groupId !== ownerId && v.wantsOn && v.weight >= 0.8);
+                        rawCommand = highInfluenceOn;
+                    }
+                    break;
+                }
+                default:
+                    rawCommand = ownerWantsOn;
+            }
         // Hysterese anwenden
         const now = Date.now();
         const hysteresisMs = hysteresisSeconds * 1000;

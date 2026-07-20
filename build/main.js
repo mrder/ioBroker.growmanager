@@ -1305,8 +1305,10 @@ class GrowManagerAdapter extends utils.Adapter {
                         return { wantsOn: true, urgency: Math.min(1, deficit / 0.5), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu niedrig (Soll >${vpdMin.toFixed(2)}) – Entfeuchten` };
                     }
                     if (gs.vpd > vpdMax) {
-                        // VPD zu hoch → Entfeuchter würde es weiter verschlimmern → gesperrt
-                        return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch – Entfeuchter gesperrt` };
+                        // VPD zu hoch → Entfeuchter würde es weiter verschlimmern → gesperrt.
+                        // Urgency proportional zum Überschuss damit Majority-Voting und Critical-Block greifen.
+                        const excess_dh = gs.vpd - vpdMax;
+                        return { wantsOn: false, urgency: Math.min(1, excess_dh / 0.3), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch – Entfeuchter gesperrt` };
                     }
                     // Hysterese: wenn gerade EIN, bis Mitte des Sollbereichs weiterlaufen
                     const vpdMid_dh = (vpdMin + vpdMax) / 2;
@@ -1345,7 +1347,8 @@ class GrowManagerAdapter extends utils.Adapter {
                     }
                     if (gs.vpd < vpdMin) {
                         // VPD zu niedrig → Befeuchter würde es weiter verschlimmern → gesperrt
-                        return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa zu niedrig – Befeuchter gesperrt` };
+                        const deficit_hum = vpdMin - gs.vpd;
+                        return { wantsOn: false, urgency: Math.min(1, deficit_hum / 0.3), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu niedrig – Befeuchter gesperrt` };
                     }
                     // Hysterese: wenn gerade EIN, bis Mitte des Sollbereichs weiterlaufen
                     const vpdMid_hum = (vpdMin + vpdMax) / 2;
