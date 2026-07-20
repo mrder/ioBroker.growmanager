@@ -1491,6 +1491,15 @@ class GrowManagerAdapter extends utils.Adapter {
                 const target = tempSetpoint ?? 25;
                 const temp = gs.temperature;
                 if (temp !== null) {
+                    // Unterkühlung: Kühlung treibt andere Gruppe unter Minimum → urgentes Veto
+                    const undershoot = (target - tempHyst) - temp;
+                    if (undershoot > 0) {
+                        return { wantsOn: false, urgency: Math.min(1, undershoot / 5), reason: `T ${temp.toFixed(1)}°C < Min ${(target - tempHyst).toFixed(1)}°C – Kühlung gesperrt` };
+                    }
+                    // Hysterese: wenn gerade EIN, bis Sollwert (Mitte) weiterkühlen
+                    if (currentlyOn && temp > target) {
+                        return { wantsOn: true, urgency: Math.max(0, (temp - target) / tempHyst), reason: `T ${temp.toFixed(1)}°C noch über Sollwert ${target}°C – weiter Kühlen` };
+                    }
                     const excess = temp - (target + tempHyst);
                     if (excess > 0) return { wantsOn: true, urgency: Math.min(1, excess / 5), reason: `T ${temp.toFixed(1)}°C > Soll ${target}°C – Lüftung/Kühlung` };
                 }
@@ -1518,6 +1527,15 @@ class GrowManagerAdapter extends utils.Adapter {
                 const target = tempSetpoint ?? 20;
                 const temp = gs.temperature;
                 if (temp === null) return { wantsOn: false, urgency: 0, reason: 'Kein Temperatursensor' };
+                // Überhitzung: Heizung treibt andere Gruppe über Maximum → urgentes Veto
+                const overshoot = temp - (target + tempHyst);
+                if (overshoot > 0) {
+                    return { wantsOn: false, urgency: Math.min(1, overshoot / 5), reason: `T ${temp.toFixed(1)}°C > Max ${(target + tempHyst).toFixed(1)}°C – Heizung gesperrt` };
+                }
+                // Hysterese: wenn gerade EIN, bis Sollwert (Mitte) weiterheizen
+                if (currentlyOn && temp < target) {
+                    return { wantsOn: true, urgency: Math.max(0, (target - temp) / tempHyst), reason: `T ${temp.toFixed(1)}°C noch unter Sollwert ${target}°C – weiter Heizen` };
+                }
                 const deficit = (target - tempHyst) - temp;
                 return {
                     wantsOn: deficit > 0,
