@@ -2,6 +2,22 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.3.8] - 2026-07-20
+
+### Klima — VPD + Temperatur Hysterese für geteilte Aktoren (shared actors)
+
+- **`computeParticipantNeed()` überarbeitet** (`main.ts`): Geteilte Aktoren liefen bisher nur minimal über die Sollbereichsgrenze (bang-bang ohne Totband). Jetzt gilt das gleiche Laufen-bis-Mitte-Prinzip wie bei `decideVpdAct()` im ClimateController:
+  - **Entfeuchter**: EIN wenn VPD < vpdMin, AUS erst wenn VPD > vpdMid — proportionale Dringlichkeit
+  - **Befeuchter**: EIN wenn VPD > vpdMax, AUS erst wenn VPD < vpdMid — proportionale Dringlichkeit
+  - **Kühlung/Abluft/Zuluft**: EIN wenn T > target+hyst, AUS erst wenn T < target — proportionale Dringlichkeit
+  - **Heizung**: EIN wenn T < target-hyst, AUS erst wenn T > target — proportionale Dringlichkeit
+- **VPD-Überschreitung im Abstimmungs-Modus** (`SharedActorManager.ts`):
+  - **`any`/`primary`**: hartes Veto — jede AUS-Stimme mit `urgency > 0` (= Sollbereich verletzt) von Nicht-Eigentümer blockiert den Aktor sofort
+  - **`majority`**: proportionale Abwägung — kleiner Überschuss kann von großem Restbedarf überstimmt werden; effektives Gewicht = `weight × (1 + urgency)`
+- **`votingResults`-Map** (`main.ts`): liefert `currentlyOn` für jeden Aktor an `computeParticipantNeed()` damit die Hysterese zyklus-übergreifend korrekt funktioniert
+
+---
+
 ## [0.3.7] - 2026-07-16
 
 ### Dashboard — Wochen-Navigation für Statistik und Energie

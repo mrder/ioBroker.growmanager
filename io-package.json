@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.7",
+    "version": "0.3.8",
     "news": {
+      "0.3.8": {
+        "en": "v0.3.8: fix VPD + temperature hysteresis for shared actors (computeParticipantNeed): run-to-midpoint dead band, proportional urgency on boundary violations; majority mode balances overshoot vs. remaining need (weighted), any/primary mode uses hard veto on urgency>0 off-votes from non-owner participants",
+        "de": "v0.3.8: Fix VPD + Temperatur-Hysterese fuer geteilte Aktoren (computeParticipantNeed): Laufen-bis-Mitte Totband, proportionale Dringlichkeit bei Grenzwertverletzungen; majority-Modus wägt Ueberschreitung gegen Restbedarf ab (gewichtet), any/primary-Modus setzt hartes Veto bei urgency>0 AUS-Stimmen von Nicht-Eigentümern"
+      },
       "0.3.7": {
         "en": "v0.3.7: week navigation (◀/▶) for stats and energy history (7 days per page, 30 days stored); VPD hysteresis now direction-based — devices run until midpoint of setpoint range before switching off, creating longer ON/OFF cycles for better climate stability",
         "de": "v0.3.7: Wochen-Navigation (◀/▶) fuer Statistik- und Energie-Verlauf (7 Tage pro Seite, 30 Tage gespeichert); VPD-Hysterese jetzt richtungsbasiert – Aktoren laufen bis zur Mitte des Sollbereichs bevor sie abschalten, laengere EIN/AUS-Zyklen fuer bessere Klimastabilitaet"
