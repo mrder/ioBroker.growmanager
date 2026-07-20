@@ -78,13 +78,15 @@ describe('SharedActorManager – Abstimmung (resolveWithVoting)', () => {
         manager = new SharedActorManager();
     });
 
-    // Eigentümer-Stimme: weight=1.0, eingereicht via submitVote (wie main.ts es jetzt macht)
+    // Eigentümer-Stimme: weight=1.0. EIN-Stimmen haben urgency=1.0, AUS-Stimmen (in Sollbereich) urgency=0.
     function ownerVote(actuatorId: string, groupId: string, wantsOn: boolean): void {
-        manager.submitVote(actuatorId, { groupId, wantsOn, weight: 1.0, urgency: 1.0, reason: 'Eigentümer' });
+        manager.submitVote(actuatorId, { groupId, wantsOn, weight: 1.0, urgency: wantsOn ? 1.0 : 0, reason: 'Eigentümer' });
     }
 
-    function vote(actuatorId: string, groupId: string, wantsOn: boolean, weight: number): void {
-        manager.submitVote(actuatorId, { groupId, wantsOn, weight, urgency: 0.5, reason: 'Test' });
+    // Teilnehmer-Stimme. urgency optional: EIN-Standard 0.5, AUS-Standard 0 (in Sollbereich).
+    // Für Überschreitungs-Veto urgency explizit > 0 übergeben.
+    function vote(actuatorId: string, groupId: string, wantsOn: boolean, weight: number, urgency?: number): void {
+        manager.submitVote(actuatorId, { groupId, wantsOn, weight, urgency: urgency ?? (wantsOn ? 0.5 : 0), reason: 'Test' });
     }
 
     it('Modus "any": EIN wenn Eigentümer EIN will', () => {
@@ -148,6 +150,37 @@ describe('SharedActorManager – Abstimmung (resolveWithVoting)', () => {
         vote('act-1', 'p1', true, 0.5);  // weight < 0.8 → kein Override
         const cmd = manager.resolveWithVoting('act-1', 'primary', 0, 'owner', false);
         expect(cmd).toBe(false);
+    });
+
+    it('any: Teilnehmer-VPD-Überschreitung (urgency>0) → hartes AUS-Veto auch wenn Owner EIN', () => {
+        ownerVote('act-1', 'owner', true);           // Owner braucht Entfeuchter
+        vote('act-1', 'p1', false, 1.0, 0.8);       // Teilnehmer VPD > vpdMax (urgency=0.8)
+        const cmd = manager.resolveWithVoting('act-1', 'any', 0, 'owner', false);
+        expect(cmd).toBe(false);
+    });
+
+    it('majority: kleiner Überschuss kann von großem Restbedarf überstimmt werden', () => {
+        ownerVote('act-1', 'owner', true);                   // Owner EIN (urgency=1.0)
+        vote('act-1', 'p1', false, 1.0, 0.1);               // Teilnehmer: VPD leicht über Max (urgency=0.1)
+        // onWeight = 1×(1+1.0)=2.0, offWeight = 1×(1+0.1)=1.1 → EIN gewinnt
+        const cmd = manager.resolveWithVoting('act-1', 'majority', 0, 'owner', false);
+        expect(cmd).toBe(true);
+    });
+
+    it('majority: großer Überschuss schlägt kleinen Restbedarf', () => {
+        ownerVote('act-1', 'owner', true);                   // Owner EIN (urgency=1.0)
+        vote('act-1', 'p1', false, 1.0, 0.8);               // Teilnehmer: VPD weit über Max (urgency=0.8)
+        // onWeight = 1×2.0=2.0, offWeight = 1×(1+0.8)=1.8 → EIN gewinnt knapp
+        const cmd1 = manager.resolveWithVoting('act-1', 'majority', 0, 'owner', false);
+        expect(cmd1).toBe(true);  // Knapp, aber Owner-Urgency überwiegt noch
+
+        manager.clearCycle();
+        // Mit zwei Teilnehmern die blockieren: offWeight = 2×1.8 = 3.6 > onWeight 2.0 → AUS
+        vote('act-1', 'p1', false, 1.0, 0.8);
+        vote('act-1', 'p2', false, 0.8, 0.8);
+        ownerVote('act-1', 'owner', true);
+        const cmd2 = manager.resolveWithVoting('act-1', 'majority', 0, 'owner', false);
+        expect(cmd2).toBe(false);
     });
 
     it('Hysterese: Zustandswechsel wird erst nach Ablauf übernommen', () => {

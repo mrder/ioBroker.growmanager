@@ -1417,7 +1417,9 @@ class GrowManagerAdapter extends utils.Adapter {
                     }
                     if (gs.vpd > vpdMax) {
                         // VPD zu hoch → Entfeuchter würde es weiter verschlimmern → gesperrt.
-                        // Urgency proportional zum Überschuss damit Majority-Voting und Critical-Block greifen.
+                        // Urgency proportional zum Überschuss: bei 'any'-Modus greift jede Überschreitung
+                        // als hartes Veto (urgency > 0); bei 'majority'-Modus wird Überschuss gegen
+                        // Restbedarf der anderen Gruppe abgewogen.
                         const excess_dh = gs.vpd - vpdMax;
                         return { wantsOn: false, urgency: Math.min(1, excess_dh / 0.3), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch – Entfeuchter gesperrt` };
                     }
