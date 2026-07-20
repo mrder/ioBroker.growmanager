@@ -48,13 +48,18 @@ class SafetyService {
      */
     applySafetyRules(config, decision) {
         if (this.emergencyStop) {
-            const safeActions = decision.actions.map(a => ({
-                ...a,
-                blocked: true,
-                blockedReason: 'Not-Aus aktiv',
-                // Sicherer Zustand: alle Aktoren ausschalten
-                requested: false,
-            }));
+            const safeActions = decision.actions.map(a => {
+                // Numerische Aktoren (Dimmer, Lüfter) brauchen offValue statt boolean false
+                const act = config.actuators.find(c => c.id === a.actuatorId);
+                const rawOff = act?.offValue;
+                const offVal = (typeof rawOff === 'number' || typeof rawOff === 'boolean') ? rawOff : false;
+                return {
+                    ...a,
+                    blocked: true,
+                    blockedReason: 'Not-Aus aktiv',
+                    requested: offVal,
+                };
+            });
             return {
                 ...decision,
                 reason: 'NOT-AUS: Alle Aktoren gesperrt',

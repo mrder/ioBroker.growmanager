@@ -70,7 +70,7 @@ class ClimateController {
             this.alarmService.raise(AlarmService_1.ALARM_CODES.TEMPERATURE_HIGH, config.id, 'climate', 'critical', `Kritische Übertemperatur: ${temp.toFixed(1)} °C > ${setpoint.temperatureCritical} °C`);
             primaryReason = `Übertemperatur ${temp.toFixed(1)} °C – Maximalabluft`;
             this.requestByTarget(config, 'temperature', 'down', actions, true, 100, primaryReason, null, null);
-            this.requestByTarget(config, 'temperature', 'up', actions, false, 0, 'Verriegelung: Übertemperatur', null, null);
+            this.requestByTarget(config, 'temperature', 'up', actions, false, 0, 'Verriegelung: Übertemperatur', null, null, true);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
         }
         else if (temp !== null) {
@@ -95,7 +95,7 @@ class ClimateController {
             this.alarmService.raise(AlarmService_1.ALARM_CODES.CONDENSATION_RISK, config.id, 'climate', 'fault', `Kondensationsrisiko: T=${temp.toFixed(1)}°C RH=${hum.toFixed(0)}%`);
             primaryReason = 'Kondensationsrisiko – Entfeuchter / Abluft';
             this.requestByTarget(config, 'humidity', 'down', actions, true, 60, primaryReason, outdoorTemp, outdoorHumidity);
-            this.requestByTarget(config, 'humidity', 'up', actions, false, 0, 'Gegenseitige Verriegelung', null, null);
+            this.requestByTarget(config, 'humidity', 'up', actions, false, 0, 'Gegenseitige Verriegelung', null, null, true);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
         }
         else if (temp !== null && hum !== null) {
@@ -347,17 +347,29 @@ class ClimateController {
                 return `VPD ${vpd.toFixed(2)} kPa (Ziel: ${sp.vpdMin}–${sp.vpdMax}) → zu niedrig: Entfeuchten`;
             }
             else if (dir === 'up') {
-                // Heizung für VPD erhöhen
-                this.pushAction(actions, act, true, `VPD ${vpd.toFixed(2)} zu niedrig – Heizung`, false);
-                return `VPD zu niedrig → Heizung`;
+                // dir='up' = Befeuchter ODER Heizung: unterschiedliche Reaktion auf VPD-zu-niedrig
+                if (act.type === 'heating') {
+                    this.pushAction(actions, act, true, `VPD ${vpd.toFixed(2)} zu niedrig – Heizung`, false);
+                    return `VPD zu niedrig → Heizung`;
+                }
+                else {
+                    // Befeuchter: VPD bereits zu niedrig → AUSschalten, sonst sinkt VPD weiter
+                    this.pushAction(actions, act, false, `VPD ${vpd.toFixed(2)} zu niedrig – Befeuchter aus`, false);
+                }
             }
         }
         else if (vpdState === 1) {
             // VPD zu hoch → Feuchte erhöhen oder Temperatur senken
             if (dir === 'up') {
-                // Befeuchter: mehr Feuchte → VPD sinkt ✓
-                this.pushAction(actions, act, true, `VPD ${vpd.toFixed(2)} zu hoch – Befeuchten`, false);
-                return `VPD ${vpd.toFixed(2)} kPa → zu hoch: Befeuchten`;
+                if (act.type === 'heating') {
+                    // Heizung: VPD zu hoch → AUSschalten (Heizung würde VPD weiter erhöhen)
+                    this.pushAction(actions, act, false, `VPD ${vpd.toFixed(2)} zu hoch – Heizung aus`, false);
+                }
+                else {
+                    // Befeuchter: mehr Feuchte → VPD sinkt ✓
+                    this.pushAction(actions, act, true, `VPD ${vpd.toFixed(2)} zu hoch – Befeuchten`, false);
+                    return `VPD ${vpd.toFixed(2)} kPa → zu hoch: Befeuchten`;
+                }
             }
             else if (dir === 'down' || dir === 'both') {
                 // Entfeuchter senkt Feuchte → VPD würde steigen → darf bei VPD-zu-hoch NICHT laufen
@@ -424,7 +436,7 @@ class ClimateController {
     // ============================================================
     // Hilfsfunktionen
     // ============================================================
-    requestByTarget(config, target, dir, actions, on, percent, reason, outdoorTemp, outdoorHumidity) {
+    requestByTarget(config, target, dir, actions, on, percent, reason, outdoorTemp, outdoorHumidity, force = false) {
         for (const act of config.actuators) {
             if (!act.enabled)
                 continue;
@@ -433,14 +445,15 @@ class ClimateController {
             if (dir !== 'both' && inferControlDirection(act) !== dir && inferControlDirection(act) !== 'both')
                 continue;
             const val = on ? (act.supportsPercent && percent > 0 ? percent : true) : false;
-            this.pushAction(actions, act, val, reason, false);
+            this.pushAction(actions, act, val, reason, false, force);
         }
     }
-    pushAction(actions, act, requested, reason, blocked) {
+    pushAction(actions, act, requested, reason, blocked, force = false) {
         const existing = actions.find(a => a.actuatorId === act.id);
         if (existing) {
             if (typeof requested === 'boolean') {
-                if (requested && !existing.requested) {
+                // force=true: false can override true (safety locks, condensation protection)
+                if (force || (requested && !existing.requested)) {
                     existing.requested = requested;
                     existing.reason = reason;
                 }

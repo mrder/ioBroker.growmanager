@@ -33,17 +33,27 @@ class ScheduleService {
         }
     }
     /**
-     * Berechnet aktive Sollwerte unter Berücksichtigung des Übergangs.
+     * Prüft ob jetzt das Lichtfenster aktiv ist (unabhängig von Transition-Status).
      */
-    getActiveSetpoint(profile, dayNight, lightChangeTs) {
+    isInLightWindow(now, schedule) {
+        const { lightOn } = schedule;
+        return (0, time_1.isInTimeWindow)(now, lightOn.startHH, lightOn.startMM, lightOn.endHH, lightOn.endMM);
+    }
+    /**
+     * Berechnet aktive Sollwerte unter Berücksichtigung des Übergangs.
+     * @param transitionFromNight true = Morgen-Übergang (Nacht→Tag), false = Abend-Übergang (Tag→Nacht)
+     */
+    getActiveSetpoint(profile, dayNight, lightChangeTs, transitionFromNight = false) {
         if (dayNight === 'day')
             return profile.day;
         if (dayNight === 'night')
             return profile.night;
-        // Übergang: linear interpolieren
+        // Übergang: Richtung bestimmt from/to
+        // Morgen (Nacht→Tag): t=0 = Nacht-Werte, t=1 = Tag-Werte
+        // Abend  (Tag→Nacht): t=0 = Tag-Werte,   t=1 = Nacht-Werte
         const t = (0, time_1.transitionProgress)(lightChangeTs, profile.transitionMinutes * 60);
-        const from = profile.day;
-        const to = profile.night;
+        const from = transitionFromNight ? profile.night : profile.day;
+        const to = transitionFromNight ? profile.day : profile.night;
         return {
             temperature: (0, calculations_1.lerp)(from.temperature, to.temperature, t),
             temperatureTolerance: (0, calculations_1.lerp)(from.temperatureTolerance, to.temperatureTolerance, t),
@@ -62,12 +72,16 @@ class ScheduleService {
     }
     /**
      * Liefert Millisekunden bis zum nächsten Zeitplanwechsel.
+     * Während Transition: 60s (sekündliche Re-Evaluierung für glatte Interpolation).
      */
     msUntilNextChange(now, schedule) {
         const { lightOn } = schedule;
         const dayNight = this.getDayNight(now, schedule);
         if (dayNight === 'day') {
             return (0, time_1.minutesUntil)(now, lightOn.endHH, lightOn.endMM) * 60000;
+        }
+        else if (dayNight === 'transition') {
+            return 60 * 1000;
         }
         else {
             return (0, time_1.minutesUntil)(now, lightOn.startHH, lightOn.startMM) * 60000;

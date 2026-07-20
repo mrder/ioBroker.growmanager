@@ -70,6 +70,7 @@ class GrowManagerAdapter extends utils.Adapter {
     private readonly directDesires = new Map<string, boolean | number>(); // aktueller Reglerwunsch für direkte Aktoren
     private readonly switchBlocks = new Map<string, { reason: string; until: number }>(); // canSwitch-Sperren für Dashboard
     private readonly lightChangeTimes = new Map<string, number>();
+    private readonly lightTransitionFromNight = new Map<string, boolean>(); // true = Morgen-Übergang (Nacht→Tag)
     private readonly subscribedStateIds = new Set<string>();
 
     // Letzte bekannte Tag/Nacht-Zustände für Wechselerkennung
@@ -542,12 +543,12 @@ class GrowManagerAdapter extends utils.Adapter {
         end: number
     ): Promise<Array<{ ts: number; value: number }>> {
         return new Promise((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error(`${adapter} timeout`)), 4000);
+            const timer = this.setTimeout(() => reject(new Error(`${adapter} timeout`)), 4000);
             this.sendTo(adapter, 'getHistory', {
                 id: stateId,
                 options: { start, end, aggregate: 'none', count: 5000, addId: false },
             }, (result) => {
-                clearTimeout(timer);
+                this.clearTimeout(timer);
                 const r = result as { result?: Array<{ ts: number; val: number }>; error?: string } | undefined;
                 if (!r || r.error) { reject(new Error(r?.error ?? 'no result')); return; }
                 const pts = (r.result ?? []).filter(p => p.val !== null && p.val !== undefined);
@@ -973,6 +974,10 @@ class GrowManagerAdapter extends utils.Adapter {
         const prevDayNight = this.lastDayNight.get(config.id);
         if (dayNight !== prevDayNight) {
             this.lightChangeTimes.set(config.id, Date.now());
+            if (dayNight === 'transition') {
+                // Übergangsrichtung festhalten: Morgen = vorher Nacht, Abend = vorher Tag
+                this.lightTransitionFromNight.set(config.id, prevDayNight === 'night');
+            }
             this.lastDayNight.set(config.id, dayNight);
             this.log.info(`Gruppe ${config.name}: Wechsel zu ${dayNight}`);
         }
@@ -1024,8 +1029,9 @@ class GrowManagerAdapter extends utils.Adapter {
         // 4) Aktives Profil laden
         const profile = this.growConfig.climateProfiles.find(p => p.id === config.profileId);
         const lightChangeTs = this.lightChangeTimes.get(config.id) ?? Date.now();
+        const transitionFromNight = this.lightTransitionFromNight.get(config.id) ?? false;
         const setpoint = profile
-            ? this.scheduleService.getActiveSetpoint(profile, dayNight, lightChangeTs)
+            ? this.scheduleService.getActiveSetpoint(profile, dayNight, lightChangeTs, transitionFromNight)
             : null;
 
         state.activeProfile = profile;
@@ -1068,7 +1074,7 @@ class GrowManagerAdapter extends utils.Adapter {
         // 6c) Luftstrommanagement
         const isDay = dayNight !== 'night';
         const airSp = state.activeProfile
-            ? this.scheduleService.getActiveSetpoint(state.activeProfile, dayNight, lightChangeTs)
+            ? this.scheduleService.getActiveSetpoint(state.activeProfile, dayNight, lightChangeTs, transitionFromNight)
             : null;
         const airDemand = this.airSystemService.computeAirDemand(
             config, config.airSystem, state.temperature,
@@ -1095,8 +1101,10 @@ class GrowManagerAdapter extends utils.Adapter {
                             this.setActuatorStateWithVerify(exhaustAct, config.id, airOutput.exhaustCommand);
                         }
                         const isOn = airOutput.exhaustCommand === true || (typeof airOutput.exhaustCommand === 'number' && airOutput.exhaustCommand > 0);
-                        if (isOn) this.databaseService.trackActuatorOn(config.id, exhaustAct.id, exhaustAct.name, exhaustAct.ratedPowerW ?? 0);
-                        else this.databaseService.trackActuatorOff(config.id, exhaustAct.id, exhaustAct.ratedPowerW ?? 0);
+                        if (exhaustAct.energyStateUnit !== 'kWh') {
+                            if (isOn) this.databaseService.trackActuatorOn(config.id, exhaustAct.id, exhaustAct.name, exhaustAct.ratedPowerW ?? 0);
+                            else this.databaseService.trackActuatorOff(config.id, exhaustAct.id, exhaustAct.ratedPowerW ?? 0);
+                        }
                     }
                 }
             }
@@ -1110,8 +1118,10 @@ class GrowManagerAdapter extends utils.Adapter {
                             this.setActuatorStateWithVerify(supplyAct, config.id, airOutput.supplyCommand);
                         }
                         const isOn = airOutput.supplyCommand === true || (typeof airOutput.supplyCommand === 'number' && airOutput.supplyCommand > 0);
-                        if (isOn) this.databaseService.trackActuatorOn(config.id, supplyAct.id, supplyAct.name, supplyAct.ratedPowerW ?? 0);
-                        else this.databaseService.trackActuatorOff(config.id, supplyAct.id, supplyAct.ratedPowerW ?? 0);
+                        if (supplyAct.energyStateUnit !== 'kWh') {
+                            if (isOn) this.databaseService.trackActuatorOn(config.id, supplyAct.id, supplyAct.name, supplyAct.ratedPowerW ?? 0);
+                            else this.databaseService.trackActuatorOff(config.id, supplyAct.id, supplyAct.ratedPowerW ?? 0);
+                        }
                     }
                 }
             }
@@ -1128,8 +1138,10 @@ class GrowManagerAdapter extends utils.Adapter {
                     const changed = this.actuatorService.recordCommand(act, cmd);
                     if (changed) {
                         await this.setActuatorState(act.commandStateId, cmd);
-                        if (cmd) this.databaseService.trackActuatorOn(config.id, act.id, act.name, act.ratedPowerW ?? 0);
-                        else this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW ?? 0);
+                        if (act.energyStateUnit !== 'kWh') {
+                            if (cmd) this.databaseService.trackActuatorOn(config.id, act.id, act.name, act.ratedPowerW ?? 0);
+                            else this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW ?? 0);
+                        }
                     }
                 }
             }
@@ -1146,8 +1158,10 @@ class GrowManagerAdapter extends utils.Adapter {
                     const changed = this.actuatorService.recordCommand(pumpAct, irriDecision.command);
                     if (changed) {
                         await this.setActuatorState(pumpAct.commandStateId, irriDecision.command);
-                        if (irriDecision.command) this.databaseService.trackActuatorOn(config.id, pumpAct.id, pumpAct.name, pumpAct.ratedPowerW ?? 0);
-                        else this.databaseService.trackActuatorOff(config.id, pumpAct.id, pumpAct.ratedPowerW ?? 0);
+                        if (pumpAct.energyStateUnit !== 'kWh') {
+                            if (irriDecision.command) this.databaseService.trackActuatorOn(config.id, pumpAct.id, pumpAct.name, pumpAct.ratedPowerW ?? 0);
+                            else this.databaseService.trackActuatorOff(config.id, pumpAct.id, pumpAct.ratedPowerW ?? 0);
+                        }
                     }
                 }
             }
@@ -1762,7 +1776,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 let setpointCo2Target: number | null = null;
                 let setpointCo2Tolerance: number | null = null;
                 if (state?.activeProfile) {
-                    const sp = this.scheduleService.getActiveSetpoint(state.activeProfile, state.dayNight ?? 'day', this.lightChangeTimes.get(g.id) ?? Date.now());
+                    const sp = this.scheduleService.getActiveSetpoint(state.activeProfile, state.dayNight ?? 'day', this.lightChangeTimes.get(g.id) ?? Date.now(), this.lightTransitionFromNight.get(g.id) ?? false);
                     setpointTemp = sp.temperature;
                     setpointHumidity = sp.humidity;
                     setpointVpdMin = sp.vpdMin;
@@ -1901,7 +1915,8 @@ class GrowManagerAdapter extends utils.Adapter {
             const sp = this.scheduleService.getActiveSetpoint(
                 state.activeProfile,
                 state.dayNight,
-                this.lightChangeTimes.get(config.id) ?? Date.now()
+                this.lightChangeTimes.get(config.id) ?? Date.now(),
+                this.lightTransitionFromNight.get(config.id) ?? false
             );
             updates.push(
                 [`${base}.climate.targetTemperature`, sp.temperature],

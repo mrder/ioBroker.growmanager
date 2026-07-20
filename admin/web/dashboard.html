@@ -779,8 +779,9 @@ const ACT_TYPE = {
 };
 
 const PHASE_LABELS = { seedling:'Keimling', growth:'Wachstum', bloom:'Blüte', drying:'Trocknung', custom:'Individuell' };
-const camUrls = {};   // groupId -> snapshotUrl, populated during render
-const camCache = {};  // groupId -> last-good objectURL (blob:// from cam-proxy)
+const camUrls = {};      // groupId -> snapshotUrl, populated during render
+const camCache = {};     // groupId -> last-good objectURL (blob:// from cam-proxy)
+const camInFlight = {};  // groupId -> true wenn ein Refresh gerade läuft (Race-Condition-Schutz)
 const MODE_LABELS = {
   monitorOnly:'Nur Überwachung', temperature:'Temperatur', humidity:'Feuchte',
   vpd:'VPD', combined:'Kombiniert', schedule:'Zeitplan', manual:'Manuell',
@@ -894,7 +895,7 @@ async function showTrend(groupId, variable, label, unit, setMin, setMax) {
     const hint = Array.isArray(payload) ? null : (payload.hint ?? null);
     if (hint) {
       document.getElementById('trendChart').innerHTML =
-        `<div class="trend-hint">ℹ️ ${hint.replace(/\n/g, '<br>')}</div>`;
+        `<div class="trend-hint">ℹ️ ${hint.split('\n').map(esc).join('<br>')}</div>`;
     } else {
       renderTrendChart(points, unit, setMin, setMax);
     }
@@ -985,6 +986,7 @@ async function showLs(groupId, groupName) {
   ['lsVegDays','lsFlowerDays'].forEach(id => document.getElementById(id).value = '');
   try {
     const res = await fetch(`/api/lifestyle/${groupId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const d = await res.json();
     if (d.vegStart)    document.getElementById('lsVegStart').value    = d.vegStart;
     if (d.vegDays)     document.getElementById('lsVegDays').value     = d.vegDays;
@@ -1117,6 +1119,7 @@ async function dbSwitchTab(tab) {
   body.innerHTML = '<p style="color:var(--text-dim);padding:20px">Lade…</p>';
   try {
     const res = await fetch(`/api/database/${dbCurrentGroup}/${tab}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     dbCurrentData = await res.json();
     dbWeekOffset = 0;
     dbReRender();
@@ -1253,7 +1256,7 @@ function renderIrrigationTable(data) {
     const dur = ev.durationSec >= 60 ? `${Math.floor(ev.durationSec/60)}m ${ev.durationSec%60}s` : `${ev.durationSec}s`;
     const sm = ev.startMoisture != null ? ev.startMoisture.toFixed(0)+'%' : '–';
     const em = ev.endMoisture   != null ? ev.endMoisture.toFixed(0)+'%'   : '–';
-    html += `<tr><td>${ts}</td><td>${ev.zoneName}</td><td>${dur}</td><td>${sm}</td><td>${em}</td><td>${ev.trigger}</td><td>${ev.flowLiters>0?ev.flowLiters.toFixed(1):'–'}</td></tr>`;
+    html += `<tr><td>${ts}</td><td>${esc(ev.zoneName)}</td><td>${dur}</td><td>${sm}</td><td>${em}</td><td>${esc(ev.trigger)}</td><td>${ev.flowLiters>0?ev.flowLiters.toFixed(1):'–'}</td></tr>`;
   }
   return html + '</tbody></table>';
 }
@@ -1304,7 +1307,7 @@ function actIconsHtml(actuators, groupId, manualOverrides) {
     const tipShared = sharedMark ? ` · geteilt (${a.sharedVotingMode ?? 'any'}, ${a.sharedParticipants.length} Gruppe(n))` : '';
     return `<span class="act-icon-chip ${isOn ? 'on ' + t.cls : 'off'}${unreachable ? ' chip-unreachable' : ''}">
       ${t.icon}${sharedMark}${errBadge}${pulse}
-      <span class="act-icon-tip">${a.name}${ovNote}${tipShared} · ${unreachable ? '⚠ Nicht erreichbar' : (isOn ? 'EIN' : 'AUS')}</span>
+      <span class="act-icon-tip">${esc(a.name)}${ovNote}${tipShared} · ${unreachable ? '⚠ Nicht erreichbar' : (isOn ? 'EIN' : 'AUS')}</span>
     </span>`;
   }).join('');
   return `<div class="act-icons-row">${chips}</div>`;
@@ -1394,10 +1397,10 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   const ledClass = istOn ? 'on' : 'off';
 
   // Per-Aktor AUTO/MANUELL-Badge: klickbar zum Zurücksetzen auf AUTO
-  const esc = (s) => s.replace(/'/g, "\\'");
+  const escAttr = (s) => s.replace(/'/g, "\\'"); // nur für JS-Attribute (einfache Anführungszeichen)
   const modeBadge = ov
     ? `<span class="act-override-badge clickable" title="Auf AUTO zurücksetzen – setzt alle Aktoren der Gruppe auf AUTO"
-         onclick="sendMode('${esc(groupId)}','auto','${esc(groupId)}')">MANUELL ↩</span>`
+         onclick="sendMode('${escAttr(groupId)}','auto','${escAttr(groupId)}')">MANUELL ↩</span>`
     : `<span class="act-mode-badge">AUTO</span>`;
 
   // Soll-Wert
@@ -1642,7 +1645,7 @@ function groupCardHtml(g) {
 
   let monitorTag = '';
   if (g.monitorSensors && g.monitorSensors.length > 0) {
-    const names = g.monitorSensors.join('<br>');
+    const names = g.monitorSensors.map(n => esc(n)).join('<br>');
     monitorTag = `<span class="monitor-info">ℹ Monitor (${g.monitorSensors.length})
       <div class="monitor-tooltip"><strong>Nur-Überwachung:</strong><br>${names}</div>
     </span>`;
@@ -1711,7 +1714,7 @@ function groupCardHtml(g) {
     ? `<div class="card-alarms">${g.alarms.map(a => {
         const c = SEV_COLORS[a.severity] ?? 'var(--text-dim)';
         return `<div class="card-alarm"><div class="sev-dot" style="background:${c}"></div>
-          <span style="color:${c}">[${a.severity.toUpperCase()}]</span> ${a.code}: ${a.message}</div>`;
+          <span style="color:${c}">[${esc(a.severity.toUpperCase())}]</span> ${esc(a.code)}: ${esc(a.message)}</div>`;
       }).join('')}</div>`
     : '';
 
@@ -2275,28 +2278,30 @@ const _ivCountdown = setInterval(() => {
 // Gepufferter Proxy-Refresh: lädt Bild über /api/cam-proxy (same-origin → kein CORS)
 // Erst bei Erfolg wird camCache + Thumbnail aktualisiert. Kein Flash bei Fehler.
 async function refreshCamThumb(groupId, url) {
+  if (camInFlight[groupId]) return; // vorheriger Refresh noch aktiv → überspringen
+  camInFlight[groupId] = true;
   const proxyUrl = '/api/cam-proxy?url=' + encodeURIComponent(url) + '&t=' + Date.now();
   try {
     const resp = await fetch(proxyUrl);
     if (!resp.ok) return; // Kamera antwortet nicht → altes Bild bleibt
     const blob = await resp.blob();
     if (!blob.type.startsWith('image/')) return;
-    // Alten ObjectURL freigeben
-    if (camCache[groupId] && camCache[groupId].startsWith('blob:')) {
-      URL.revokeObjectURL(camCache[groupId]);
-    }
     const objUrl = URL.createObjectURL(blob);
-    camCache[groupId] = objUrl;
     // Nur sichtbar machen wenn Bild korrekt decodiert wurde
     const tmp = new Image();
     tmp.onload = () => {
-      camCache[groupId] = objUrl; // bereits gesetzt, aber sicher
+      // Alten ObjectURL erst jetzt freigeben, wenn neues Bild bereit ist
+      if (camCache[groupId] && camCache[groupId].startsWith('blob:')) {
+        URL.revokeObjectURL(camCache[groupId]);
+      }
+      camCache[groupId] = objUrl;
       const el = document.getElementById('cam-thumb-' + groupId);
       if (el) { el.src = objUrl; el.style.opacity = '1'; }
     };
     tmp.onerror = () => URL.revokeObjectURL(objUrl);
     tmp.src = objUrl;
   } catch { /* Netzwerkfehler → altes Bild bleibt */ }
+  finally { camInFlight[groupId] = false; }
 }
 
 // Nach re-render: sofort aus Cache anzeigen, dann im Hintergrund aktualisieren
@@ -2529,6 +2534,7 @@ async function doCropAnalyze() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ image: base64 }),
     });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     closeCropModal();
     await addAnalysisToHistory(cropGroupId, data);

@@ -5,11 +5,17 @@ export declare class ScheduleService {
      */
     getDayNight(now: Date, schedule: DaySchedule): DayNight;
     /**
-     * Berechnet aktive Sollwerte unter Berücksichtigung des Übergangs.
+     * Prüft ob jetzt das Lichtfenster aktiv ist (unabhängig von Transition-Status).
      */
-    getActiveSetpoint(profile: ClimateProfile, dayNight: DayNight, lightChangeTs: number): ClimateSetpoint;
+    isInLightWindow(now: Date, schedule: DaySchedule): boolean;
+    /**
+     * Berechnet aktive Sollwerte unter Berücksichtigung des Übergangs.
+     * @param transitionFromNight true = Morgen-Übergang (Nacht→Tag), false = Abend-Übergang (Tag→Nacht)
+     */
+    getActiveSetpoint(profile: ClimateProfile, dayNight: DayNight, lightChangeTs: number, transitionFromNight?: boolean): ClimateSetpoint;
     /**
      * Liefert Millisekunden bis zum nächsten Zeitplanwechsel.
+     * Während Transition: 60s (sekündliche Re-Evaluierung für glatte Interpolation).
      */
     msUntilNextChange(now: Date, schedule: DaySchedule): number;
     /**

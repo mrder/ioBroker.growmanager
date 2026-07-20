@@ -576,7 +576,16 @@ class WebDashboardService {
             };
             const plantReq = https.request(options, plantRes => {
                 let data = '';
-                plantRes.on('data', chunk => { data += chunk; });
+                plantRes.on('data', chunk => {
+                    data += chunk;
+                    if (data.length > 512 * 1024) { // 512 KB Limit für plant.id Antwort
+                        plantReq.destroy();
+                        if (!res.headersSent) {
+                            res.writeHead(502, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Antwort von plant.id zu groß' }));
+                        }
+                    }
+                });
                 plantRes.on('end', () => {
                     res.writeHead(plantRes.statusCode ?? 200, {
                         'Content-Type': 'application/json',
@@ -584,6 +593,9 @@ class WebDashboardService {
                     });
                     res.end(data);
                 });
+            });
+            plantReq.setTimeout(10000, () => {
+                plantReq.destroy(new Error('plant.id timeout'));
             });
             plantReq.on('error', err => {
                 this.log.error(`Plant.id API Fehler: ${err.message}`);

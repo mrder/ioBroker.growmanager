@@ -77,6 +77,7 @@ export class DatabaseService {
     trackSensorValue(groupId: string, sensorId: string, value: number, name?: string): void {
         const group = this.sensorAcc.get(groupId);
         if (!group) return;
+        if (!isFinite(value)) return; // NaN/Infinity würde Akkumulator dauerhaft korrupieren
         const cur = group.get(sensorId);
         if (!cur) {
             group.set(sensorId, { sum: value, min: value, max: value, n: 1, name: name ?? sensorId });

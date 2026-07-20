@@ -92,10 +92,10 @@ export class ConfigurationService {
 
     private validateSensor(sensor: SensorConfig, pfx: string): ValidationResult {
         const errors: string[] = [];
-        if (sensor.validMin >= sensor.validMax) {
+        if (sensor.validMin !== undefined && sensor.validMax !== undefined && sensor.validMin >= sensor.validMax) {
             errors.push(`${pfx} Sensor "${sensor.name}": validMin ≥ validMax`);
         }
-        if (sensor.staleAfterSeconds < 30) {
+        if (sensor.staleAfterSeconds !== undefined && sensor.staleAfterSeconds < 30) {
             errors.push(`${pfx} Sensor "${sensor.name}": staleAfterSeconds sollte ≥ 30 sein`);
         }
         return { valid: errors.length === 0, errors, warnings: [] };

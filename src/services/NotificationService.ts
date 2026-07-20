@@ -214,8 +214,8 @@ export class NotificationService {
 
     private isQuietHour(ch: NotificationChannel): boolean {
         if (!ch.quietHoursEnabled) return false;
-        const now = new Date();
-        const h = now.getHours();
+        // Immer Europe/Berlin nutzen, unabhängig von der Server-Zeitzone
+        const h = parseInt(new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin', hour: 'numeric', hour12: false }), 10);
         const s = ch.quietHoursStart;
         const e = ch.quietHoursEnd;
         if (s <= e) return h >= s && h < e;
