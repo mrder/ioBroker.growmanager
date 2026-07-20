@@ -434,8 +434,16 @@ class WebDashboardService {
                 res.end(JSON.stringify(data));
             };
             if (req.method === 'GET') {
-                const list = this.analysesGetCallback ? await this.analysesGetCallback(groupId) : [];
-                jsonA(list);
+                try {
+                    const list = this.analysesGetCallback ? await this.analysesGetCallback(groupId) : [];
+                    jsonA(list);
+                }
+                catch (err) {
+                    if (!res.headersSent) {
+                        res.writeHead(500);
+                        res.end('[]');
+                    }
+                }
                 return;
             }
             if (req.method === 'PUT') {

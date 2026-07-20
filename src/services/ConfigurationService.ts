@@ -129,7 +129,8 @@ export class ConfigurationService {
             };
         }
 
-        const config = parsed as GrowManagerConfig;
+        // migrate() füllt fehlende Felder älterer Versionen mit Defaults auf — muss vor validate() laufen
+        const config = this.migrate(parsed as Partial<GrowManagerConfig>);
         const result = this.validate(config);
 
         return { config: result.valid ? config : null, result };

@@ -116,7 +116,8 @@ class ConfigurationService {
                 result: { valid: false, errors: ['Kein gültiges Objekt in der JSON-Datei'], warnings: [] },
             };
         }
-        const config = parsed;
+        // migrate() füllt fehlende Felder älterer Versionen mit Defaults auf — muss vor validate() laufen
+        const config = this.migrate(parsed);
         const result = this.validate(config);
         return { config: result.valid ? config : null, result };
     }

@@ -59,6 +59,7 @@ export declare class DatabaseService {
     private readJson;
     private flush;
     private todayStr;
+    private yesterdayStr;
 }
 export {};
 //# sourceMappingURL=DatabaseService.d.ts.map

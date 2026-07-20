@@ -599,7 +599,7 @@ class GrowManagerAdapter extends utils.Adapter {
                         group.stabilityTimeSeconds
                     );
                     const gs = this.groupStates.get(group.id);
-                    if (gs) gs.sensors.set(sensor.id, sensorState);
+                    if (gs && sensorState) gs.sensors.set(sensor.id, sensorState);
                 }
             }
 
@@ -760,9 +760,12 @@ class GrowManagerAdapter extends utils.Adapter {
 
                     // Eigentümer-Stimme: aktuellen Klimabedarf berechnen (gleiche Logik wie Teilnehmer)
                     const ownerGs = this.groupStates.get(group.id);
-                    const sharedCurrentlyOn = this.votingResults.has(actuatorConfig.id)
-                        ? this.votingResults.get(actuatorConfig.id) !== false
-                        : false;
+                    // Tatsächlichen Hardware-Zustand lesen (nicht votingResults, das speichert nur
+                    // Abstimmungsabsicht — wenn canSwitch blockiert hat, wäre votingResults=EIN
+                    // obwohl der Aktor physisch aus ist → Phantom-Hysterese).
+                    const currentActState = this.actuatorService.getState(actuatorConfig.id);
+                    const sharedCurrentlyOn = (currentActState?.requested ?? false) !== false
+                        && (currentActState?.requested ?? false) !== 0;
                     let ownerNeed = ownerGs
                         ? this.computeParticipantNeed(actuatorConfig.type, ownerGs, 3, sharedCurrentlyOn)
                         : { wantsOn: false as const, urgency: 0, reason: 'Kein Gruppenstatus' };
@@ -861,8 +864,7 @@ class GrowManagerAdapter extends utils.Adapter {
                         });
                     }
 
-                    // Aktuellen Befehl als Basis für Hysterese ermitteln
-                    const currentActState = this.actuatorService.getState(actuatorConfig.id);
+                    // Aktuellen Befehl als Basis für Hysterese ermitteln (currentActState oben bereits gelesen)
                     const currentCommand = currentActState?.requested ?? false;
                     const votingMode = actuatorConfig.sharedVotingMode ?? 'any';
                     const hysteresisForVoting = hysteresisSeconds;
@@ -1092,6 +1094,9 @@ class GrowManagerAdapter extends utils.Adapter {
                         if (typeof airOutput.exhaustCommand === 'boolean') {
                             this.setActuatorStateWithVerify(exhaustAct, config.id, airOutput.exhaustCommand);
                         }
+                        const isOn = airOutput.exhaustCommand === true || (typeof airOutput.exhaustCommand === 'number' && airOutput.exhaustCommand > 0);
+                        if (isOn) this.databaseService.trackActuatorOn(config.id, exhaustAct.id, exhaustAct.name, exhaustAct.ratedPowerW ?? 0);
+                        else this.databaseService.trackActuatorOff(config.id, exhaustAct.id, exhaustAct.ratedPowerW ?? 0);
                     }
                 }
             }
@@ -1104,6 +1109,9 @@ class GrowManagerAdapter extends utils.Adapter {
                         if (typeof airOutput.supplyCommand === 'boolean') {
                             this.setActuatorStateWithVerify(supplyAct, config.id, airOutput.supplyCommand);
                         }
+                        const isOn = airOutput.supplyCommand === true || (typeof airOutput.supplyCommand === 'number' && airOutput.supplyCommand > 0);
+                        if (isOn) this.databaseService.trackActuatorOn(config.id, supplyAct.id, supplyAct.name, supplyAct.ratedPowerW ?? 0);
+                        else this.databaseService.trackActuatorOff(config.id, supplyAct.id, supplyAct.ratedPowerW ?? 0);
                     }
                 }
             }
@@ -1118,7 +1126,11 @@ class GrowManagerAdapter extends utils.Adapter {
                 const canSw = this.actuatorService.canSwitch(act, cmd);
                 if (canSw.allowed) {
                     const changed = this.actuatorService.recordCommand(act, cmd);
-                    if (changed) await this.setActuatorState(act.commandStateId, cmd);
+                    if (changed) {
+                        await this.setActuatorState(act.commandStateId, cmd);
+                        if (cmd) this.databaseService.trackActuatorOn(config.id, act.id, act.name, act.ratedPowerW ?? 0);
+                        else this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW ?? 0);
+                    }
                 }
             }
         }
@@ -1132,7 +1144,11 @@ class GrowManagerAdapter extends utils.Adapter {
                 const canSw = this.actuatorService.canSwitch(pumpAct, irriDecision.command);
                 if (canSw.allowed) {
                     const changed = this.actuatorService.recordCommand(pumpAct, irriDecision.command);
-                    if (changed) await this.setActuatorState(pumpAct.commandStateId, irriDecision.command);
+                    if (changed) {
+                        await this.setActuatorState(pumpAct.commandStateId, irriDecision.command);
+                        if (irriDecision.command) this.databaseService.trackActuatorOn(config.id, pumpAct.id, pumpAct.name, pumpAct.ratedPowerW ?? 0);
+                        else this.databaseService.trackActuatorOff(config.id, pumpAct.id, pumpAct.ratedPowerW ?? 0);
+                    }
                 }
             }
         }
@@ -1592,6 +1608,7 @@ class GrowManagerAdapter extends utils.Adapter {
         if (existing) this.clearTimeout(existing);
 
         const schedule = (isRetry: boolean) => this.setTimeout(async () => {
+            try {
             this.pendingVerify.delete(actuatorConfig.id);
 
             // Tatsächlichen Gerätezustand ermitteln:
@@ -1642,6 +1659,9 @@ class GrowManagerAdapter extends utils.Adapter {
                     'warning',
                     `Gerät hat auf Befehl "${value}" nicht reagiert`,
                 );
+            }
+            } catch (err) {
+                this.log.warn(`setActuatorStateWithVerify ${actuatorConfig.name}: ${err}`);
             }
         }, verifyDelaySec * 1000) as ioBroker.Timeout;
 

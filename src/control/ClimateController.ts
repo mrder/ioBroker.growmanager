@@ -376,7 +376,15 @@ export class ClimateController {
         let vpdState: HystState;
         const prevAct = this.actuatorHystStates.get(act.id) ?? 0;
         if (act.actuatorHysteresis !== undefined && act.actuatorHysteresis > 0) {
-            vpdState = hysteresisCheck(vpd, vpdMid, act.actuatorHysteresis * 2, prevAct);
+            // Richtungsbasiert: Setpoint liegt je nach dir direkt an vpdMin (Entfeuchter) oder
+            // vpdMax (Befeuchter), Band = actuatorHysteresis × 2.
+            // → Entfeuchter: ON wenn vpd < vpdMin, OFF wenn vpd > vpdMin + 2×hyst
+            // → Befeuchter:  ON wenn vpd > vpdMax, OFF wenn vpd < vpdMax - 2×hyst
+            if (dir === 'up') {
+                vpdState = hysteresisCheck(vpd, sp.vpdMax - act.actuatorHysteresis, act.actuatorHysteresis * 2, prevAct);
+            } else {
+                vpdState = hysteresisCheck(vpd, sp.vpdMin + act.actuatorHysteresis, act.actuatorHysteresis * 2, prevAct);
+            }
         } else {
             // Richtungsbasierte Hysterese: Aktoren laufen bis zur Mitte des Sollbereichs (vpdMid),
             // nicht nur bis zur Sollbereichsgrenze. Das schafft längere EIN/AUS-Zyklen.

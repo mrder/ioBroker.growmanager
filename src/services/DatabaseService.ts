@@ -130,6 +130,7 @@ export class DatabaseService {
         const now = Date.now();
         const durationMin = (now - cur.lastOnTs) / 60_000;
         if (durationMin < 0.001) return; // Zu kurzes Intervall ignorieren
+        if (!isFinite(watts) || watts < 0) return; // Ungültiger Sensorwert → Akkumulator schützen
         cur.wh += (watts * durationMin) / 60;
         cur.runtimeMin += durationMin;
         cur.lastOnTs = now;
@@ -168,7 +169,9 @@ export class DatabaseService {
     }
 
     async flushDay(groupId: string): Promise<void> {
-        const dateStr = this.todayStr();
+        // tickMidnight() wird nach Mitternacht aufgerufen — zu diesem Zeitpunkt ist new Date()
+        // bereits der neue Tag. Die akkumulierten Daten gehören aber zum gestrigen Tag.
+        const dateStr = this.yesterdayStr();
 
         // Sensor-Stats
         const sGroup = this.sensorAcc.get(groupId);
@@ -293,6 +296,12 @@ export class DatabaseService {
 
     private todayStr(): string {
         const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    private yesterdayStr(): string {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
 }

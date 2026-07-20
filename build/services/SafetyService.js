@@ -74,39 +74,31 @@ class SafetyService {
                 actions: maintenanceActions,
             };
         }
-        // Heizung + Kühlung gleichzeitig verhindern (finale Kontrolle)
+        // Heizung + Kühlung sowie Befeuchter + Entfeuchter gleichzeitig verhindern.
+        // Beide Checks in einem Pass — kein Early-Return, damit beide Konflikte erkannt werden.
         const hasHeat = decision.actions.some(a => a.requested && this.getActuatorType(config, a.actuatorId) === 'heating');
         const hasCool = decision.actions.some(a => a.requested && this.getActuatorType(config, a.actuatorId) === 'cooling');
-        if (hasHeat && hasCool) {
-            this.log.warn(`Gruppe ${config.id}: Heizung UND Kühlung angefordert – Kühlung gesperrt`);
-            return {
-                ...decision,
-                actions: decision.actions.map(a => {
-                    const type = this.getActuatorType(config, a.actuatorId);
-                    if (type === 'cooling' && a.requested) {
-                        return { ...a, blocked: true, blockedReason: 'Verriegelung Heizung/Kühlung' };
-                    }
-                    return a;
-                }),
-            };
-        }
-        // Befeuchter + Entfeuchter gleichzeitig verhindern
         const hasHumid = decision.actions.some(a => a.requested && this.getActuatorType(config, a.actuatorId) === 'humidifier');
         const hasDehumid = decision.actions.some(a => a.requested && this.getActuatorType(config, a.actuatorId) === 'dehumidifier');
-        if (hasHumid && hasDehumid) {
+        if (!hasHeat && !hasCool && !hasHumid && !hasDehumid)
+            return decision;
+        if (hasHeat && hasCool)
+            this.log.warn(`Gruppe ${config.id}: Heizung UND Kühlung angefordert – Kühlung gesperrt`);
+        if (hasHumid && hasDehumid)
             this.log.warn(`Gruppe ${config.id}: Befeuchter UND Entfeuchter angefordert – Entfeuchter gesperrt`);
-            return {
-                ...decision,
-                actions: decision.actions.map(a => {
-                    const type = this.getActuatorType(config, a.actuatorId);
-                    if (type === 'dehumidifier' && a.requested) {
-                        return { ...a, blocked: true, blockedReason: 'Verriegelung Befeuchter/Entfeuchter' };
-                    }
-                    return a;
-                }),
-            };
-        }
-        return decision;
+        return {
+            ...decision,
+            actions: decision.actions.map(a => {
+                const type = this.getActuatorType(config, a.actuatorId);
+                if (hasHeat && hasCool && type === 'cooling' && a.requested) {
+                    return { ...a, blocked: true, blockedReason: 'Verriegelung Heizung/Kühlung' };
+                }
+                if (hasHumid && hasDehumid && type === 'dehumidifier' && a.requested) {
+                    return { ...a, blocked: true, blockedReason: 'Verriegelung Befeuchter/Entfeuchter' };
+                }
+                return a;
+            }),
+        };
     }
     /**
      * Berechnet Degradationsstufe basierend auf Sensorqualität und Sensorverfügbarkeit.

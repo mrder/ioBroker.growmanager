@@ -16,7 +16,8 @@ class ScheduleService {
         if ((0, time_1.isInTimeWindow)(now, lightOn.startHH, lightOn.startMM, lightOn.endHH, lightOn.endMM)) {
             // Prüfen ob wir noch im Übergang sind (nach Licht-AN)
             // minutesUntil gibt Minuten BIS ZUM nächsten Start → 1440 minus das = tatsächliche Minuten seit Start
-            const minutesSinceStart = 1440 - (0, time_1.minutesUntil)(now, lightOn.startHH, lightOn.startMM);
+            // % 1440: wenn minutesUntil=0 (exakt auf Startzeit) → 1440-0=1440, Modulo → 0 (korrekt)
+            const minutesSinceStart = (1440 - (0, time_1.minutesUntil)(now, lightOn.startHH, lightOn.startMM)) % 1440;
             if (minutesSinceStart < transitionMinutes) {
                 return 'transition';
             }

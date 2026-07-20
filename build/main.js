@@ -549,7 +549,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     // which would falsely trigger the stale check.
                     Math.max(state.ts, Date.now() - 5000), state.lc ?? state.ts, group.stabilityTimeSeconds);
                     const gs = this.groupStates.get(group.id);
-                    if (gs)
+                    if (gs && sensorState)
                         gs.sensors.set(sensor.id, sensorState);
                 }
             }
@@ -697,9 +697,12 @@ class GrowManagerAdapter extends utils.Adapter {
                     const hysteresisSeconds = actuatorConfig.sharedVoteHysteresisSeconds ?? 60;
                     // Eigentümer-Stimme: aktuellen Klimabedarf berechnen (gleiche Logik wie Teilnehmer)
                     const ownerGs = this.groupStates.get(group.id);
-                    const sharedCurrentlyOn = this.votingResults.has(actuatorConfig.id)
-                        ? this.votingResults.get(actuatorConfig.id) !== false
-                        : false;
+                    // Tatsächlichen Hardware-Zustand lesen (nicht votingResults, das speichert nur
+                    // Abstimmungsabsicht — wenn canSwitch blockiert hat, wäre votingResults=EIN
+                    // obwohl der Aktor physisch aus ist → Phantom-Hysterese).
+                    const currentActState = this.actuatorService.getState(actuatorConfig.id);
+                    const sharedCurrentlyOn = (currentActState?.requested ?? false) !== false
+                        && (currentActState?.requested ?? false) !== 0;
                     let ownerNeed = ownerGs
                         ? this.computeParticipantNeed(actuatorConfig.type, ownerGs, 3, sharedCurrentlyOn)
                         : { wantsOn: false, urgency: 0, reason: 'Kein Gruppenstatus' };
@@ -795,8 +798,7 @@ class GrowManagerAdapter extends utils.Adapter {
                             reason: need.reason,
                         });
                     }
-                    // Aktuellen Befehl als Basis für Hysterese ermitteln
-                    const currentActState = this.actuatorService.getState(actuatorConfig.id);
+                    // Aktuellen Befehl als Basis für Hysterese ermitteln (currentActState oben bereits gelesen)
                     const currentCommand = currentActState?.requested ?? false;
                     const votingMode = actuatorConfig.sharedVotingMode ?? 'any';
                     const hysteresisForVoting = hysteresisSeconds;
@@ -998,6 +1000,11 @@ class GrowManagerAdapter extends utils.Adapter {
                         if (typeof airOutput.exhaustCommand === 'boolean') {
                             this.setActuatorStateWithVerify(exhaustAct, config.id, airOutput.exhaustCommand);
                         }
+                        const isOn = airOutput.exhaustCommand === true || (typeof airOutput.exhaustCommand === 'number' && airOutput.exhaustCommand > 0);
+                        if (isOn)
+                            this.databaseService.trackActuatorOn(config.id, exhaustAct.id, exhaustAct.name, exhaustAct.ratedPowerW ?? 0);
+                        else
+                            this.databaseService.trackActuatorOff(config.id, exhaustAct.id, exhaustAct.ratedPowerW ?? 0);
                     }
                 }
             }
@@ -1010,6 +1017,11 @@ class GrowManagerAdapter extends utils.Adapter {
                         if (typeof airOutput.supplyCommand === 'boolean') {
                             this.setActuatorStateWithVerify(supplyAct, config.id, airOutput.supplyCommand);
                         }
+                        const isOn = airOutput.supplyCommand === true || (typeof airOutput.supplyCommand === 'number' && airOutput.supplyCommand > 0);
+                        if (isOn)
+                            this.databaseService.trackActuatorOn(config.id, supplyAct.id, supplyAct.name, supplyAct.ratedPowerW ?? 0);
+                        else
+                            this.databaseService.trackActuatorOff(config.id, supplyAct.id, supplyAct.ratedPowerW ?? 0);
                     }
                 }
             }
@@ -1023,8 +1035,13 @@ class GrowManagerAdapter extends utils.Adapter {
                 const canSw = this.actuatorService.canSwitch(act, cmd);
                 if (canSw.allowed) {
                     const changed = this.actuatorService.recordCommand(act, cmd);
-                    if (changed)
+                    if (changed) {
                         await this.setActuatorState(act.commandStateId, cmd);
+                        if (cmd)
+                            this.databaseService.trackActuatorOn(config.id, act.id, act.name, act.ratedPowerW ?? 0);
+                        else
+                            this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW ?? 0);
+                    }
                 }
             }
         }
@@ -1038,8 +1055,13 @@ class GrowManagerAdapter extends utils.Adapter {
                 const canSw = this.actuatorService.canSwitch(pumpAct, irriDecision.command);
                 if (canSw.allowed) {
                     const changed = this.actuatorService.recordCommand(pumpAct, irriDecision.command);
-                    if (changed)
+                    if (changed) {
                         await this.setActuatorState(pumpAct.commandStateId, irriDecision.command);
+                        if (irriDecision.command)
+                            this.databaseService.trackActuatorOn(config.id, pumpAct.id, pumpAct.name, pumpAct.ratedPowerW ?? 0);
+                        else
+                            this.databaseService.trackActuatorOff(config.id, pumpAct.id, pumpAct.ratedPowerW ?? 0);
+                    }
                 }
             }
         }
@@ -1476,45 +1498,50 @@ class GrowManagerAdapter extends utils.Adapter {
         if (existing)
             this.clearTimeout(existing);
         const schedule = (isRetry) => this.setTimeout(async () => {
-            this.pendingVerify.delete(actuatorConfig.id);
-            // Tatsächlichen Gerätezustand ermitteln:
-            // - Wenn dedizierter feedbackStateId konfiguriert → direkt lesen
-            // - Sonst → letzten bestätigten (ack=true) Zustand aus ActuatorService nutzen
-            //   (commandStateId würde den von UNS geschriebenen Wert zurückliefern → immer "OK")
-            let actualOn;
-            if (actuatorConfig.feedbackStateId) {
-                const actual = await this.getForeignStateAsync(actuatorConfig.feedbackStateId);
-                if (!actual || actual.val === null || actual.val === undefined)
-                    return;
-                const actVal = actual.val;
-                actualOn = typeof actVal === 'boolean' ? actVal : actVal > 0;
-            }
-            else {
-                const tracked = this.actuatorService.getState(actuatorConfig.id);
-                if (tracked?.feedback === null || tracked?.feedback === undefined) {
-                    // Noch kein Feedback empfangen – bei Retry trotzdem Alarm
-                    if (isRetry) {
-                        this.log.error(`Aktor ${actuatorConfig.name}: kein Feedback nach Befehl ${value}`);
-                        this.alarmService.raise(AlarmService_1.ALARM_CODES.ACTUATOR_NO_FEEDBACK, groupId, actuatorConfig.id, 'warning', `Kein Gerätestatus empfangen nach Befehl "${value}"`);
+            try {
+                this.pendingVerify.delete(actuatorConfig.id);
+                // Tatsächlichen Gerätezustand ermitteln:
+                // - Wenn dedizierter feedbackStateId konfiguriert → direkt lesen
+                // - Sonst → letzten bestätigten (ack=true) Zustand aus ActuatorService nutzen
+                //   (commandStateId würde den von UNS geschriebenen Wert zurückliefern → immer "OK")
+                let actualOn;
+                if (actuatorConfig.feedbackStateId) {
+                    const actual = await this.getForeignStateAsync(actuatorConfig.feedbackStateId);
+                    if (!actual || actual.val === null || actual.val === undefined)
+                        return;
+                    const actVal = actual.val;
+                    actualOn = typeof actVal === 'boolean' ? actVal : actVal > 0;
+                }
+                else {
+                    const tracked = this.actuatorService.getState(actuatorConfig.id);
+                    if (tracked?.feedback === null || tracked?.feedback === undefined) {
+                        // Noch kein Feedback empfangen – bei Retry trotzdem Alarm
+                        if (isRetry) {
+                            this.log.error(`Aktor ${actuatorConfig.name}: kein Feedback nach Befehl ${value}`);
+                            this.alarmService.raise(AlarmService_1.ALARM_CODES.ACTUATOR_NO_FEEDBACK, groupId, actuatorConfig.id, 'warning', `Kein Gerätestatus empfangen nach Befehl "${value}"`);
+                        }
+                        return;
                     }
+                    const fb = tracked.feedback;
+                    actualOn = typeof fb === 'boolean' ? fb : fb > 0;
+                }
+                const requestedOn = typeof value === 'boolean' ? value : value > 0;
+                if (requestedOn === actualOn) {
+                    this.alarmService.clear(AlarmService_1.ALARM_CODES.ACTUATOR_NO_FEEDBACK, groupId, actuatorConfig.id);
                     return;
                 }
-                const fb = tracked.feedback;
-                actualOn = typeof fb === 'boolean' ? fb : fb > 0;
+                if (!isRetry) {
+                    this.log.warn(`Aktor ${actuatorConfig.name}: Soll=${value} aber Ist=${actualOn} – 1x Retry`);
+                    await this.setActuatorState(actuatorConfig.commandStateId, value);
+                    this.pendingVerify.set(actuatorConfig.id, schedule(true));
+                }
+                else {
+                    this.log.error(`Aktor ${actuatorConfig.name}: Gerät reagiert nicht auf Befehl ${value}`);
+                    this.alarmService.raise(AlarmService_1.ALARM_CODES.ACTUATOR_NO_FEEDBACK, groupId, actuatorConfig.id, 'warning', `Gerät hat auf Befehl "${value}" nicht reagiert`);
+                }
             }
-            const requestedOn = typeof value === 'boolean' ? value : value > 0;
-            if (requestedOn === actualOn) {
-                this.alarmService.clear(AlarmService_1.ALARM_CODES.ACTUATOR_NO_FEEDBACK, groupId, actuatorConfig.id);
-                return;
-            }
-            if (!isRetry) {
-                this.log.warn(`Aktor ${actuatorConfig.name}: Soll=${value} aber Ist=${actualOn} – 1x Retry`);
-                await this.setActuatorState(actuatorConfig.commandStateId, value);
-                this.pendingVerify.set(actuatorConfig.id, schedule(true));
-            }
-            else {
-                this.log.error(`Aktor ${actuatorConfig.name}: Gerät reagiert nicht auf Befehl ${value}`);
-                this.alarmService.raise(AlarmService_1.ALARM_CODES.ACTUATOR_NO_FEEDBACK, groupId, actuatorConfig.id, 'warning', `Gerät hat auf Befehl "${value}" nicht reagiert`);
+            catch (err) {
+                this.log.warn(`setActuatorStateWithVerify ${actuatorConfig.name}: ${err}`);
             }
         }, verifyDelaySec * 1000);
         this.pendingVerify.set(actuatorConfig.id, schedule(false));

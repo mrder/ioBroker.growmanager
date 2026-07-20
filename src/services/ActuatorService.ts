@@ -68,11 +68,7 @@ export class ActuatorService {
             return { allowed: false, reason: 'Manuell gesperrt' };
         }
 
-        // Override ignoriert Sperrzeiten (außer kritische Sicherheit)
-        if (state.overrideActive) {
-            return { allowed: true };
-        }
-
+        // Safe State / Notsperre hat immer Vorrang — auch über Override
         if (state.blocked) {
             return {
                 allowed: false,
@@ -81,6 +77,11 @@ export class ActuatorService {
                     ? Math.max(0, Math.round((state.blockedUntil - Date.now()) / 1000))
                     : 0,
             };
+        }
+
+        // Override ignoriert Mindestzeiten und Schaltspielbegrenzung — aber nicht Safe State (oben)
+        if (state.overrideActive) {
+            return { allowed: true };
         }
 
         const now = Date.now();
@@ -148,9 +149,11 @@ export class ActuatorService {
         // Vergleich basiert auf requested (nicht effectiveState), damit der Befehl
         // auch bei konfiguriertem Feedback-State korrekt gefeuert wird.
         const wasOn = this.isRequestingOn(config, state.requested);
+        const prevRequested = state.requested;
         state.requested = requested;
         const isNowOn = this.isRequestingOn(config, state.requested);
-        const changing = wasOn !== isNowOn || firstSync;
+        // Auch reine Prozentwertänderungen (z.B. 30%→80%) erkennen — nicht nur ON/OFF-Wechsel
+        const changing = wasOn !== isNowOn || prevRequested !== requested || firstSync;
 
         // Effektiven Zustand sofort aus requested ableiten (wenn kein Feedback vorhanden)
         if (state.feedback === null && state.power === null) {
@@ -339,6 +342,7 @@ export class ActuatorService {
                     state.overrideActive = false;
                     state.overrideUntil = undefined;
                     state.manualLock = false; // Dashboard-Lock läuft zusammen mit Override ab
+                    state.lastSwitchTs = 0;   // Mindestzeiten nach Override-Ablauf ignorieren
                     this.log.info(`Override für ${id} abgelaufen`);
                 }
                 this.overrideUntil.delete(id);
