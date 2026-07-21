@@ -31,6 +31,7 @@ class IrrigationService {
             lastEndTs: 0,
             pauseUntil: 0,
             currentMoisture: null,
+            startMoisture: null,
             flowRate: null,
             lastFlowTs: 0,
             totalFlowLiters: 0,
@@ -80,9 +81,10 @@ class IrrigationService {
     }
     handleRunning(zone, state, groupId) {
         const elapsed = (Date.now() - state.startTs) / 1000;
+        const maxRun = state.maxRunSeconds ?? zone.maxRunSeconds;
         // Maximale Laufzeit
-        if (elapsed > zone.maxRunSeconds) {
-            this.stopZone(zone, state, 'Maximale Laufzeit erreicht', groupId);
+        if (elapsed > maxRun) {
+            this.stopZone(zone, state, 'Maximale Laufzeit erreicht', groupId, state.startMoisture);
             if (zone.dryRunProtection && zone.flowStateId && (state.flowRate === null || state.flowRate < 0.1)) {
                 this.alarmService.raise(AlarmService_1.ALARM_CODES.IRRIGATION_DRY_RUN, groupId, `zone:${zone.id}`, 'fault', `Zone ${zone.name}: Kein Durchfluss erkannt (Trockenläuferschutz)`);
                 state.blocked = true;
@@ -93,14 +95,14 @@ class IrrigationService {
         }
         // Sollfeuchte erreicht (wenn Sensor vorhanden)
         if (state.currentMoisture !== null && state.currentMoisture >= zone.targetMoisture) {
-            this.stopZone(zone, state, `Zielfeuchte erreicht (${state.currentMoisture.toFixed(0)}%)`, groupId);
+            this.stopZone(zone, state, `Zielfeuchte erreicht (${state.currentMoisture.toFixed(0)}%)`, groupId, state.startMoisture);
             return { zoneId: zone.id, command: false, reason: `Zielfeuchte ${zone.targetMoisture}% erreicht`, blocked: false };
         }
         // Leckage prüfen (wenn Flow-Sensor vorhanden UND Pumpe schon lange läuft)
         if (zone.leakageAlarmSeconds > 0 && elapsed > zone.leakageAlarmSeconds) {
             if (state.flowRate !== null && state.flowRate > 5.0) {
                 this.alarmService.raise(AlarmService_1.ALARM_CODES.IRRIGATION_LEAK, groupId, `zone:${zone.id}`, 'critical', `Zone ${zone.name}: Verdacht auf Leckage (${state.flowRate.toFixed(1)} L/min nach ${elapsed.toFixed(0)}s)`);
-                this.stopZone(zone, state, 'Leckage-Schutz', groupId);
+                this.stopZone(zone, state, 'Leckage-Schutz', groupId, state.startMoisture);
                 state.blocked = true;
                 state.blockedReason = 'Leckage erkannt – manuelle Prüfung erforderlich';
                 state.health = 'leak';
@@ -186,6 +188,10 @@ class IrrigationService {
     startZone(zone, state) {
         state.running = true;
         state.startTs = Date.now();
+        state.totalFlowLiters = 0; // Zähler für aktuellen Zyklus zurücksetzen
+        state.lastFlowTs = 0; // Phantom-Pause zwischen Zyklen verhindern
+        state.startMoisture = state.currentMoisture; // Feuchte zum Startpunkt merken
+        state.maxRunSeconds = zone.maxRunSeconds; // Laufzeit-Override aus triggerManual()
         state.health = 'ok';
         state.cycleCount++;
         this.log.info(`Zone ${zone.id}: Bewässerung gestartet (Zyklus ${state.cycleCount})`);
@@ -195,6 +201,7 @@ class IrrigationService {
         state.running = false;
         state.lastEndTs = Date.now();
         state.startTs = 0;
+        state.maxRunSeconds = undefined;
         state.pauseUntil = Date.now() + zone.minPauseMinutes * 60000;
         this.log.info(`Zone ${state.zoneId}: Bewässerung gestoppt (${reason})`);
         if (this.onStopCallback && groupId) {

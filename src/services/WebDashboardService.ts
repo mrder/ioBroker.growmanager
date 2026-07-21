@@ -645,7 +645,11 @@ export class WebDashboardService {
                         if (!res.headersSent) { res.writeHead(502, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Antwort von plant.id zu groß' })); }
                     }
                 });
+                plantRes.on('error', () => {
+                    if (!res.headersSent) { res.writeHead(502, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Stream-Fehler von plant.id' })); }
+                });
                 plantRes.on('end', () => {
+                    if (res.headersSent) return;
                     res.writeHead(plantRes.statusCode ?? 200, {
                         'Content-Type': 'application/json',
                         'Access-Control-Allow-Origin': '*',
@@ -658,8 +662,10 @@ export class WebDashboardService {
             });
             plantReq.on('error', err => {
                 this.log.error(`Plant.id API Fehler: ${err.message}`);
-                res.writeHead(502, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: `Plant.id nicht erreichbar: ${err.message}` }));
+                if (!res.headersSent) {
+                    res.writeHead(502, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: `Plant.id nicht erreichbar: ${err.message}` }));
+                }
             });
             plantReq.write(payload);
             plantReq.end();

@@ -320,7 +320,6 @@ class ClimateController {
             }
         }
         this.actuatorHystStates.set(act.id, vpdState);
-        hyst.vpd = vpdState;
         if (vpdState === -1) {
             // VPD zu niedrig → Feuchte senken oder Temperatur erhöhen
             if (dir === 'down' || dir === 'both') {
@@ -562,7 +561,8 @@ class ClimateController {
         const target = sp.co2Target;
         const tolerance = sp.co2Tolerance ?? 50;
         const co2Max = sp.co2Max ?? target + tolerance * 4;
-        const co2Critical = sp.co2Critical ?? Math.max(5000, target + tolerance * 8);
+        // co2Critical muss immer über co2Max liegen – sonst überspringt die Warning-Stufe
+        const co2Critical = Math.max(sp.co2Critical ?? Math.max(5000, target + tolerance * 8), co2Max + tolerance);
         if (co2 > co2Critical) {
             this.alarmService.raise(AlarmService_1.ALARM_CODES.CO2_HIGH, groupId, 'climate', 'critical', `Kritischer CO₂-Wert: ${co2.toFixed(0)} ppm (Schwelle: ${co2Critical.toFixed(0)} ppm)`);
         }

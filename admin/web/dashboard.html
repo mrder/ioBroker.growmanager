@@ -1008,11 +1008,12 @@ async function saveLs() {
     flowerDays:  parseInt(document.getElementById('lsFlowerDays').value) || null,
   };
   try {
-    await fetch(`/api/lifestyle/${lsCurrentGroup}`, {
+    const resp = await fetch(`/api/lifestyle/${lsCurrentGroup}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
     lsCache[lsCurrentGroup] = data;
     closeLs();
     renderLsBars();
@@ -1080,6 +1081,7 @@ async function loadAllLifestyle(groups) {
     if (lsCache[g.id] !== undefined) return;
     try {
       const res = await fetch(`/api/lifestyle/${g.id}`);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       lsCache[g.id] = await res.json();
     } catch { lsCache[g.id] = {}; }
   }));
@@ -1096,6 +1098,7 @@ let dbCurrentGroup = null;
 let dbCurrentTab = 'stats';
 let dbCurrentData = [];
 let dbWeekOffset = 0;
+let dbSwitchInFlight = false;
 
 async function showDb(groupId, groupName, tab = 'stats') {
   dbCurrentGroup = groupId;
@@ -1109,7 +1112,7 @@ function closeDb() {
 }
 
 async function dbSwitchTab(tab) {
-  if (!dbCurrentGroup) return;
+  if (!dbCurrentGroup || dbSwitchInFlight) return;
   dbCurrentTab = tab;
   document.getElementById('dbTabStats')?.classList.toggle('active', tab === 'stats');
   document.getElementById('dbTabEnergy')?.classList.toggle('active', tab === 'energy');
@@ -1117,6 +1120,7 @@ async function dbSwitchTab(tab) {
 
   const body = document.getElementById('dbBody');
   body.innerHTML = '<p style="color:var(--text-dim);padding:20px">Lade…</p>';
+  dbSwitchInFlight = true;
   try {
     const res = await fetch(`/api/database/${dbCurrentGroup}/${tab}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1125,6 +1129,8 @@ async function dbSwitchTab(tab) {
     dbReRender();
   } catch(e) {
     body.innerHTML = '<p style="color:var(--warn);padding:20px">Fehler beim Laden</p>';
+  } finally {
+    dbSwitchInFlight = false;
   }
 }
 
@@ -1180,7 +1186,7 @@ function renderStatsTable(data) {
   let html = '<div style="display:flex;flex-wrap:wrap;gap:16px;padding:4px 0">';
   for (const id of sensorIds) {
     html += `<div style="flex:1 1 260px;min-width:220px;border:1px solid var(--border);border-radius:8px;overflow:hidden">`;
-    html += `<div style="padding:10px 14px;background:var(--bg-card,rgba(255,255,255,.04));border-bottom:1px solid var(--border);font-weight:600">${getName(id)}</div>`;
+    html += `<div style="padding:10px 14px;background:var(--bg-card,rgba(255,255,255,.04));border-bottom:1px solid var(--border);font-weight:600">${esc(getName(id))}</div>`;
     html += `<table class="db-table" style="margin:0;border:none"><thead>`;
     html += `<tr><th>Datum</th><th style="text-align:right;color:#5bbddd">Min</th><th style="text-align:right">Avg</th><th style="text-align:right;color:#e87060">Max</th></tr>`;
     html += `</thead><tbody>`;
@@ -1188,7 +1194,7 @@ function renderStatsTable(data) {
       const s = row.sensors?.[id];
       if (!s) continue;
       html += `<tr>`;
-      html += `<td>${row.date}</td>`;
+      html += `<td>${esc(row.date)}</td>`;
       html += `<td style="text-align:right;color:#5bbddd">${s.min != null ? s.min.toFixed(1) : '–'}</td>`;
       html += `<td style="text-align:right;font-weight:600">${s.avg != null ? s.avg.toFixed(1) : '–'}</td>`;
       html += `<td style="text-align:right;color:#e87060">${s.max != null ? s.max.toFixed(1) : '–'}</td>`;
@@ -1223,14 +1229,14 @@ function renderEnergyTable(data) {
   for (const id of actIds) {
     const tot = totals[id];
     html += `<div style="flex:1 1 280px;min-width:260px;border:1px solid var(--border);border-radius:8px;overflow:hidden">`;
-    html += `<div style="padding:10px 14px;background:var(--bg-card, rgba(255,255,255,.04));border-bottom:1px solid var(--border);font-weight:600">${names[id] ?? id}</div>`;
+    html += `<div style="padding:10px 14px;background:var(--bg-card, rgba(255,255,255,.04));border-bottom:1px solid var(--border);font-weight:600">${esc(names[id] ?? id)}</div>`;
     html += `<table class="db-table" style="margin:0;border:none">`;
     html += `<thead><tr><th>Datum</th><th style="text-align:right">Energie</th><th style="text-align:right">Laufzeit</th><th style="text-align:right">Ø W</th></tr></thead><tbody>`;
     for (const row of data) {
       const a = row.actuators?.[id];
       if (!a) continue;
       html += `<tr>`;
-      html += `<td>${row.date}</td>`;
+      html += `<td>${esc(row.date)}</td>`;
       html += `<td style="text-align:right">${fmtWh(a.wh)}</td>`;
       html += `<td style="text-align:right">${fmtRuntime(a.runtimeMin)}</td>`;
       html += `<td style="text-align:right;color:var(--text-dim)">${fmtAvgW(a.wh, a.runtimeMin)}</td>`;
@@ -1304,7 +1310,7 @@ function actIconsHtml(actuators, groupId, manualOverrides) {
     const unreachable = a.health === 'unreachable';
     const errBadge = unreachable ? '<span class="act-chip-err">!</span>' : '';
     const sharedMark = a.shared && a.sharedParticipants && a.sharedParticipants.length ? '⇄' : '';
-    const tipShared = sharedMark ? ` · geteilt (${a.sharedVotingMode ?? 'any'}, ${a.sharedParticipants.length} Gruppe(n))` : '';
+    const tipShared = sharedMark ? ` · geteilt (${esc(a.sharedVotingMode ?? 'any')}, ${a.sharedParticipants.length} Gruppe(n))` : '';
     return `<span class="act-icon-chip ${isOn ? 'on ' + t.cls : 'off'}${unreachable ? ' chip-unreachable' : ''}">
       ${t.icon}${sharedMark}${errBadge}${pulse}
       <span class="act-icon-tip">${esc(a.name)}${ovNote}${tipShared} · ${unreachable ? '⚠ Nicht erreichbar' : (isOn ? 'EIN' : 'AUS')}</span>
@@ -1373,8 +1379,8 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
       : '';
     return `<div class="actuator-row act-shared-extern">
       <div class="act-dot ${ledClass}"></div>
-      <span class="act-name">${t.icon} ${a.name}</span>
-      <span class="act-shared-from-badge" title="Eigentümer: ${a.sharedFromGroupName}${influence}">⇄ ${a.sharedFromGroupName}</span>
+      <span class="act-name">${t.icon} ${esc(a.name)}</span>
+      <span class="act-shared-from-badge" title="Eigentümer: ${esc(a.sharedFromGroupName ?? '')}${influence}">⇄ ${esc(a.sharedFromGroupName ?? '')}</span>
       <span style="margin-left:auto;display:flex;align-items:center;gap:4px">
         <span class="act-label-dim">Soll:</span>
         <span class="act-state ${sollOn?'on':'off'}">${sollOn?'EIN':'AUS'}</span>${istHtml}
@@ -1397,7 +1403,7 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   const ledClass = istOn ? 'on' : 'off';
 
   // Per-Aktor AUTO/MANUELL-Badge: klickbar zum Zurücksetzen auf AUTO
-  const escAttr = (s) => s.replace(/'/g, "\\'"); // nur für JS-Attribute (einfache Anführungszeichen)
+  const escAttr = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
   const modeBadge = ov
     ? `<span class="act-override-badge clickable" title="Auf AUTO zurücksetzen – setzt alle Aktoren der Gruppe auf AUTO"
          onclick="sendMode('${escAttr(groupId)}','auto','${escAttr(groupId)}')">MANUELL ↩</span>`
@@ -1499,7 +1505,7 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
 
   return `<div class="actuator-row${unreachable ? ' act-unreachable' : ''}">
     <div class="act-dot ${ledClass}"></div>
-    <span class="act-name">${t.icon} ${a.name}</span>
+    <span class="act-name">${t.icon} ${esc(a.name)}</span>
     ${sharedBadge}${healthIcon}${modeBadge}${sollHtml}${istHtml}${countdownHtml}${powerHtml}
     ${ctrlBtns}
   </div>`;
@@ -1515,7 +1521,7 @@ function diagHintHtml(g) {
 
   // Hilfsfunktionen
   const actOfType = (...types) => (g.actuators ?? []).filter(a => types.includes(a.type));
-  const actNames  = (...types) => actOfType(...types).map(a => a.name).join(', ');
+  const actNames  = (...types) => actOfType(...types).map(a => esc(a.name)).join(', ');
   const hasAct    = (...types) => actOfType(...types).length > 0;
 
   // VPD-Analyse (physikalisch: VPD = f(Temp↑, Feuchte↓))
@@ -1612,11 +1618,11 @@ function qualityBadgeHtml(g) {
   };
   const rows = sensors.map(s => {
     const dotColor = !s.valid ? 'var(--red)' : s.quality < 60 ? 'var(--orange)' : s.quality < 90 ? 'var(--yellow)' : 'var(--green-light)';
-    const label = SENSOR_TYPE_LABELS[s.type] ?? s.type;
-    const errRow = (s.error && !s.valid) ? `<div style="font-size:10px;color:var(--orange);padding-left:16px;margin-top:-2px">${s.error}</div>` : '';
+    const label = SENSOR_TYPE_LABELS[s.type] ?? esc(s.type);
+    const errRow = (s.error && !s.valid) ? `<div style="font-size:10px;color:var(--orange);padding-left:16px;margin-top:-2px">${esc(s.error)}</div>` : '';
     return `<div class="q-sensor-row">
       <div class="q-sensor-dot" style="background:${dotColor}"></div>
-      <span class="q-sensor-name">${s.name} <span style="font-size:10px;opacity:0.6">(${label})</span></span>
+      <span class="q-sensor-name">${esc(s.name)} <span style="font-size:10px;opacity:0.6">(${label})</span></span>
       <span class="q-sensor-val" style="color:${dotColor}">${s.quality}%</span>
     </div>${errRow}`;
   }).join('');
@@ -1752,7 +1758,7 @@ function groupCardHtml(g) {
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         ${modeToggle}
-        <span class="health-badge" style="background:${healthColor}22;color:${healthColor};border:1px solid ${healthColor}">${g.health}</span>
+        <span class="health-badge" style="background:${healthColor}22;color:${healthColor};border:1px solid ${healthColor}">${esc(g.health)}</span>
       </div>
     </div>
     ${actIconsHtml(g.actuators, g.id, g.manualOverrides)}
@@ -1760,8 +1766,8 @@ function groupCardHtml(g) {
     ${diagHintHtml(g)}
     ${outdoorHtml}
     <div class="meta-row">
-      <span class="meta-tag phase">${PHASE_LABELS[g.phase] ?? g.phase}</span>
-      <span class="meta-tag mode">${MODE_LABELS[g.mode] ?? g.mode}</span>
+      <span class="meta-tag phase">${PHASE_LABELS[g.phase] ?? esc(g.phase)}</span>
+      <span class="meta-tag mode">${MODE_LABELS[g.mode] ?? esc(g.mode)}</span>
       ${dayNightTag}
       ${monitorTag}
       ${qualityBadgeHtml(g)}
@@ -1782,12 +1788,12 @@ function groupCardHtml(g) {
 function renderStats(state) {
   document.getElementById('statsBar').innerHTML = `
     <div class="stat-chip"><span class="label">Adapter</span>
-      <span class="value" style="color:${state.health==='running'?'var(--green-light)':'var(--orange)'}">${state.health}</span></div>
+      <span class="value" style="color:${state.health==='running'?'var(--green-light)':'var(--orange)'}">${esc(state.health)}</span></div>
     <div class="stat-chip"><span class="label">Gruppen</span><span class="value">${state.groups.length}</span></div>
     <div class="stat-chip"><span class="label">Alarme</span>
       <span class="value" style="color:${state.activeAlarms>0?'var(--red)':'var(--green-light)'}">${state.activeAlarms}</span></div>
     <div class="stat-chip"><span class="label">Version</span>
-      <span class="value" style="color:var(--text-dim)">${state.adapterVersion}</span></div>
+      <span class="value" style="color:var(--text-dim)">${esc(state.adapterVersion)}</span></div>
     <button class="wiki-btn" onclick="wikiOpen()">📖 Sortenwiki</button>`;
 }
 
@@ -2143,8 +2149,8 @@ function wikiShowForm(id) {
 
       </div>
       <div class="wiki-form-actions">
-        <button class="wiki-save-btn" onclick="wikiSave(${id ? `'${id}'` : 'null'})">💾 Speichern</button>
-        <button class="wiki-cancel-btn" onclick="${id ? `wikiShowDetail('${id}')` : 'wikiRenderEmpty()'}">Abbrechen</button>
+        <button class="wiki-save-btn" onclick="wikiSave(${id ? `'${escAttr(id)}'` : 'null'})">💾 Speichern</button>
+        <button class="wiki-cancel-btn" onclick="${id ? `wikiShowDetail('${escAttr(id)}')` : 'wikiRenderEmpty()'}">Abbrechen</button>
       </div>
     </div>
   `;
@@ -2210,7 +2216,7 @@ async function wikiDelete(id) {
 
 connect();
 const _ivReconnect = setInterval(() => {
-  if (!connected) fetch('/api/state').then(r=>r.json()).then(s=>{ if (!connected) { render(s); updateTimestamp(); setConnected(true); } }).catch(()=>{});
+  if (!connected) fetch('/api/state').then(r=>{ if (!r.ok) throw new Error(); return r.json(); }).then(s=>{ if (!connected) { render(s); updateTimestamp(); setConnected(true); } }).catch(()=>{});
 }, 15000);
 
 // Wind-Sim & Block-Countdown: tickt sekündlich im Browser — unabhängig vom SSE-Zyklus
@@ -2646,7 +2652,7 @@ function translateDisease(name) {
 
 function buildResultHtml(data, compact) {
   if (data.error) {
-    return `<div style="color:#d32f2f;font-size:12px">⚠ ${data.error}</div>`;
+    return `<div style="color:#d32f2f;font-size:12px">⚠ ${esc(data.error)}</div>`;
   }
   const health = data.result?.is_healthy;
   const diseases = data.result?.disease?.suggestions ?? [];
@@ -2662,7 +2668,7 @@ function buildResultHtml(data, compact) {
     }
     const top = realProblems[0] ?? diseases[0];
     const pct = Math.round((top?.probability ?? 0) * 100);
-    return `<span style="color:#f44336;font-weight:600">⚠ Problem</span> <span style="font-size:11px;color:#888">– ${translateDisease(top?.name)} (${pct}%)</span>`;
+    return `<span style="color:#f44336;font-weight:600">⚠ Problem</span> <span style="font-size:11px;color:#888">– ${esc(translateDisease(top?.name))} (${pct}%)</span>`;
   }
 
   // Vollansicht
@@ -2679,7 +2685,7 @@ function buildResultHtml(data, compact) {
         html += `<div class="plant-disease-row">
           <span style="flex:0 0 38px;font-size:11px;color:#aaa">${pct}%</span>
           <div class="plant-conf-bar"><div class="plant-conf-fill low" style="width:${pct}%"></div></div>
-          <span style="font-size:12px;flex:1;color:#aaa">${translateDisease(d.name)}</span>
+          <span style="font-size:12px;flex:1;color:#aaa">${esc(translateDisease(d.name))}</span>
         </div>`;
       });
     } else {
@@ -2697,7 +2703,7 @@ function buildResultHtml(data, compact) {
       html += `<div class="plant-disease-row">
         <span style="flex:0 0 38px;font-size:11px;color:#888">${pct}%</span>
         <div class="plant-conf-bar"><div class="plant-conf-fill ${cls}" style="width:${pct}%"></div></div>
-        <span style="font-size:12px;flex:1">${translateDisease(d.name)}</span>
+        <span style="font-size:12px;flex:1">${esc(translateDisease(d.name))}</span>
       </div>`;
     });
   }
@@ -2722,12 +2728,12 @@ function renderPlantResult(groupId) {
     const starIcon = e.starred ? '⭐' : '☆';
     const label = idx === 0 ? '<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;border-radius:3px;padding:1px 5px;margin-left:4px">NEU</span>' : '';
     return `<div class="analysis-entry ${e.starred ? 'analysis-entry-starred' : ''}">
-      <span class="analysis-entry-star" onclick="toggleStar(${e.id}, '${e.groupId}')" title="${e.starred ? 'Stern entfernen' : 'Als wichtig markieren'}">${starIcon}</span>
+      <span class="analysis-entry-star" onclick="toggleStar(${e.id}, '${escAttr(e.groupId)}')" title="${e.starred ? 'Stern entfernen' : 'Als wichtig markieren'}">${starIcon}</span>
       <div class="analysis-entry-body">
         <div class="analysis-entry-ts">${edt}${label}</div>
         <div>${buildResultHtml(e.data, true)}</div>
       </div>
-      <span onclick="deleteHistoryEntry(${e.id}, '${e.groupId}')" style="cursor:pointer;color:#aaa;font-size:13px;flex-shrink:0" title="Loeschen">✕</span>
+      <span onclick="deleteHistoryEntry(${e.id}, '${escAttr(e.groupId)}')" style="cursor:pointer;color:#aaa;font-size:13px;flex-shrink:0" title="Loeschen">✕</span>
     </div>`;
   }).join('');
 

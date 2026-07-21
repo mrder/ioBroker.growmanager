@@ -1223,6 +1223,12 @@ class GrowManagerAdapter extends utils.Adapter {
                 await this.setActuatorState(act.commandStateId, wantsOn ? act.onValue : act.offValue);
                 this.setActuatorStateWithVerify(act, config.id, wantsOn ? act.onValue : act.offValue);
                 this.log.info(`Umluft ${act.name}: → ${wantsOn ? 'EIN' : 'AUS'} (${act.circulationMode})`);
+                if (act.energyStateUnit !== 'kWh') {
+                    if (wantsOn)
+                        this.databaseService.trackActuatorOn(config.id, act.id, act.name, act.ratedPowerW ?? 0);
+                    else
+                        this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW ?? 0);
+                }
             }
         }
     }
@@ -1779,7 +1785,7 @@ class GrowManagerAdapter extends utils.Adapter {
             [`${base}.climate.absoluteHumidity`, state.absoluteHumidity !== null ? Math.round(state.absoluteHumidity * 10) / 10 : null],
             [`${base}.climate.condensationRisk`, state.condensationRisk],
             [`${base}.climate.sensorQuality`, state.sensorQuality],
-            [`${base}.climate.co2`, this.sensorService.aggregate(config.sensors, 'co2', config.aggregationMethod).value],
+            [`${base}.climate.co2`, this.sensorService.aggregate(config.sensors, 'co2', config.aggregationMethod, config.stabilityTimeSeconds).value],
             [`${base}.diagnostics.sensorHealth`, state.sensorQuality],
             [`${base}.diagnostics.lastDecision`, state.lastDecision ? JSON.stringify(state.lastDecision) : ''],
         ];

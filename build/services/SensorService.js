@@ -43,7 +43,7 @@ class SensorService {
             valid = false;
             error = 'Kein Wert vorhanden';
         }
-        else if (config.type !== 'door' && typeof rawValue !== 'number' && typeof rawValue !== 'string') {
+        else if (config.type !== 'door' && typeof rawValue !== 'number') {
             valid = false;
             error = `Unerwarteter Datentyp: ${typeof rawValue}`;
         }
