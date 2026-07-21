@@ -106,8 +106,8 @@ export class ClimateController {
                 `Kritische Übertemperatur: ${temp.toFixed(1)} °C > ${setpoint.temperatureCritical} °C`
             );
             primaryReason = `Übertemperatur ${temp.toFixed(1)} °C – Maximalabluft`;
-            this.requestByTarget(config, 'temperature', 'down', actions, true, 100, primaryReason, null, null);
-            this.requestByTarget(config, 'temperature', 'up', actions, false, 0, 'Verriegelung: Übertemperatur', null, null, true);
+            this.requestByTarget(config, 'temperature', 'down', actions, true, 100, primaryReason, null, null, false, true);
+            this.requestByTarget(config, 'temperature', 'up', actions, false, 0, 'Verriegelung: Übertemperatur', null, null, true, true);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
         } else if (temp !== null) {
             this.alarmService.clear(ALARM_CODES.TEMPERATURE_HIGH, config.id, 'climate');
@@ -122,7 +122,7 @@ export class ClimateController {
                 `Kritische Untertemperatur: ${temp.toFixed(1)} °C`
             );
             primaryReason = `Untertemperatur ${temp.toFixed(1)} °C – Heizung`;
-            this.requestByTarget(config, 'temperature', 'up', actions, true, 0, primaryReason, null, null);
+            this.requestByTarget(config, 'temperature', 'up', actions, true, 0, primaryReason, null, null, false, true);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
         } else if (temp !== null && temp >= setpoint.temperatureMin - 1) {
             this.alarmService.clear(ALARM_CODES.TEMPERATURE_LOW, config.id, 'climate');
@@ -137,8 +137,8 @@ export class ClimateController {
                 `Kondensationsrisiko: T=${temp.toFixed(1)}°C RH=${hum.toFixed(0)}%`
             );
             primaryReason = 'Kondensationsrisiko – Entfeuchter / Abluft';
-            this.requestByTarget(config, 'humidity', 'down', actions, true, 60, primaryReason, outdoorTemp, outdoorHumidity);
-            this.requestByTarget(config, 'humidity', 'up', actions, false, 0, 'Gegenseitige Verriegelung', null, null, true);
+            this.requestByTarget(config, 'humidity', 'down', actions, true, 60, primaryReason, outdoorTemp, outdoorHumidity, false, true);
+            this.requestByTarget(config, 'humidity', 'up', actions, false, 0, 'Gegenseitige Verriegelung', null, null, true, true);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
         } else if (temp !== null && hum !== null) {
             this.alarmService.clear(ALARM_CODES.CONDENSATION_RISK, config.id, 'climate');
@@ -432,6 +432,7 @@ export class ClimateController {
                 } else {
                     // Befeuchter: VPD bereits zu niedrig → AUSschalten, sonst sinkt VPD weiter
                     this.pushAction(actions, act, false, `VPD ${vpd.toFixed(2)} zu niedrig – Befeuchter aus`, false);
+                    return `VPD zu niedrig → Befeuchter aus`;
                 }
             }
         } else if (vpdState === 1) {
@@ -531,10 +532,13 @@ export class ClimateController {
         outdoorTemp: number | null,
         outdoorHumidity: number | null,
         force = false,
+        safetyOverride = false,  // true: ignoriert group-mode beim Target-Matching (für Not-Checks)
     ): void {
         for (const act of config.actuators) {
             if (!act.enabled) continue;
-            if (inferControlTarget(act, config.mode) !== target) continue;
+            // Sicherheitsübersteuerungen: Aktor nach Typ matchen, nicht nach Modus
+            const effectiveTarget = inferControlTarget(act, safetyOverride ? undefined : config.mode);
+            if (effectiveTarget !== target) continue;
             if (dir !== 'both' && inferControlDirection(act) !== dir && inferControlDirection(act) !== 'both') continue;
             const val = on ? (act.supportsPercent && percent > 0 ? percent : true) : false;
             this.pushAction(actions, act, val, reason, false, force);
@@ -618,7 +622,7 @@ export class ClimateController {
             );
             const stage1IsOn = stage1Acts.some(a => {
                 const action = actions.find(x => x.actuatorId === a.id);
-                if (!action) return false;
+                if (!action || action.blocked) return false; // geblockte Aktoren sind effektiv AUS
                 return typeof action.requested === 'boolean' ? action.requested : action.requested > 0;
             });
 

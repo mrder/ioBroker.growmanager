@@ -115,6 +115,7 @@ export class IrrigationService {
         if (zone.allowedWindow && !isInTimeWindow(now, zone.allowedWindow.startHH, zone.allowedWindow.startMM, zone.allowedWindow.endHH, zone.allowedWindow.endMM)) {
             if (state.running) {
                 this.log.info(`Zone ${zone.name}: Zeitfenster endet → Pumpe AUS`);
+                this.stopZone(zone, state, 'Außerhalb Zeitfenster', groupId, state.startMoisture);
                 return { zoneId: zone.id, command: false, reason: 'Außerhalb Zeitfenster', blocked: false };
             }
             return { zoneId: zone.id, command: false, reason: 'Außerhalb erlaubtem Zeitfenster', blocked: false };
@@ -161,6 +162,7 @@ export class IrrigationService {
                 state.blocked = true;
                 state.blockedReason = 'Trockenläufer-Schutz aktiv';
                 state.health = 'dryRun';
+                return { zoneId: zone.id, command: false, reason: 'Trockenläufer-Schutz', blocked: true };
             }
             return { zoneId: zone.id, command: false, reason: 'Timeout', blocked: false };
         }
@@ -245,8 +247,8 @@ export class IrrigationService {
     stopNow(zoneId: string, reason: string, groupId?: string): void {
         const state = this.zoneStates.get(zoneId);
         const zone = this.zoneConfigs.get(zoneId);
-        if (state && zone) this.stopZone(zone, state, reason, groupId);
-        else if (state) this.stopZone({ minPauseMinutes: 0 } as IrrigationZoneConfig, state, reason, groupId);
+        if (state && zone) this.stopZone(zone, state, reason, groupId, state.startMoisture);
+        else if (state) this.stopZone({ minPauseMinutes: 0 } as IrrigationZoneConfig, state, reason, groupId, state.startMoisture);
     }
 
     /**

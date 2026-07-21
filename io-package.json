@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.12",
+    "version": "0.3.13",
     "news": {
+      "0.3.13": {
+        "en": "v0.3.13: Round 13 bug-fix pass — ClimateController: applyEscalationBlocking now ignores blocked stage-1 actions (action.blocked check), safetyOverride in requestByTarget; main.ts: handleEmergencyStop guard (no repeat writes per cycle), WindSimulator skip setActuatorStateWithVerify (no false alarms), emergencyStopApplied flag resets on normal cycle; dashboard: ctrlBtns/modeToggle/soilSensor onclick use escAttr(), showTrend res.ok check",
+        "de": "v0.3.13: Runde-13-Bug-Fix-Pass — ClimateController: applyEscalationBlocking ignoriert geblockte Stufe-1-Aktoren (action.blocked-Prüfung), safetyOverride in requestByTarget; main.ts: handleEmergencyStop-Guard (keine wiederholten Schreibzugriffe pro Zyklus), WindSimulator überspringt setActuatorStateWithVerify (keine False-Alarms), emergencyStopApplied-Flag beim normalen Zyklus zurückgesetzt; Dashboard: ctrlBtns/modeToggle/soilSensor onclick nutzen escAttr(), showTrend res.ok-Check"
+      },
       "0.3.12": {
         "en": "v0.3.12: Round 12 bug-fix pass — IrrigationService: triggerManual duration now respected, totalFlowLiters reset per cycle, lastFlowTs reset on start (no phantom flow), startMoisture saved for stop event; WebDashboardService: plant.id headersSent guards + plantRes error handler; SensorService: string values correctly rejected for numeric sensor types; ClimateController: co2Critical always above co2Max, dead hyst.vpd write removed; main.ts: energy tracking for schedule/alwaysOn circulation fans, CO2 aggregation uses stabilityTimeSeconds; dashboard: 14 XSS/JS-injection fixes, escAttr handles backslash+quotes, resp.ok checks in saveLs/loadAllLifestyle/reconnect, dbSwitchTab race condition guard",
         "de": "v0.3.12: Runde-12-Bug-Fix-Pass — IrrigationService: triggerManual-Dauer jetzt berücksichtigt, totalFlowLiters pro Zyklus zurückgesetzt, lastFlowTs beim Start zurückgesetzt (kein Phantom-Flow), startMoisture für Stop-Event gespeichert; WebDashboardService: plant.id headersSent-Guards + plantRes-Fehler-Handler; SensorService: String-Werte für numerische Sensortypen korrekt abgelehnt; ClimateController: co2Critical immer über co2Max, toter hyst.vpd-Schreibzugriff entfernt; main.ts: Energie-Tracking für schedule/alwaysOn Umluft, CO2-Aggregation nutzt stabilityTimeSeconds; Dashboard: 14 XSS/JS-Injection-Fixes, escAttr berücksichtigt Backslash+Quotes, resp.ok-Checks in saveLs/loadAllLifestyle/reconnect, dbSwitchTab Race-Condition-Guard"

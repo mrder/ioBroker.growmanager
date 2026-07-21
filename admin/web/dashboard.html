@@ -756,6 +756,15 @@
 // GrowManager Live Dashboard
 // ============================================================
 
+// HTML-Escaping für Textnodes und Attribute
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+// JS-String-Escaping für onclick-Attribute (Werte in einfachen Anführungszeichen)
+function escAttr(s) {
+  return String(s ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"');
+}
+
 const HEALTH_COLORS = {
   FULL: 'var(--full)', LIMITED: 'var(--limited)', FALLBACK: 'var(--fallback)',
   MONITOR_ONLY: 'var(--monitor)', SAFE: 'var(--safe)', FAULT: 'var(--fault)',
@@ -889,6 +898,7 @@ async function showTrend(groupId, variable, label, unit, setMin, setMax) {
   popup.classList.add('visible');
   try {
     const res = await fetch(`/api/trends/${groupId}/${variable}`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const payload = await res.json();
     // API liefert {points, hint?} oder (legacy) ein Array
     const points = Array.isArray(payload) ? payload : (payload.points ?? []);
@@ -1403,7 +1413,6 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   const ledClass = istOn ? 'on' : 'off';
 
   // Per-Aktor AUTO/MANUELL-Badge: klickbar zum Zurücksetzen auf AUTO
-  const escAttr = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
   const modeBadge = ov
     ? `<span class="act-override-badge clickable" title="Auf AUTO zurücksetzen – setzt alle Aktoren der Gruppe auf AUTO"
          onclick="sendMode('${escAttr(groupId)}','auto','${escAttr(groupId)}')">MANUELL ↩</span>`
@@ -1482,8 +1491,8 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   }
 
   const ctrlBtns = isManualMode || ov
-    ? `<button class="act-toggle on-btn"  onclick="sendControl('${groupId}','${a.id}',true,'${esc(a.name)} einschalten')">EIN</button>
-       <button class="act-toggle off-btn" onclick="sendControl('${groupId}','${a.id}',false,'${esc(a.name)} ausschalten')">AUS</button>`
+    ? `<button class="act-toggle on-btn"  onclick="sendControl('${escAttr(groupId)}','${escAttr(a.id)}',true,'${escAttr(a.name)} einschalten')">EIN</button>
+       <button class="act-toggle off-btn" onclick="sendControl('${escAttr(groupId)}','${escAttr(a.id)}',false,'${escAttr(a.name)} ausschalten')">AUS</button>`
     : '';
 
   const unreachable = a.health === 'unreachable';
@@ -1676,8 +1685,7 @@ function groupCardHtml(g) {
   if (g.soilSensors && g.soilSensors.length > 1) {
     // Mehrere Bodenfeuchtesensoren → jeden einzeln anzeigen
     soilHtml = g.soilSensors.map(s => {
-      const esc = s.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      return `<div onclick="showTrend('${gid}','soilMoisture','${esc}','%',${soilMin},${soilMax})" style="cursor:pointer" title="Trend anzeigen">${
+      return `<div onclick="showTrend('${gid}','soilMoisture','${escAttr(s.name)}','%',${soilMin},${soilMax})" style="cursor:pointer" title="Trend anzeigen">${
         climateValHtml(s.value, '%', s.name, isCtrlSoil, soilMin, soilMax, null, 0)}</div>`;
     }).join('');
   } else if (g.soilMoisture !== null && g.soilMoisture !== undefined) {
@@ -1745,9 +1753,9 @@ function groupCardHtml(g) {
 
   const modeToggle = `<div class="mode-toggle">
       <button class="mode-btn ${!isManual ? 'active-auto' : ''}"
-        onclick="sendMode('${g.id}','auto','${g.name.replace(/'/g,"\\'")}')">AUTO</button>
+        onclick="sendMode('${escAttr(g.id)}','auto','${escAttr(g.name)}')">AUTO</button>
       <button class="mode-btn ${isManual ? 'active-manual' : ''}"
-        onclick="sendMode('${g.id}','manual','${g.name.replace(/'/g,"\\'")}')">MANUELL</button>
+        onclick="sendMode('${escAttr(g.id)}','manual','${escAttr(g.name)}')">MANUELL</button>
     </div>`;
 
   return `<div class="group-card" id="card-${g.id}">
@@ -1862,10 +1870,6 @@ function connect() {
 // ============================================================
 let wikiStrains = [];
 let wikiSelected = null; // id der aktuell angezeigten Sorte
-
-function esc(s) {
-  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
 
 async function wikiOpen() {
   const overlay = document.getElementById('wikiOverlay');

@@ -82,10 +82,11 @@ class DatabaseService {
         if (!cur || cur.lastOnTs === 0)
             return;
         const durationMin = (Date.now() - cur.lastOnTs) / 60000;
-        // ratedWatts-Fallback: nur wenn keine echten Power-Samples vorliegen
-        if (ratedWatts > 0 && cur.wh === 0) {
-            cur.wh += (ratedWatts * durationMin) / 60;
-        }
+        // Tail-Segment: Zeit seit letztem Power-Sample (oder AN-Zeitpunkt) bis AUS.
+        // Nennleistung als Schätzwert; bevorzuge Parameter, Fallback auf gespeicherten Wert.
+        const wTail = ratedWatts > 0 ? ratedWatts : cur.ratedWatts;
+        if (wTail > 0)
+            cur.wh += (wTail * durationMin) / 60;
         cur.runtimeMin += durationMin;
         cur.lastOnTs = 0;
     }

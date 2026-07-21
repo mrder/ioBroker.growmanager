@@ -69,8 +69,8 @@ class ClimateController {
         if (temp !== null && temp > setpoint.temperatureCritical) {
             this.alarmService.raise(AlarmService_1.ALARM_CODES.TEMPERATURE_HIGH, config.id, 'climate', 'critical', `Kritische Übertemperatur: ${temp.toFixed(1)} °C > ${setpoint.temperatureCritical} °C`);
             primaryReason = `Übertemperatur ${temp.toFixed(1)} °C – Maximalabluft`;
-            this.requestByTarget(config, 'temperature', 'down', actions, true, 100, primaryReason, null, null);
-            this.requestByTarget(config, 'temperature', 'up', actions, false, 0, 'Verriegelung: Übertemperatur', null, null, true);
+            this.requestByTarget(config, 'temperature', 'down', actions, true, 100, primaryReason, null, null, false, true);
+            this.requestByTarget(config, 'temperature', 'up', actions, false, 0, 'Verriegelung: Übertemperatur', null, null, true, true);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
         }
         else if (temp !== null) {
@@ -82,7 +82,7 @@ class ClimateController {
         if (temp !== null && temp < setpoint.temperatureMin - 3) {
             this.alarmService.raise(AlarmService_1.ALARM_CODES.TEMPERATURE_LOW, config.id, 'climate', 'fault', `Kritische Untertemperatur: ${temp.toFixed(1)} °C`);
             primaryReason = `Untertemperatur ${temp.toFixed(1)} °C – Heizung`;
-            this.requestByTarget(config, 'temperature', 'up', actions, true, 0, primaryReason, null, null);
+            this.requestByTarget(config, 'temperature', 'up', actions, true, 0, primaryReason, null, null, false, true);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
         }
         else if (temp !== null && temp >= setpoint.temperatureMin - 1) {
@@ -94,8 +94,8 @@ class ClimateController {
         if (temp !== null && hum !== null && (0, calculations_1.condensationRisk)(temp, hum)) {
             this.alarmService.raise(AlarmService_1.ALARM_CODES.CONDENSATION_RISK, config.id, 'climate', 'fault', `Kondensationsrisiko: T=${temp.toFixed(1)}°C RH=${hum.toFixed(0)}%`);
             primaryReason = 'Kondensationsrisiko – Entfeuchter / Abluft';
-            this.requestByTarget(config, 'humidity', 'down', actions, true, 60, primaryReason, outdoorTemp, outdoorHumidity);
-            this.requestByTarget(config, 'humidity', 'up', actions, false, 0, 'Gegenseitige Verriegelung', null, null, true);
+            this.requestByTarget(config, 'humidity', 'down', actions, true, 60, primaryReason, outdoorTemp, outdoorHumidity, false, true);
+            this.requestByTarget(config, 'humidity', 'up', actions, false, 0, 'Gegenseitige Verriegelung', null, null, true, true);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
         }
         else if (temp !== null && hum !== null) {
@@ -354,6 +354,7 @@ class ClimateController {
                 else {
                     // Befeuchter: VPD bereits zu niedrig → AUSschalten, sonst sinkt VPD weiter
                     this.pushAction(actions, act, false, `VPD ${vpd.toFixed(2)} zu niedrig – Befeuchter aus`, false);
+                    return `VPD zu niedrig → Befeuchter aus`;
                 }
             }
         }
@@ -435,11 +436,13 @@ class ClimateController {
     // ============================================================
     // Hilfsfunktionen
     // ============================================================
-    requestByTarget(config, target, dir, actions, on, percent, reason, outdoorTemp, outdoorHumidity, force = false) {
+    requestByTarget(config, target, dir, actions, on, percent, reason, outdoorTemp, outdoorHumidity, force = false, safetyOverride = false) {
         for (const act of config.actuators) {
             if (!act.enabled)
                 continue;
-            if (inferControlTarget(act, config.mode) !== target)
+            // Sicherheitsübersteuerungen: Aktor nach Typ matchen, nicht nach Modus
+            const effectiveTarget = inferControlTarget(act, safetyOverride ? undefined : config.mode);
+            if (effectiveTarget !== target)
                 continue;
             if (dir !== 'both' && inferControlDirection(act) !== dir && inferControlDirection(act) !== 'both')
                 continue;
@@ -506,8 +509,8 @@ class ClimateController {
                 && inferControlDirection(a) === dir);
             const stage1IsOn = stage1Acts.some(a => {
                 const action = actions.find(x => x.actuatorId === a.id);
-                if (!action)
-                    return false;
+                if (!action || action.blocked)
+                    return false; // geblockte Aktoren sind effektiv AUS
                 return typeof action.requested === 'boolean' ? action.requested : action.requested > 0;
             });
             const mapKey = `${config.id}:${target}:${dir}`;

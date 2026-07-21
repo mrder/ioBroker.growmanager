@@ -86,6 +86,8 @@ class GrowManagerAdapter extends utils.Adapter {
     private readonly pendingVerify = new Map<string, ioBroker.Timeout>();
     // Lock gegen parallele Regelzyklen
     private cycleRunning = false;
+    // Verhindert dass handleEmergencyStop() in jedem Zyklus Schreiboperationen wiederholt
+    private emergencyStopApplied = false;
 
     // Außenluft-Sensorwerte {stateId → Wert}
     private readonly outdoorValues = new Map<string, number>();
@@ -740,6 +742,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 await this.handleEmergencyStop();
                 return;
             }
+            this.emergencyStopApplied = false; // NotStop beendet → nächster NotStop schreibt wieder
 
             // Gemeinsame Aktoren: Anforderungen sammeln und danach auflösen
             this.sharedActorManager.clearCycle();
@@ -1286,7 +1289,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     const changed = this.actuatorService.recordCommand(act, wantsOn);
                     if (changed) {
                         await this.setActuatorState(act.commandStateId, wantsOn ? act.onValue : act.offValue);
-                        this.setActuatorStateWithVerify(act, config.id, wantsOn ? act.onValue as boolean | number : act.offValue as boolean | number);
+                        // Kein Verify-Timer: WindSim togglet schnell; Mismatch innerhalb der Phase ist kein Fehler
                         this.log.info(`Umluft ${act.name}: → ${wantsOn ? 'EIN' : 'AUS'} (windSimulator)`);
                         // Energie-Tracking (Nennleistung)
                         if (act.energyStateUnit !== 'kWh') {
@@ -2119,6 +2122,8 @@ class GrowManagerAdapter extends utils.Adapter {
     }
 
     private async handleEmergencyStop(): Promise<void> {
+        if (this.emergencyStopApplied) return; // bereits im Safe-Zustand – keine Wiederholung
+        this.emergencyStopApplied = true;
         for (const group of this.growConfig.groups) {
             for (const actuator of group.actuators) {
                 const safeVal = actuator.safeState === 'off' ? actuator.offValue : actuator.onValue;
@@ -2197,8 +2202,9 @@ class GrowManagerAdapter extends utils.Adapter {
         if (channels.length === 0) return;
 
         this.alarmService.addListener((event) => {
-            // Nur neue oder wiederholte Alarme weiterleiten
+            // Nur aktive Alarme weiterleiten – clear-Events ignorieren
             const alarm = event.alarm;
+            if (!alarm.active) return;
             const alarmText = `[${alarm.severity.toUpperCase()}] ${alarm.code}: ${alarm.message}`;
             const now = new Date();
             const nowHH = now.getHours();
