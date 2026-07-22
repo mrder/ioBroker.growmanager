@@ -372,9 +372,13 @@ class GrowManagerAdapter extends utils.Adapter {
         // Bewässerungs-Zonen initialisieren
         for (const zone of group.irrigationZones) {
             this.irrigationService.initZone(zone);
-            if (zone.flowStateId && !this.subscribedStateIds.has(zone.flowStateId)) {
-                await this.subscribeForeignStatesAsync(zone.flowStateId);
-                this.subscribedStateIds.add(zone.flowStateId);
+            if (zone.flowStateId) {
+                if (!this.subscribedStateIds.has(zone.flowStateId)) {
+                    await this.subscribeForeignStatesAsync(zone.flowStateId);
+                    this.subscribedStateIds.add(zone.flowStateId);
+                }
+                // Read initial value for every zone regardless of subscription dedup
+                // so zones sharing the same flowStateId all get the current reading.
                 const flowSt = await this.getForeignStateAsync(zone.flowStateId);
                 if (flowSt && typeof flowSt.val === 'number') {
                     this.irrigationService.updateFlow(zone.id, flowSt.val);
@@ -1174,7 +1178,11 @@ class GrowManagerAdapter extends utils.Adapter {
             const irriDecision = this.irrigationService.decide(zone, config.id, state.sensors, now);
             const pumpAct = config.actuators.find(a => a.id === zone.pumpActuatorId);
             if (pumpAct) {
-                const canSw = this.actuatorService.canSwitch(pumpAct, irriDecision.command);
+                // Pump-OFF is always allowed regardless of minimumOnSeconds —
+                // safety stops (dry-run, leak, zone disabled) must execute immediately.
+                const canSw = irriDecision.command
+                    ? this.actuatorService.canSwitch(pumpAct, irriDecision.command)
+                    : { allowed: true };
                 if (canSw.allowed) {
                     const changed = this.actuatorService.recordCommand(pumpAct, irriDecision.command);
                     if (changed) {
@@ -2165,6 +2173,9 @@ class GrowManagerAdapter extends utils.Adapter {
                 this.actuatorService.unlockManual(actuator.id);
                 const safeVal = actuator.safeState === 'on' ? actuator.onValue : actuator.offValue;
                 await this.setActuatorState(actuator.commandStateId, safeVal);
+                // Update internal state so that after E-stop clears, any change from
+                // safeVal triggers a re-send (prevents device staying at safeVal forever).
+                this.actuatorService.recordCommand(actuator, safeVal as boolean | number);
             }
         }
     }

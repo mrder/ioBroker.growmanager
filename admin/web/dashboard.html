@@ -1390,7 +1390,7 @@ function actuatorHtml(a, groupId, groupName, manualOverrides, isManualMode) {
       : sollOn;
     const ledClass = istOn ? 'on' : 'off';
     const t = ACT_TYPE[a.type] ?? ACT_TYPE.custom;
-    const influence = a.influenceFactor != null ? ` · ${a.influenceFactor}% Einfluss` : '';
+    const influence = a.influenceFactor != null ? ` · ${+a.influenceFactor}% Einfluss` : '';
     const istHtml = hasFb
       ? ` <span class="act-label-dim">Ist:</span> <span class="act-state ${istOn?'on':'off'}">${istOn?'EIN':'AUS'}</span>`
       : '';
@@ -1513,10 +1513,10 @@ function actuatorHtml(a, groupId, groupName, manualOverrides, isManualMode) {
     ? `<span class="act-shared-badge" title="Geteilt mit ${a.sharedParticipants.length} Gruppe(n) · ${a.sharedVotingMode ?? 'any'}">⇄ ${a.sharedParticipants.length}</span>`
     : '';
 
-  const powerHtml = (a.power !== null && a.power !== undefined)
+  const powerHtml = (typeof a.power === 'number')
     ? `<span class="act-power" title="Live-Leistung">⚡${a.power.toFixed(0)} W</span>`
     : (a.ratedPowerW && istOn)
-      ? `<span class="act-power act-power-rated" title="Nennleistung (geschätzt)">~${a.ratedPowerW} W</span>`
+      ? `<span class="act-power act-power-rated" title="Nennleistung (geschätzt)">~${+a.ratedPowerW} W</span>`
       : '';
 
   return `<div class="actuator-row${unreachable ? ' act-unreachable' : ''}">
@@ -2743,12 +2743,12 @@ function renderPlantResult(groupId) {
     const starIcon = e.starred ? '⭐' : '☆';
     const label = idx === 0 ? '<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;border-radius:3px;padding:1px 5px;margin-left:4px">NEU</span>' : '';
     return `<div class="analysis-entry ${e.starred ? 'analysis-entry-starred' : ''}">
-      <span class="analysis-entry-star" onclick="toggleStar(${e.id}, '${escAttr(e.groupId)}')" title="${e.starred ? 'Stern entfernen' : 'Als wichtig markieren'}">${starIcon}</span>
+      <span class="analysis-entry-star" onclick="toggleStar(${+e.id}, '${escAttr(e.groupId)}')" title="${e.starred ? 'Stern entfernen' : 'Als wichtig markieren'}">${starIcon}</span>
       <div class="analysis-entry-body">
         <div class="analysis-entry-ts">${edt}${label}</div>
         <div>${buildResultHtml(e.data, true)}</div>
       </div>
-      <span onclick="deleteHistoryEntry(${e.id}, '${escAttr(e.groupId)}')" style="cursor:pointer;color:#aaa;font-size:13px;flex-shrink:0" title="Loeschen">✕</span>
+      <span onclick="deleteHistoryEntry(${+e.id}, '${escAttr(e.groupId)}')" style="cursor:pointer;color:#aaa;font-size:13px;flex-shrink:0" title="Loeschen">✕</span>
     </div>`;
   }).join('');
 

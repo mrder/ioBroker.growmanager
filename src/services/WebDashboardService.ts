@@ -244,7 +244,12 @@ export class WebDashboardService {
             this.dashboardHtml = '<html><body><p>dashboard.html nicht gefunden.</p></body></html>';
         }
 
-        this.server = http.createServer((req, res) => this.handleRequest(req, res));
+        this.server = http.createServer((req, res) => {
+            this.handleRequest(req, res).catch(err => {
+                this.log.error(`WebDashboard handleRequest: ${err}`);
+                if (!res.headersSent) { res.writeHead(500); res.end(); }
+            });
+        });
         this.server.on('error', err => this.log.error(`WebDashboard: ${err.message}`));
         this.server.listen(port, bindAddress, () => {
             this.log.info(`GrowManager Dashboard erreichbar unter http://${bindAddress}:${port}/`);

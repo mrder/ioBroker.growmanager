@@ -139,7 +139,7 @@ export class ClimateController {
                 `Kondensationsrisiko: T=${temp.toFixed(1)}°C RH=${hum.toFixed(0)}%`
             );
             primaryReason = 'Kondensationsrisiko – Entfeuchter / Abluft';
-            this.requestByTarget(config, 'humidity', 'down', actions, true, 60, primaryReason, outdoorTemp, outdoorHumidity, false, true);
+            this.requestByTarget(config, 'humidity', 'down', actions, true, 60, primaryReason, outdoorTemp, outdoorHumidity, false, true, hum);
             this.requestByTarget(config, 'humidity', 'up', actions, false, 0, 'Gegenseitige Verriegelung', null, null, true, true);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
         } else if (temp !== null && hum !== null) {
@@ -382,27 +382,36 @@ export class ClimateController {
             // → Befeuchter:  ON wenn vpd > vpdMax, OFF wenn vpd < vpdMax - 2×hyst
             if (dir === 'up') {
                 vpdState = hysteresisCheck(vpd, sp.vpdMax - act.actuatorHysteresis, act.actuatorHysteresis * 2, prevAct);
-            } else {
+            } else if (dir === 'down') {
                 vpdState = hysteresisCheck(vpd, sp.vpdMin + act.actuatorHysteresis, act.actuatorHysteresis * 2, prevAct);
+            } else {
+                // dir='both': center hysteresis on the midpoint of the target range
+                const mid = (sp.vpdMin + sp.vpdMax) / 2;
+                vpdState = hysteresisCheck(vpd, mid, act.actuatorHysteresis * 2, prevAct);
             }
         } else {
             // Richtungsbasierte Hysterese: Aktoren laufen bis zur Mitte des Sollbereichs (vpdMid),
             // nicht nur bis zur Sollbereichsgrenze. Das schafft längere EIN/AUS-Zyklen.
             // Entfeuchter/Abluft (dir='down'): EIN wenn VPD < vpdMin, AUS erst wenn VPD > vpdMid
             // Befeuchter (dir='up'):           EIN wenn VPD > vpdMax, AUS erst wenn VPD < vpdMid
+            // Bidirektional (dir='both'):       symmetrisch um vpdMid
             const halfRange = (sp.vpdMax - sp.vpdMin) / 2;
             const band = Math.max(0.05, halfRange);
             if (dir === 'up') {
                 vpdState = hysteresisCheck(vpd, sp.vpdMax - band / 2, band, prevAct);
-            } else {
+            } else if (dir === 'down') {
                 vpdState = hysteresisCheck(vpd, sp.vpdMin + band / 2, band, prevAct);
+            } else {
+                // dir='both': center on vpdMid so both low and high thresholds are symmetric
+                vpdState = hysteresisCheck(vpd, vpdMid, band, prevAct);
             }
         }
         this.actuatorHystStates.set(act.id, vpdState);
 
         if (vpdState === -1) {
             // VPD zu niedrig → Feuchte senken oder Temperatur erhöhen
-            if (dir === 'down' || dir === 'both') {
+            // dir='both'+heating uses the up-path; all other dir='both' use the down-path (dehumidify).
+            if (dir === 'down' || (dir === 'both' && act.type !== 'heating')) {
                 // Entfeuchter darf nur laufen wenn Temperatur ≤ Solltemperatur.
                 // Bei Übertemperatur ist Abluft/Kühlung das richtige Mittel — Entfeuchten
                 // würde VPD zwar auch erhöhen, aber die Temperatur nicht lösen.
@@ -424,8 +433,8 @@ export class ClimateController {
                 const val = act.supportsPercent ? 50 : true;
                 this.pushAction(actions, act, val, `VPD ${vpd.toFixed(2)} zu niedrig – Entfeuchten`, false);
                 return `VPD ${vpd.toFixed(2)} kPa (Ziel: ${sp.vpdMin}–${sp.vpdMax}) → zu niedrig: Entfeuchten`;
-            } else if (dir === 'up') {
-                // dir='up' = Befeuchter ODER Heizung: unterschiedliche Reaktion auf VPD-zu-niedrig
+            } else if (dir === 'up' || dir === 'both') {
+                // dir='up'/'both' mit Heizung: Heizung EIN → Temperatur und damit VPD erhöhen
                 if (act.type === 'heating') {
                     this.pushAction(actions, act, true, `VPD ${vpd.toFixed(2)} zu niedrig – Heizung`, false);
                     return `VPD zu niedrig → Heizung`;
@@ -497,7 +506,7 @@ export class ClimateController {
         // Zweipunkt-Regelung mit Hysterese
         hyst.co2 = hysteresisCheck(co2, target, tolerance * 2, hyst.co2);
 
-        if (dir === 'up') {
+        if (dir === 'up' || dir === 'both') {
             // CO₂-Ventil / Generator: EIN wenn CO₂ zu niedrig
             if (hyst.co2 === -1) {
                 this.pushAction(actions, act, true, `CO₂ ${co2.toFixed(0)} ppm < Ziel ${target.toFixed(0)} ppm`, false);
@@ -534,6 +543,7 @@ export class ClimateController {
         outdoorHumidity: number | null,
         force = false,
         safetyOverride = false,  // true: ignoriert group-mode beim Target-Matching (für Not-Checks)
+        indoorHum: number | null = null,
     ): void {
         for (const act of config.actuators) {
             if (!act.enabled) continue;
@@ -541,6 +551,11 @@ export class ClimateController {
             const effectiveTarget = inferControlTarget(act, safetyOverride ? undefined : config.mode, safetyOverride);
             if (effectiveTarget !== target) continue;
             if (dir !== 'both' && inferControlDirection(act) !== dir && inferControlDirection(act) !== 'both') continue;
+            // Outdoor-Feuchte-Guard: Außenluft zu feucht → Lüftung/Entfeuchter sperren
+            if (on && act.outdoorGuardEnabled && outdoorHumidity !== null && indoorHum !== null) {
+                const maxDelta = config.outdoorSensor?.maxHumidityDeltaPercent ?? 10;
+                if (outdoorHumidity > indoorHum + maxDelta) continue;
+            }
             const val = on ? (act.supportsPercent && percent > 0 ? percent : true) : false;
             this.pushAction(actions, act, val, reason, false, force);
         }

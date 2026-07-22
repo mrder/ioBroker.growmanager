@@ -286,6 +286,7 @@ export class IrrigationService {
         state.startTs = Date.now();
         state.totalFlowLiters = 0;          // Zähler für aktuellen Zyklus zurücksetzen
         state.lastFlowTs = 0;               // Phantom-Pause zwischen Zyklen verhindern
+        state.flowRate = null;              // Stale value from prior run must not suppress dry-run detection
         state.startMoisture = state.currentMoisture;  // Feuchte zum Startpunkt merken
         state.maxRunSeconds = zone.maxRunSeconds;     // Laufzeit-Override aus triggerManual()
         state.health = 'ok';
