@@ -27,7 +27,7 @@ export class ScheduleService {
             // Nacht – Übergang prüfen (kurz nach Licht-AUS)
             // minutesToEnd=0 bedeutet exakt die AUS-Minute → Transition beginnt jetzt
             const minutesToEnd = minutesUntil(now, lightOn.endHH, lightOn.endMM);
-            if (minutesToEnd === 0 || 1440 - minutesToEnd < transitionMinutes) {
+            if ((transitionMinutes > 0 && minutesToEnd === 0) || 1440 - minutesToEnd < transitionMinutes) {
                 return 'transition';
             }
             return 'night';
@@ -62,20 +62,36 @@ export class ScheduleService {
         const from = transitionFromNight ? profile.night : profile.day;
         const to   = transitionFromNight ? profile.day   : profile.night;
 
+        // isNaN catches both NaN and undefined-cast-to-number at runtime.
+        // safeMin: returns Infinity when both undefined (no limit → alarm never fires).
+        // safeLerp: falls back to whichever side is defined.
+        const safeMin = (a: number, b: number): number => {
+            if (isNaN(a) && isNaN(b)) return Infinity;
+            if (isNaN(a)) return b;
+            if (isNaN(b)) return a;
+            return Math.min(a, b);
+        };
+        const safeLerp = (a: number, b: number, p: number): number => {
+            if (isNaN(a) && isNaN(b)) return 0;
+            if (isNaN(a)) return b;
+            if (isNaN(b)) return a;
+            return lerp(a, b, p);
+        };
+
         return {
-            temperature: lerp(from.temperature, to.temperature, t),
-            temperatureTolerance: lerp(from.temperatureTolerance, to.temperatureTolerance, t),
-            humidity: lerp(from.humidity, to.humidity, t),
-            humidityTolerance: lerp(from.humidityTolerance, to.humidityTolerance, t),
-            vpdMin: lerp(from.vpdMin, to.vpdMin, t),
-            vpdMax: lerp(from.vpdMax, to.vpdMax, t),
-            temperatureMin: lerp(from.temperatureMin, to.temperatureMin, t),
-            temperatureMax: lerp(from.temperatureMax, to.temperatureMax, t),
-            temperatureCritical: Math.min(from.temperatureCritical, to.temperatureCritical),
-            humidityMin: lerp(from.humidityMin, to.humidityMin, t),
-            humidityMax: lerp(from.humidityMax, to.humidityMax, t),
-            humidityCritical: Math.min(from.humidityCritical, to.humidityCritical),
-            condensationRiskMaxHumidity: Math.min(from.condensationRiskMaxHumidity, to.condensationRiskMaxHumidity),
+            temperature: safeLerp(from.temperature, to.temperature, t),
+            temperatureTolerance: safeLerp(from.temperatureTolerance, to.temperatureTolerance, t),
+            humidity: safeLerp(from.humidity, to.humidity, t),
+            humidityTolerance: safeLerp(from.humidityTolerance, to.humidityTolerance, t),
+            vpdMin: safeLerp(from.vpdMin, to.vpdMin, t),
+            vpdMax: safeLerp(from.vpdMax, to.vpdMax, t),
+            temperatureMin: safeLerp(from.temperatureMin, to.temperatureMin, t),
+            temperatureMax: safeLerp(from.temperatureMax, to.temperatureMax, t),
+            temperatureCritical: safeMin(from.temperatureCritical, to.temperatureCritical),
+            humidityMin: safeLerp(from.humidityMin, to.humidityMin, t),
+            humidityMax: safeLerp(from.humidityMax, to.humidityMax, t),
+            humidityCritical: safeMin(from.humidityCritical, to.humidityCritical),
+            condensationRiskMaxHumidity: safeMin(from.condensationRiskMaxHumidity, to.condensationRiskMaxHumidity),
         };
     }
 

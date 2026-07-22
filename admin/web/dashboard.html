@@ -1478,15 +1478,15 @@ function actuatorHtml(a, groupId, groupName, manualOverrides, isManualMode) {
     const mins = Math.floor(a.blockSecondsLeft / 60);
     const secs = a.blockSecondsLeft % 60;
     const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-    const untilAttr = a.blockUntil ? ` data-until="${a.blockUntil}"` : '';
-    countdownHtml = `<span class="act-countdown blk-cd" id="blk-cd-${a.id}"${untilAttr} title="${esc(a.blockReason ?? 'Sperrzeit läuft')}">⏱ ${timeStr}</span>`;
+    const untilAttr = a.blockUntil ? ` data-until="${+a.blockUntil}"` : '';
+    countdownHtml = `<span class="act-countdown blk-cd" id="blk-cd-${esc(a.id)}"${untilAttr} title="${esc(a.blockReason ?? 'Sperrzeit läuft')}">⏱ ${timeStr}</span>`;
   } else if (a.windSimNextChangeAt !== undefined) {
     const wsOn = a.windSimIsOn;
     const wsColor = wsOn ? 'var(--accent)' : 'var(--muted)';
     const wsRemInit = Math.max(0, Math.round((a.windSimNextChangeAt - Date.now()) / 1000));
     const wsMi = Math.floor(wsRemInit / 60), wsSi = wsRemInit % 60;
     const wsInitStr = wsMi > 0 ? `${wsMi}m ${wsSi.toString().padStart(2,'0')}s` : `${wsSi}s`;
-    countdownHtml = `<span class="act-countdown ws-cd" id="ws-cd-${a.id}" data-until="${a.windSimNextChangeAt}" data-on="${wsOn}" style="color:${wsColor}">🌀 ${wsOn?'EIN':'AUS'} noch ${wsInitStr}</span>`;
+    countdownHtml = `<span class="act-countdown ws-cd" id="ws-cd-${esc(a.id)}" data-until="${+a.windSimNextChangeAt}" data-on="${wsOn ? 'true' : 'false'}" style="color:${wsColor}">🌀 ${wsOn?'EIN':'AUS'} noch ${wsInitStr}</span>`;
   } else if (a.manualLock) {
     countdownHtml = `<span class="act-manual-lock" title="Manuell gesperrt – Auto-Zyklus pausiert">🔒 MANUELL</span>`;
   }
@@ -1510,7 +1510,7 @@ function actuatorHtml(a, groupId, groupName, manualOverrides, isManualMode) {
         : '');
 
   const sharedBadge = a.shared && a.sharedParticipants && a.sharedParticipants.length
-    ? `<span class="act-shared-badge" title="Geteilt mit ${a.sharedParticipants.length} Gruppe(n) · ${a.sharedVotingMode ?? 'any'}">⇄ ${a.sharedParticipants.length}</span>`
+    ? `<span class="act-shared-badge" title="Geteilt mit ${a.sharedParticipants.length} Gruppe(n) · ${esc(a.sharedVotingMode ?? 'any')}">⇄ ${a.sharedParticipants.length}</span>`
     : '';
 
   const powerHtml = (typeof a.power === 'number')
@@ -1743,12 +1743,12 @@ function groupCardHtml(g) {
   const cameraHtml = g.cameraUrl
     ? `<div class="card-camera">
         <div class="cam-thumb-wrap" onclick="openAnalysisModal('${gid}','${escAttr(g.cameraUrl)}')">
-          <img class="cam-thumb" id="cam-thumb-${g.id}"
+          <img class="cam-thumb" id="cam-thumb-${esc(g.id)}"
             src="${camSrc}" alt="📷"
             style="${camSrc ? '' : 'opacity:0.3'}" />
           <div class="cam-thumb-overlay">📷 Klicken zum Analysieren</div>
         </div>
-        <div id="plant-result-${g.id}" class="plant-result" style="display:none"></div>
+        <div id="plant-result-${esc(g.id)}" class="plant-result" style="display:none"></div>
       </div>`
     : '';
   // Register camera for auto-refresh
@@ -1765,7 +1765,7 @@ function groupCardHtml(g) {
         onclick="sendMode('${escAttr(g.id)}','manual','${escAttr(g.name)}')">MANUELL</button>
     </div>`;
 
-  return `<div class="group-card" id="card-${g.id}">
+  return `<div class="group-card" id="card-${esc(g.id)}">
     <div class="card-header">
       <div class="card-name">
         <div class="color-dot" style="background:${esc(g.color)}"></div>
@@ -1791,7 +1791,7 @@ function groupCardHtml(g) {
     ${actHtml}
     ${alarmHtml}
     ${cameraHtml}
-    <div data-ls-bar="${g.id}">${lsBarHtml(g.id)}</div>
+    <div data-ls-bar="${esc(g.id)}">${lsBarHtml(g.id)}</div>
     <div style="padding:6px 12px 10px;display:flex;justify-content:flex-end;gap:6px">
       <button class="db-btn" onclick="showLs('${gid}','${escAttr(g.name)}')">🗓 Kalender</button>
       <button class="db-btn" onclick="showDb('${gid}','${escAttr(g.name)}')">📊 Verlaufsdaten</button>
@@ -1806,7 +1806,7 @@ function renderStats(state) {
       <span class="value" style="color:${state.health==='running'?'var(--green-light)':'var(--orange)'}">${esc(state.health)}</span></div>
     <div class="stat-chip"><span class="label">Gruppen</span><span class="value">${state.groups.length}</span></div>
     <div class="stat-chip"><span class="label">Alarme</span>
-      <span class="value" style="color:${state.activeAlarms>0?'var(--red)':'var(--green-light)'}">${state.activeAlarms}</span></div>
+      <span class="value" style="color:${state.activeAlarms>0?'var(--red)':'var(--green-light)'}">${+state.activeAlarms}</span></div>
     <div class="stat-chip"><span class="label">Version</span>
       <span class="value" style="color:var(--text-dim)">${esc(state.adapterVersion)}</span></div>
     <button class="wiki-btn" onclick="wikiOpen()">📖 Sortenwiki</button>`;

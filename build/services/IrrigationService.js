@@ -50,6 +50,10 @@ class IrrigationService {
         const state = this.zoneStates.get(zone.id);
         // Zone deaktiviert
         if (!zone.enabled) {
+            if (state.running) {
+                this.log.info(`Zone ${zone.name}: deaktiviert während Lauf → Pumpe AUS`);
+                this.stopZone(zone, state, 'Zone deaktiviert', groupId, state.startMoisture);
+            }
             return { zoneId: zone.id, command: false, reason: 'Zone deaktiviert', blocked: false };
         }
         // Fehlersperre
@@ -85,7 +89,9 @@ class IrrigationService {
         const maxRun = state.maxRunSeconds ?? zone.maxRunSeconds;
         // Maximale Laufzeit
         if (elapsed > maxRun) {
-            const isDryRun = zone.dryRunProtection && zone.flowStateId && (state.flowRate === null || state.flowRate < 0.1);
+            const isDryRun = zone.dryRunProtection && zone.flowStateId &&
+                state.lastFlowTs > state.startTs && // only if sensor has reported since cycle start
+                (state.flowRate === null || state.flowRate < 0.1);
             const stopReason = isDryRun ? 'Trockenläufer-Schutz' : 'Maximale Laufzeit erreicht';
             this.stopZone(zone, state, stopReason, groupId, state.startMoisture);
             if (isDryRun) {
@@ -131,12 +137,14 @@ class IrrigationService {
     /**
      * Manuelle/Zeitplan-gesteuerte Bewässerung auslösen.
      */
-    triggerManual(zone, durationSeconds) {
+    triggerManual(zone, durationSeconds, now = new Date()) {
         this.initZone(zone);
         const state = this.zoneStates.get(zone.id);
         if (state.running || state.blocked)
             return false;
         if (Date.now() < state.pauseUntil)
+            return false;
+        if (zone.allowedWindow && !(0, time_1.isInTimeWindow)(now, zone.allowedWindow.startHH, zone.allowedWindow.startMM, zone.allowedWindow.endHH, zone.allowedWindow.endMM))
             return false;
         const runSecs = durationSeconds ?? zone.maxRunSeconds;
         this.startZone({ ...zone, maxRunSeconds: runSecs }, state);

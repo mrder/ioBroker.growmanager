@@ -82,6 +82,8 @@ class DiagnosticsEngine {
                 this.effectChecks.splice(idx, 1);
         }
         for (const check of this.effectChecks) {
+            if (check.windowSeconds <= 0)
+                continue;
             const state = groupStates.get(check.groupId);
             if (!state)
                 continue;

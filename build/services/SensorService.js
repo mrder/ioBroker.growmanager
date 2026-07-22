@@ -88,7 +88,7 @@ class SensorService {
             : null; // null = no alive state, use timestamp
         const stale = aliveKnown === false ? true
             : aliveKnown === true ? false
-                : (0, time_1.isStale)(effectiveTs, config.staleAfterSeconds);
+                : config.staleAfterSeconds > 0 && (0, time_1.isStale)(effectiveTs, config.staleAfterSeconds);
         const unchanged = lc > 0 && (0, time_1.isStale)(lc, config.unchangedAlarmSeconds) && config.unchangedAlarmSeconds > 0;
         if (stale) {
             valid = false;
@@ -205,7 +205,7 @@ class SensorService {
                 : null;
             if (aliveKnown === false)
                 return false;
-            if (aliveKnown === null && (0, time_1.isStale)(effectiveTs, cfg.staleAfterSeconds))
+            if (aliveKnown === null && cfg.staleAfterSeconds > 0 && (0, time_1.isStale)(effectiveTs, cfg.staleAfterSeconds))
                 return false;
             if (stabilitySeconds !== undefined && stabilitySeconds > 0) {
                 const until = this.recoveringUntil.get(s.id);

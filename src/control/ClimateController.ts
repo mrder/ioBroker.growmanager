@@ -371,7 +371,7 @@ export class ClimateController {
     ): string | null {
         if (vpd === null || temp === null || hum === null) return null;
 
-        if (sp.vpdMin == null || sp.vpdMax == null) return null; // kein VPD-Sollwert konfiguriert
+        if (sp.vpdMin == null || sp.vpdMax == null || isNaN(sp.vpdMin) || isNaN(sp.vpdMax)) return null; // kein VPD-Sollwert konfiguriert
         const vpdMid = (sp.vpdMin + sp.vpdMax) / 2;
         let vpdState: HystState;
         const prevAct = this.actuatorHystStates.get(act.id) ?? 0;
@@ -511,19 +511,17 @@ export class ClimateController {
             if (hyst.co2 === -1) {
                 this.pushAction(actions, act, true, `CO₂ ${co2.toFixed(0)} ppm < Ziel ${target.toFixed(0)} ppm`, false);
                 return `CO₂-Ventil EIN (${co2.toFixed(0)} ppm zu niedrig)`;
-            } else {
-                this.pushAction(actions, act, false, `CO₂ im Zielbereich (${co2.toFixed(0)} ppm)`, false);
             }
-        } else if (dir === 'down') {
+        }
+        if (dir === 'down' || dir === 'both') {
             // Abluft für CO₂-Abbau: EIN wenn CO₂ zu hoch
             if (hyst.co2 === 1) {
                 const val = act.supportsPercent ? 60 : true;
                 this.pushAction(actions, act, val, `CO₂ ${co2.toFixed(0)} ppm > Ziel ${target.toFixed(0)} ppm – Abluft`, false);
                 return `Abluft CO₂-Abbau EIN (${co2.toFixed(0)} ppm)`;
-            } else {
-                this.pushAction(actions, act, false, `CO₂ im Zielbereich (${co2.toFixed(0)} ppm)`, false);
             }
         }
+        this.pushAction(actions, act, false, `CO₂ im Zielbereich (${co2.toFixed(0)} ppm)`, false);
         return null;
     }
 

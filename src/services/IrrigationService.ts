@@ -154,7 +154,9 @@ export class IrrigationService {
 
         // Maximale Laufzeit
         if (elapsed > maxRun) {
-            const isDryRun = zone.dryRunProtection && zone.flowStateId && (state.flowRate === null || state.flowRate < 0.1);
+            const isDryRun = zone.dryRunProtection && zone.flowStateId &&
+                state.lastFlowTs > state.startTs &&  // only if sensor has reported since cycle start
+                (state.flowRate === null || state.flowRate < 0.1);
             const stopReason = isDryRun ? 'Trockenläufer-Schutz' : 'Maximale Laufzeit erreicht';
             this.stopZone(zone, state, stopReason, groupId, state.startMoisture);
             if (isDryRun) {
@@ -222,11 +224,12 @@ export class IrrigationService {
     /**
      * Manuelle/Zeitplan-gesteuerte Bewässerung auslösen.
      */
-    triggerManual(zone: IrrigationZoneConfig, durationSeconds?: number): boolean {
+    triggerManual(zone: IrrigationZoneConfig, durationSeconds?: number, now = new Date()): boolean {
         this.initZone(zone);
         const state = this.zoneStates.get(zone.id)!;
         if (state.running || state.blocked) return false;
         if (Date.now() < state.pauseUntil) return false;
+        if (zone.allowedWindow && !isInTimeWindow(now, zone.allowedWindow.startHH, zone.allowedWindow.startMM, zone.allowedWindow.endHH, zone.allowedWindow.endMM)) return false;
         const runSecs = durationSeconds ?? zone.maxRunSeconds;
         this.startZone({ ...zone, maxRunSeconds: runSecs }, state);
         return true;
@@ -286,7 +289,6 @@ export class IrrigationService {
         state.startTs = Date.now();
         state.totalFlowLiters = 0;          // Zähler für aktuellen Zyklus zurücksetzen
         state.lastFlowTs = 0;               // Phantom-Pause zwischen Zyklen verhindern
-        state.flowRate = null;              // Stale value from prior run must not suppress dry-run detection
         state.startMoisture = state.currentMoisture;  // Feuchte zum Startpunkt merken
         state.maxRunSeconds = zone.maxRunSeconds;     // Laufzeit-Override aus triggerManual()
         state.health = 'ok';

@@ -35,6 +35,7 @@ function inferControlDirection(act) {
     switch (act.type) {
         case 'heating': return 'up';
         case 'humidifier': return 'up';
+        case 'co2Valve': return 'up';
         case 'cooling':
         case 'exhaustFan':
         case 'supplyFan':
@@ -95,7 +96,7 @@ class ClimateController {
         if (temp !== null && hum !== null && (0, calculations_1.condensationRisk)(temp, hum)) {
             this.alarmService.raise(AlarmService_1.ALARM_CODES.CONDENSATION_RISK, config.id, 'climate', 'fault', `Kondensationsrisiko: T=${temp.toFixed(1)}°C RH=${hum.toFixed(0)}%`);
             primaryReason = 'Kondensationsrisiko – Entfeuchter / Abluft';
-            this.requestByTarget(config, 'humidity', 'down', actions, true, 60, primaryReason, outdoorTemp, outdoorHumidity, false, true);
+            this.requestByTarget(config, 'humidity', 'down', actions, true, 60, primaryReason, outdoorTemp, outdoorHumidity, false, true, hum);
             this.requestByTarget(config, 'humidity', 'up', actions, false, 0, 'Gegenseitige Verriegelung', null, null, true, true);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
         }
@@ -189,17 +190,14 @@ class ClimateController {
             tState = (0, calculations_1.hysteresisCheck)(temp, sp.temperature, sp.temperatureTolerance * 2, hyst.temperature);
             hyst.temperature = tState;
         }
-        if (dir === 'up') {
+        if (dir === 'up' || dir === 'both') {
             // Heizung
             if (tState === -1) {
                 this.pushAction(actions, act, true, `T=${temp.toFixed(1)}°C < ${sp.temperature}°C`, false);
                 return `Heizung EIN (${temp.toFixed(1)} °C zu kalt)`;
             }
-            else {
-                this.pushAction(actions, act, false, `T im Zielbereich`, false);
-            }
         }
-        else if (dir === 'down' || dir === 'both') {
+        if (dir === 'down' || dir === 'both') {
             // Kühlung / Abluft
             if (tState === 1) {
                 // Außenluft-Guard: nur schalten wenn Außenluft günstiger
@@ -215,10 +213,8 @@ class ClimateController {
                 this.pushAction(actions, act, val, `T=${temp.toFixed(1)}°C > ${sp.temperature}°C`, false);
                 return `Kühlung EIN (${temp.toFixed(1)} °C zu warm)`;
             }
-            else {
-                this.pushAction(actions, act, false, `T im Zielbereich`, false);
-            }
         }
+        this.pushAction(actions, act, false, `T im Zielbereich`, false);
         return null;
     }
     // ============================================================
@@ -286,7 +282,7 @@ class ClimateController {
     decideVpdAct(act, dir, vpd, temp, hum, sp, hyst, actions, outdoorTemp, outdoorHumidity, outdoorCfg) {
         if (vpd === null || temp === null || hum === null)
             return null;
-        if (sp.vpdMin == null || sp.vpdMax == null)
+        if (sp.vpdMin == null || sp.vpdMax == null || isNaN(sp.vpdMin) || isNaN(sp.vpdMax))
             return null; // kein VPD-Sollwert konfiguriert
         const vpdMid = (sp.vpdMin + sp.vpdMax) / 2;
         let vpdState;
@@ -299,8 +295,13 @@ class ClimateController {
             if (dir === 'up') {
                 vpdState = (0, calculations_1.hysteresisCheck)(vpd, sp.vpdMax - act.actuatorHysteresis, act.actuatorHysteresis * 2, prevAct);
             }
-            else {
+            else if (dir === 'down') {
                 vpdState = (0, calculations_1.hysteresisCheck)(vpd, sp.vpdMin + act.actuatorHysteresis, act.actuatorHysteresis * 2, prevAct);
+            }
+            else {
+                // dir='both': center hysteresis on the midpoint of the target range
+                const mid = (sp.vpdMin + sp.vpdMax) / 2;
+                vpdState = (0, calculations_1.hysteresisCheck)(vpd, mid, act.actuatorHysteresis * 2, prevAct);
             }
         }
         else {
@@ -308,19 +309,25 @@ class ClimateController {
             // nicht nur bis zur Sollbereichsgrenze. Das schafft längere EIN/AUS-Zyklen.
             // Entfeuchter/Abluft (dir='down'): EIN wenn VPD < vpdMin, AUS erst wenn VPD > vpdMid
             // Befeuchter (dir='up'):           EIN wenn VPD > vpdMax, AUS erst wenn VPD < vpdMid
+            // Bidirektional (dir='both'):       symmetrisch um vpdMid
             const halfRange = (sp.vpdMax - sp.vpdMin) / 2;
             const band = Math.max(0.05, halfRange);
             if (dir === 'up') {
                 vpdState = (0, calculations_1.hysteresisCheck)(vpd, sp.vpdMax - band / 2, band, prevAct);
             }
-            else {
+            else if (dir === 'down') {
                 vpdState = (0, calculations_1.hysteresisCheck)(vpd, sp.vpdMin + band / 2, band, prevAct);
+            }
+            else {
+                // dir='both': center on vpdMid so both low and high thresholds are symmetric
+                vpdState = (0, calculations_1.hysteresisCheck)(vpd, vpdMid, band, prevAct);
             }
         }
         this.actuatorHystStates.set(act.id, vpdState);
         if (vpdState === -1) {
             // VPD zu niedrig → Feuchte senken oder Temperatur erhöhen
-            if (dir === 'down' || dir === 'both') {
+            // dir='both'+heating uses the up-path; all other dir='both' use the down-path (dehumidify).
+            if (dir === 'down' || (dir === 'both' && act.type !== 'heating')) {
                 // Entfeuchter darf nur laufen wenn Temperatur ≤ Solltemperatur.
                 // Bei Übertemperatur ist Abluft/Kühlung das richtige Mittel — Entfeuchten
                 // würde VPD zwar auch erhöhen, aber die Temperatur nicht lösen.
@@ -343,8 +350,8 @@ class ClimateController {
                 this.pushAction(actions, act, val, `VPD ${vpd.toFixed(2)} zu niedrig – Entfeuchten`, false);
                 return `VPD ${vpd.toFixed(2)} kPa (Ziel: ${sp.vpdMin}–${sp.vpdMax}) → zu niedrig: Entfeuchten`;
             }
-            else if (dir === 'up') {
-                // dir='up' = Befeuchter ODER Heizung: unterschiedliche Reaktion auf VPD-zu-niedrig
+            else if (dir === 'up' || dir === 'both') {
+                // dir='up'/'both' mit Heizung: Heizung EIN → Temperatur und damit VPD erhöhen
                 if (act.type === 'heating') {
                     this.pushAction(actions, act, true, `VPD ${vpd.toFixed(2)} zu niedrig – Heizung`, false);
                     return `VPD zu niedrig → Heizung`;
@@ -362,6 +369,7 @@ class ClimateController {
                 if (act.type === 'heating') {
                     // Heizung: VPD zu hoch → AUSschalten (Heizung würde VPD weiter erhöhen)
                     this.pushAction(actions, act, false, `VPD ${vpd.toFixed(2)} zu hoch – Heizung aus`, false);
+                    return `VPD zu hoch → Heizung aus`;
                 }
                 else {
                     // Befeuchter: mehr Feuchte → VPD sinkt ✓
@@ -408,33 +416,29 @@ class ClimateController {
         const tolerance = sp.co2Tolerance ?? 50;
         // Zweipunkt-Regelung mit Hysterese
         hyst.co2 = (0, calculations_1.hysteresisCheck)(co2, target, tolerance * 2, hyst.co2);
-        if (dir === 'up') {
+        if (dir === 'up' || dir === 'both') {
             // CO₂-Ventil / Generator: EIN wenn CO₂ zu niedrig
             if (hyst.co2 === -1) {
                 this.pushAction(actions, act, true, `CO₂ ${co2.toFixed(0)} ppm < Ziel ${target.toFixed(0)} ppm`, false);
                 return `CO₂-Ventil EIN (${co2.toFixed(0)} ppm zu niedrig)`;
             }
-            else {
-                this.pushAction(actions, act, false, `CO₂ im Zielbereich (${co2.toFixed(0)} ppm)`, false);
-            }
         }
-        else if (dir === 'down') {
+        if (dir === 'down' || dir === 'both') {
             // Abluft für CO₂-Abbau: EIN wenn CO₂ zu hoch
             if (hyst.co2 === 1) {
                 const val = act.supportsPercent ? 60 : true;
                 this.pushAction(actions, act, val, `CO₂ ${co2.toFixed(0)} ppm > Ziel ${target.toFixed(0)} ppm – Abluft`, false);
                 return `Abluft CO₂-Abbau EIN (${co2.toFixed(0)} ppm)`;
             }
-            else {
-                this.pushAction(actions, act, false, `CO₂ im Zielbereich (${co2.toFixed(0)} ppm)`, false);
-            }
         }
+        this.pushAction(actions, act, false, `CO₂ im Zielbereich (${co2.toFixed(0)} ppm)`, false);
         return null;
     }
     // ============================================================
     // Hilfsfunktionen
     // ============================================================
-    requestByTarget(config, target, dir, actions, on, percent, reason, outdoorTemp, outdoorHumidity, force = false, safetyOverride = false) {
+    requestByTarget(config, target, dir, actions, on, percent, reason, outdoorTemp, outdoorHumidity, force = false, safetyOverride = false, // true: ignoriert group-mode beim Target-Matching (für Not-Checks)
+    indoorHum = null) {
         for (const act of config.actuators) {
             if (!act.enabled)
                 continue;
@@ -444,6 +448,12 @@ class ClimateController {
                 continue;
             if (dir !== 'both' && inferControlDirection(act) !== dir && inferControlDirection(act) !== 'both')
                 continue;
+            // Outdoor-Feuchte-Guard: Außenluft zu feucht → Lüftung/Entfeuchter sperren
+            if (on && act.outdoorGuardEnabled && outdoorHumidity !== null && indoorHum !== null) {
+                const maxDelta = config.outdoorSensor?.maxHumidityDeltaPercent ?? 10;
+                if (outdoorHumidity > indoorHum + maxDelta)
+                    continue;
+            }
             const val = on ? (act.supportsPercent && percent > 0 ? percent : true) : false;
             this.pushAction(actions, act, val, reason, false, force);
         }

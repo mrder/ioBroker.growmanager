@@ -101,7 +101,7 @@ export class SensorService {
 
         const stale = aliveKnown === false ? true
             : aliveKnown === true  ? false
-            : isStale(effectiveTs, config.staleAfterSeconds);
+            : config.staleAfterSeconds > 0 && isStale(effectiveTs, config.staleAfterSeconds);
         const unchanged = lc > 0 && isStale(lc, config.unchangedAlarmSeconds) && config.unchangedAlarmSeconds > 0;
 
         if (stale) {
@@ -238,7 +238,7 @@ export class SensorService {
                     ? (this.deviceHealthMap.get(cfg.healthStateId) ?? true)
                     : null;
                 if (aliveKnown === false) return false;
-                if (aliveKnown === null && isStale(effectiveTs, cfg.staleAfterSeconds)) return false;
+                if (aliveKnown === null && cfg.staleAfterSeconds > 0 && isStale(effectiveTs, cfg.staleAfterSeconds)) return false;
                 if (stabilitySeconds !== undefined && stabilitySeconds > 0) {
                     const until = this.recoveringUntil.get(s.id);
                     if (until !== undefined && Date.now() < until) return false;
