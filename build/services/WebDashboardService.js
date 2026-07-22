@@ -498,7 +498,7 @@ class WebDashboardService {
                     res.end('Bad protocol');
                     return;
                 }
-                if (this.allowedCameraOrigins.size > 0 && !this.allowedCameraOrigins.has(camUrl.origin)) {
+                if (this.allowedCameraOrigins.size === 0 || !this.allowedCameraOrigins.has(camUrl.origin)) {
                     res.writeHead(403);
                     res.end('URL not in camera allowlist');
                     return;
@@ -661,6 +661,12 @@ class WebDashboardService {
                     res.end(JSON.stringify({ error: 'groupId und mode erforderlich' }));
                     return;
                 }
+                const VALID_MODES = ['off', 'manual', 'schedule', 'temperature', 'humidity', 'vpd', 'combined', 'monitorOnly', 'maintenance'];
+                if (!VALID_MODES.includes(payload.mode)) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Ungültiger Modus' }));
+                    return;
+                }
                 await this.modeCallback({ groupId: payload.groupId, mode: payload.mode });
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ ok: true }));
@@ -698,6 +704,11 @@ class WebDashboardService {
                 if (!payload.groupId || !payload.actuatorId || payload.command === undefined || payload.command === null) {
                     res.writeHead(400, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ error: 'groupId, actuatorId und command erforderlich' }));
+                    return;
+                }
+                if (typeof payload.command !== 'boolean' && typeof payload.command !== 'number') {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'command muss boolean oder number sein' }));
                     return;
                 }
                 await this.controlCallback({

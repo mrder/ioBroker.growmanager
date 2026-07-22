@@ -1372,13 +1372,13 @@ function climateValHtml(value, unit, label, isControlled, setMin, setMax, setTar
 
   return `<div class="climate-val${isControlled ? ' controlled' : ''}">
     ${numHtml}
-    <div class="climate-label">${label}</div>
+    <div class="climate-label">${esc(label)}</div>
     ${setpointHtml}
   </div>`;
 }
 
 // ---- Aktor Detail-Zeile ----
-function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
+function actuatorHtml(a, groupId, groupName, manualOverrides, isManualMode) {
   // Externer geteilter Aktor (nur Teilnehmer, kein Eigentümer dieser Gruppe)
   if (a.sharedFromGroupId) {
     const fb = a.feedback ?? a.effectiveState;
@@ -1421,14 +1421,14 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   // Per-Aktor AUTO/MANUELL-Badge: klickbar zum Zurücksetzen auf AUTO
   const modeBadge = ov
     ? `<span class="act-override-badge clickable" title="Auf AUTO zurücksetzen – setzt alle Aktoren der Gruppe auf AUTO"
-         onclick="sendMode('${escAttr(groupId)}','auto','${escAttr(groupId)}')">MANUELL ↩</span>`
+         onclick="sendMode('${escAttr(groupId)}','auto','${escAttr(groupName)}')">MANUELL ↩</span>`
     : `<span class="act-mode-badge">AUTO</span>`;
 
   // Soll-Wert
   const votes = (a.votes && a.votes.length > 0) ? a.votes : null;
   let votingTooltipHtml = '';
   if (votes) {
-    const modeLabel = { any: 'ANY', majority: 'Mehrheit', primary: 'Eigentümer' }[a.sharedVotingMode ?? 'any'] ?? a.sharedVotingMode;
+    const modeLabel = { any: 'ANY', majority: 'Mehrheit', primary: 'Eigentümer' }[a.sharedVotingMode ?? 'any'] ?? esc(a.sharedVotingMode ?? '');
     const rows = votes.map(v => {
       const dotColor = v.wantsOn ? 'var(--green-light)' : 'var(--red)';
       const label = v.wantsOn ? 'EIN' : 'AUS';
@@ -1505,7 +1505,7 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   const healthIcon = unreachable
     ? `<span class="act-health-err" title="Gerät nicht erreichbar">📵</span>`
     : (a.health !== 'ok' && a.health !== 'unknown'
-        ? `<span class="act-health-warn" title="Gerätestatus: ${a.health}">⚠</span>`
+        ? `<span class="act-health-warn" title="Gerätestatus: ${esc(a.health)}">⚠</span>`
         : '');
 
   const sharedBadge = a.shared && a.sharedParticipants && a.sharedParticipants.length
@@ -1727,7 +1727,7 @@ function groupCardHtml(g) {
 
   const actHtml = g.actuators && g.actuators.length > 0
     ? `<div class="actuators"><div class="act-title">Aktoren</div>
-       ${g.actuators.map(a => actuatorHtml(a, g.id, g.manualOverrides, isManual)).join('')}</div>`
+       ${g.actuators.map(a => actuatorHtml(a, g.id, g.name, g.manualOverrides, isManual)).join('')}</div>`
     : '';
 
   const alarmHtml = g.alarms && g.alarms.length > 0
@@ -1741,7 +1741,7 @@ function groupCardHtml(g) {
   const camSrc = camCache[g.id] || '';
   const cameraHtml = g.cameraUrl
     ? `<div class="card-camera">
-        <div class="cam-thumb-wrap" onclick="openAnalysisModal('${g.id}','${g.cameraUrl.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">
+        <div class="cam-thumb-wrap" onclick="openAnalysisModal('${gid}','${escAttr(g.cameraUrl)}')">
           <img class="cam-thumb" id="cam-thumb-${g.id}"
             src="${camSrc}" alt="📷"
             style="${camSrc ? '' : 'opacity:0.3'}" />
@@ -1865,7 +1865,8 @@ function connect() {
     catch(e) { console.error('Parse error', e); }
   };
   eventSource.onerror = () => {
-    setConnected(false); eventSource.close(); eventSource = null;
+    setConnected(false);
+    if (eventSource) { eventSource.close(); eventSource = null; }
     clearTimeout(reconnectTimer);
     reconnectTimer = setTimeout(connect, 3000);
   };
@@ -2583,11 +2584,12 @@ async function loadHistoryAsync(groupId) {
 async function saveHistoryAsync(groupId, list) {
   _analysisCache.set(groupId, list);
   try {
-    await fetch(`/api/analyses/${groupId}`, {
+    const r = await fetch(`/api/analyses/${groupId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(list),
     });
+    if (!r.ok) console.warn('saveHistoryAsync: HTTP', r.status, 'für', groupId);
   } catch { /* ignore */ }
 }
 
@@ -2750,7 +2752,7 @@ function renderPlantResult(groupId) {
 
   container.dataset.historyGroup = groupId;
   container.innerHTML = `
-    <span class="plant-result-toggle" onclick="togglePlantPanel('${groupId}')">
+    <span class="plant-result-toggle" onclick="togglePlantPanel('${escAttr(groupId)}')">
       🔬 ${list.length} Analyse${list.length !== 1 ? 'n' : ''}${starred ? ' · ' + starred + ' ⭐' : ''} · ${dt} ${isOpen ? '▲' : '▼'}
     </span>
     <div class="plant-result-panel" style="display:${isOpen ? 'block' : 'none'}">

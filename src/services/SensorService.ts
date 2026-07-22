@@ -68,7 +68,7 @@ export class SensorService {
         } else if (typeof rawValue !== 'number') {
             valid = false;
             error = `Unerwarteter Datentyp: ${typeof rawValue}`;
-        } else if (typeof rawValue === 'number') {
+        } else {
             if (!isFinite(rawValue)) {
                 valid = false;
                 error = 'Wert ist nicht endlich';

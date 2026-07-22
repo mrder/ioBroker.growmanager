@@ -298,21 +298,22 @@ export class ActuatorService {
     tickWindSimulator(config: ActuatorConfig, now: Date): boolean {
         const cfg = config.windSimulator;
         if (!cfg) return true; // kein Konfig → immer EIN
+        const nowMs = now.getTime();
 
         let state = this.windSimStates.get(config.id);
         if (!state) {
             // Erststart: zufällige EIN-Phase beginnen
             const onDur = this.randBetween(cfg.minOnSeconds, cfg.maxOnSeconds) * 1000;
-            state = { isOn: true, nextChangeAt: Date.now() + onDur };
+            state = { isOn: true, nextChangeAt: nowMs + onDur };
             this.windSimStates.set(config.id, state);
         }
 
-        if (Date.now() >= state.nextChangeAt) {
+        if (nowMs >= state.nextChangeAt) {
             state.isOn = !state.isOn;
             const dur = state.isOn
                 ? this.randBetween(cfg.minOnSeconds, cfg.maxOnSeconds) * 1000
                 : this.randBetween(cfg.minOffSeconds, cfg.maxOffSeconds) * 1000;
-            state.nextChangeAt = Date.now() + dur;
+            state.nextChangeAt = nowMs + dur;
             this.log.debug(
                 `WindSim ${config.name}: → ${state.isOn ? 'EIN' : 'AUS'} für ${Math.round(dur / 1000)}s`
             );
