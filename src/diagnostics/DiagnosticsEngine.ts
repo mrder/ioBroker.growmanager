@@ -144,6 +144,7 @@ export class DiagnosticsEngine {
         }
 
         for (const check of this.effectChecks) {
+            if (check.windowSeconds <= 0) continue;
             const state = groupStates.get(check.groupId);
             if (!state) continue;
 

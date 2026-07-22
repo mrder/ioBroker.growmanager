@@ -372,6 +372,14 @@ class GrowManagerAdapter extends utils.Adapter {
         // Bewässerungs-Zonen initialisieren
         for (const zone of group.irrigationZones) {
             this.irrigationService.initZone(zone);
+            if (zone.flowStateId && !this.subscribedStateIds.has(zone.flowStateId)) {
+                await this.subscribeForeignStatesAsync(zone.flowStateId);
+                this.subscribedStateIds.add(zone.flowStateId);
+                const flowSt = await this.getForeignStateAsync(zone.flowStateId);
+                if (flowSt && typeof flowSt.val === 'number') {
+                    this.irrigationService.updateFlow(zone.id, flowSt.val);
+                }
+            }
         }
 
         // Kameras initialisieren
@@ -644,6 +652,14 @@ class GrowManagerAdapter extends utils.Adapter {
             if (outdoor?.enabled && typeof state.val === 'number') {
                 if (outdoor.tempStateId === id || outdoor.humidityStateId === id) {
                     this.outdoorValues.set(id, state.val);
+                }
+            }
+
+            // Durchfluss-Sensor aktualisieren
+            for (const zone of group.irrigationZones) {
+                if (zone.flowStateId === id) {
+                    const flowVal = typeof state.val === 'number' ? state.val : null;
+                    this.irrigationService.updateFlow(zone.id, flowVal);
                 }
             }
         }
@@ -1155,10 +1171,9 @@ class GrowManagerAdapter extends utils.Adapter {
 
         // 6d) Bewässerung
         for (const zone of config.irrigationZones) {
-            if (!zone.enabled) continue;
             const irriDecision = this.irrigationService.decide(zone, config.id, state.sensors, now);
             const pumpAct = config.actuators.find(a => a.id === zone.pumpActuatorId);
-            if (pumpAct && !irriDecision.blocked) {
+            if (pumpAct) {
                 const canSw = this.actuatorService.canSwitch(pumpAct, irriDecision.command);
                 if (canSw.allowed) {
                     const changed = this.actuatorService.recordCommand(pumpAct, irriDecision.command);

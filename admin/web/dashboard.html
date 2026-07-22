@@ -1057,7 +1057,7 @@ function lsBarHtml(groupId) {
     lines.push(`<div class="ls-phase">
       <span class="ls-phase-label">🌱 Wuchs</span>
       <div class="ls-progress-track"><div class="ls-progress-fill" style="width:${pct}%;background:${color}"></div></div>
-      <span class="ls-phase-info">Tag ${Math.max(0,vegDay)} / ${d.vegDays}</span>
+      <span class="ls-phase-info">Tag ${Math.max(0,vegDay)} / ${+d.vegDays}</span>
     </div>`);
   } else if (d.vegStart) {
     lines.push(`<div class="ls-phase"><span class="ls-phase-label">🌱 Wuchs</span><span class="ls-phase-info">Tag ${Math.max(0,vegDay)}</span></div>`);
@@ -1070,7 +1070,7 @@ function lsBarHtml(groupId) {
     lines.push(`<div class="ls-phase">
       <span class="ls-phase-label">🌸 Blüte</span>
       <div class="ls-progress-track"><div class="ls-progress-fill" style="width:${pct}%;background:${color}"></div></div>
-      <span class="ls-phase-info">Tag ${Math.max(0,florDay)} / ${d.flowerDays}</span>
+      <span class="ls-phase-info">Tag ${Math.max(0,florDay)} / ${+d.flowerDays}</span>
     </div>`);
   } else if (d.flowerStart) {
     lines.push(`<div class="ls-phase"><span class="ls-phase-label">🌸 Blüte</span><span class="ls-phase-info">Tag ${Math.max(0,florDay)}</span></div>`);
@@ -1160,8 +1160,8 @@ function renderWeekNav(data) {
   const slice = dbWeekSlice(data);
   const canOlder = dbWeekOffset < totalPages - 1;
   const canNewer = dbWeekOffset > 0;
-  const first = (slice[0]?.date ?? '').split(' ')[0];
-  const last  = (slice[slice.length - 1]?.date ?? '').split(' ')[0];
+  const first = esc((slice[0]?.date ?? '').split(' ')[0]);
+  const last  = esc((slice[slice.length - 1]?.date ?? '').split(' ')[0]);
   const label = dbWeekOffset === 0
     ? `Aktuelle Woche (${last} – ${first})`
     : `Woche ${dbWeekOffset + 1} (${last} – ${first})`;
@@ -1275,7 +1275,8 @@ function renderIrrigationTable(data) {
   for (const ev of data) {
     const d = new Date(ev.ts);
     const ts = `${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}`;
-    const dur = ev.durationSec >= 60 ? `${Math.floor(ev.durationSec/60)}m ${ev.durationSec%60}s` : `${ev.durationSec}s`;
+    const sec = +ev.durationSec;
+    const dur = sec >= 60 ? `${Math.floor(sec/60)}m ${sec%60}s` : `${sec}s`;
     const sm = ev.startMoisture != null ? ev.startMoisture.toFixed(0)+'%' : '–';
     const em = ev.endMoisture   != null ? ev.endMoisture.toFixed(0)+'%'   : '–';
     html += `<tr><td>${ts}</td><td>${esc(ev.zoneName)}</td><td>${dur}</td><td>${sm}</td><td>${em}</td><td>${esc(ev.trigger)}</td><td>${ev.flowLiters>0?ev.flowLiters.toFixed(1):'–'}</td></tr>`;
@@ -1638,7 +1639,7 @@ function qualityBadgeHtml(g) {
     return `<div class="q-sensor-row">
       <div class="q-sensor-dot" style="background:${dotColor}"></div>
       <span class="q-sensor-name">${esc(s.name)} <span style="font-size:10px;opacity:0.6">(${label})</span></span>
-      <span class="q-sensor-val" style="color:${dotColor}">${s.quality}%</span>
+      <span class="q-sensor-val" style="color:${dotColor}">${+s.quality}%</span>
     </div>${errRow}`;
   }).join('');
   return `<span class="quality-badge meta-tag" style="color:${color}">Q: ${q}%
@@ -1734,7 +1735,7 @@ function groupCardHtml(g) {
     ? `<div class="card-alarms">${g.alarms.map(a => {
         const c = SEV_COLORS[a.severity] ?? 'var(--text-dim)';
         return `<div class="card-alarm"><div class="sev-dot" style="background:${c}"></div>
-          <span style="color:${c}">[${esc(a.severity.toUpperCase())}]</span> ${esc(a.code)}: ${esc(a.message)}</div>`;
+          <span style="color:${c}">[${esc((a.severity ?? 'unknown').toUpperCase())}]</span> ${esc(a.code)}: ${esc(a.message)}</div>`;
       }).join('')}</div>`
     : '';
 
@@ -1920,7 +1921,8 @@ function wikiRenderEmpty() {
 
 function wikiTypeBadge(s) {
   const map = { sativa:'Sativa', indica:'Indica', hybrid:'Hybrid' };
-  return `<span class="wiki-badge ${s.type}">${map[s.type] ?? s.type}</span>`;
+  const safeType = esc(s.type ?? '');
+  return `<span class="wiki-badge ${safeType}">${map[s.type] ?? safeType}</span>`;
 }
 function wikiDiffBadge(s) {
   const map = { einfach:['easy','Einfach'], mittel:['medium','Mittel'], schwer:['hard','Schwer'] };
@@ -1981,30 +1983,30 @@ function wikiShowDetail(id) {
     <div class="wiki-sections">
       <div class="wiki-section">
         <div class="wiki-section-title">⏱ Zeiten</div>
-        <div class="wiki-row"><span class="wiki-row-label">Wachstum</span><span class="wiki-row-val">${s.growWeeks ?? '–'} Wochen</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">Blüte</span><span class="wiki-row-val">${s.bloomWeeks ?? '–'} Wochen</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">Gesamt</span><span class="wiki-row-val">${(s.growWeeks||0)+(s.bloomWeeks||0)} Wochen</span></div>
-        ${s.yieldGramsPerM2 != null ? `<div class="wiki-row"><span class="wiki-row-label">Ertrag</span><span class="wiki-row-val">${s.yieldGramsPerM2} g/m²</span></div>` : ''}
+        <div class="wiki-row"><span class="wiki-row-label">Wachstum</span><span class="wiki-row-val">${s.growWeeks != null ? +s.growWeeks : '–'} Wochen</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Blüte</span><span class="wiki-row-val">${s.bloomWeeks != null ? +s.bloomWeeks : '–'} Wochen</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Gesamt</span><span class="wiki-row-val">${(+s.growWeeks||0)+(+s.bloomWeeks||0)} Wochen</span></div>
+        ${s.yieldGramsPerM2 != null ? `<div class="wiki-row"><span class="wiki-row-label">Ertrag</span><span class="wiki-row-val">${+s.yieldGramsPerM2} g/m²</span></div>` : ''}
         <div class="wiki-row"><span class="wiki-row-label">Wuchshöhe</span><span class="wiki-row-val">${esc(s.height || '–')}</span></div>
       </div>
 
       <div class="wiki-section">
         <div class="wiki-section-title">🌡 Temperatur</div>
-        <div class="wiki-row"><span class="wiki-row-label">Tag (Min–Max)</span><span class="wiki-row-val">${s.tempDayMin ?? '–'}–${s.tempDayMax ?? '–'} °C</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">Nacht (Min–Max)</span><span class="wiki-row-val">${s.tempNightMin ?? '–'}–${s.tempNightMax ?? '–'} °C</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Tag (Min–Max)</span><span class="wiki-row-val">${s.tempDayMin != null ? +s.tempDayMin : '–'}–${s.tempDayMax != null ? +s.tempDayMax : '–'} °C</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Nacht (Min–Max)</span><span class="wiki-row-val">${s.tempNightMin != null ? +s.tempNightMin : '–'}–${s.tempNightMax != null ? +s.tempNightMax : '–'} °C</span></div>
       </div>
 
       <div class="wiki-section">
         <div class="wiki-section-title">💧 Feuchte & VPD</div>
-        <div class="wiki-row"><span class="wiki-row-label">Feuchte Wachstum</span><span class="wiki-row-val">${s.humidityVeg ?? '–'} %</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">Feuchte Blüte</span><span class="wiki-row-val">${s.humidityBloom ?? '–'} %</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">VPD-Bereich</span><span class="wiki-row-val">${s.vpdMin ?? '–'}–${s.vpdMax ?? '–'} kPa</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Feuchte Wachstum</span><span class="wiki-row-val">${s.humidityVeg != null ? +s.humidityVeg : '–'} %</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Feuchte Blüte</span><span class="wiki-row-val">${s.humidityBloom != null ? +s.humidityBloom : '–'} %</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">VPD-Bereich</span><span class="wiki-row-val">${s.vpdMin != null ? +s.vpdMin : '–'}–${s.vpdMax != null ? +s.vpdMax : '–'} kPa</span></div>
       </div>
 
       <div class="wiki-section">
         <div class="wiki-section-title">🧪 Wirkstoffe</div>
-        <div class="wiki-row"><span class="wiki-row-label">THC</span><span class="wiki-row-val">${s.thcPercent != null ? s.thcPercent + ' %' : '–'}</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">CBD</span><span class="wiki-row-val">${s.cbdPercent != null ? s.cbdPercent + ' %' : '–'}</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">THC</span><span class="wiki-row-val">${s.thcPercent != null ? +s.thcPercent + ' %' : '–'}</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">CBD</span><span class="wiki-row-val">${s.cbdPercent != null ? +s.cbdPercent + ' %' : '–'}</span></div>
       </div>
 
       <div class="wiki-section wiki-form-full">

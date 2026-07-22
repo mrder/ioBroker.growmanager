@@ -103,6 +103,10 @@ export class IrrigationService {
 
         // Zone deaktiviert
         if (!zone.enabled) {
+            if (state.running) {
+                this.log.info(`Zone ${zone.name}: deaktiviert während Lauf → Pumpe AUS`);
+                this.stopZone(zone, state, 'Zone deaktiviert', groupId, state.startMoisture);
+            }
             return { zoneId: zone.id, command: false, reason: 'Zone deaktiviert', blocked: false };
         }
 

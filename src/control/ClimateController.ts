@@ -56,6 +56,7 @@ function inferControlDirection(act: ActuatorConfig): ControlDirection {
     switch (act.type) {
         case 'heating':      return 'up';
         case 'humidifier':   return 'up';
+        case 'co2Valve':     return 'up';
         case 'cooling':
         case 'exhaustFan':
         case 'supplyFan':
@@ -252,15 +253,14 @@ export class ClimateController {
             hyst.temperature = tState;
         }
 
-        if (dir === 'up') {
+        if (dir === 'up' || dir === 'both') {
             // Heizung
             if (tState === -1) {
                 this.pushAction(actions, act, true, `T=${temp.toFixed(1)}°C < ${sp.temperature}°C`, false);
                 return `Heizung EIN (${temp.toFixed(1)} °C zu kalt)`;
-            } else {
-                this.pushAction(actions, act, false, `T im Zielbereich`, false);
             }
-        } else if (dir === 'down' || dir === 'both') {
+        }
+        if (dir === 'down' || dir === 'both') {
             // Kühlung / Abluft
             if (tState === 1) {
                 // Außenluft-Guard: nur schalten wenn Außenluft günstiger
@@ -275,10 +275,9 @@ export class ClimateController {
                 const val = act.supportsPercent ? 60 : true;
                 this.pushAction(actions, act, val, `T=${temp.toFixed(1)}°C > ${sp.temperature}°C`, false);
                 return `Kühlung EIN (${temp.toFixed(1)} °C zu warm)`;
-            } else {
-                this.pushAction(actions, act, false, `T im Zielbereich`, false);
             }
         }
+        this.pushAction(actions, act, false, `T im Zielbereich`, false);
         return null;
     }
 
@@ -442,6 +441,7 @@ export class ClimateController {
                 if (act.type === 'heating') {
                     // Heizung: VPD zu hoch → AUSschalten (Heizung würde VPD weiter erhöhen)
                     this.pushAction(actions, act, false, `VPD ${vpd.toFixed(2)} zu hoch – Heizung aus`, false);
+                    return `VPD zu hoch → Heizung aus`;
                 } else {
                     // Befeuchter: mehr Feuchte → VPD sinkt ✓
                     this.pushAction(actions, act, true, `VPD ${vpd.toFixed(2)} zu hoch – Befeuchten`, false);
