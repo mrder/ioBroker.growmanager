@@ -71,11 +71,11 @@ export class ScheduleService {
             vpdMax: lerp(from.vpdMax, to.vpdMax, t),
             temperatureMin: lerp(from.temperatureMin, to.temperatureMin, t),
             temperatureMax: lerp(from.temperatureMax, to.temperatureMax, t),
-            temperatureCritical: from.temperatureCritical,
+            temperatureCritical: Math.min(from.temperatureCritical, to.temperatureCritical),
             humidityMin: lerp(from.humidityMin, to.humidityMin, t),
             humidityMax: lerp(from.humidityMax, to.humidityMax, t),
-            humidityCritical: from.humidityCritical,
-            condensationRiskMaxHumidity: from.condensationRiskMaxHumidity,
+            humidityCritical: Math.min(from.humidityCritical, to.humidityCritical),
+            condensationRiskMaxHumidity: Math.min(from.condensationRiskMaxHumidity, to.condensationRiskMaxHumidity),
         };
     }
 

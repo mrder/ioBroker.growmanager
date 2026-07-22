@@ -981,6 +981,8 @@ class GrowManagerAdapter extends utils.Adapter {
             if (dayNight === 'transition') {
                 // Übergangsrichtung festhalten: Morgen = vorher Nacht, Abend = vorher Tag
                 this.lightTransitionFromNight.set(config.id, prevDayNight === 'night');
+            } else {
+                this.lightTransitionFromNight.delete(config.id);
             }
             this.lastDayNight.set(config.id, dayNight);
             this.log.info(`Gruppe ${config.name}: Wechsel zu ${dayNight}`);
@@ -2142,6 +2144,10 @@ class GrowManagerAdapter extends utils.Adapter {
         this.emergencyStopLastAppliedAt = now;
         for (const group of this.growConfig.groups) {
             for (const actuator of group.actuators) {
+                // Manuelle Locks und Dashboard-Overrides löschen, damit Auto-Regelung
+                // nach E-Stop-Aufhebung sofort wieder die Kontrolle übernehmen kann
+                this.dashboardOverrides.delete(actuator.id);
+                this.actuatorService.unlockManual(actuator.id);
                 const safeVal = actuator.safeState === 'on' ? actuator.onValue : actuator.offValue;
                 await this.setActuatorState(actuator.commandStateId, safeVal);
             }

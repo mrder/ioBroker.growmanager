@@ -240,10 +240,8 @@ export class AirSystemService {
             }
 
             circulationFans.forEach((a, idx) => {
-                // Primär-Ventilator immer EIN, Sekundär-Ventilator wechselnd
-                const isPrimary = idx === 0;
-                const isActive = isPrimary || idx === state!.currentIndex;
-                commands.set(a.id, isActive);
+                // Echter Wechsel-Betrieb: immer genau ein Ventilator aktiv
+                commands.set(a.id, idx === state!.currentIndex);
             });
         } else {
             // Nur ein Ventilator: immer EIN, ausser Nacht-Absenkung

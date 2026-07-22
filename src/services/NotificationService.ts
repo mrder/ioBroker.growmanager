@@ -214,8 +214,12 @@ export class NotificationService {
 
     private isQuietHour(ch: NotificationChannel): boolean {
         if (!ch.quietHoursEnabled) return false;
-        // Immer Europe/Berlin nutzen, unabhängig von der Server-Zeitzone
-        const h = parseInt(new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin', hour: 'numeric', hour12: false }), 10);
+        // Intl.DateTimeFormat ist robuster als toLocaleString bei verschiedenen Node/ICU-Versionen.
+        // % 24 fängt den '24'-Mitternacht-Fall mancher ICU-Implementierungen ab.
+        const h = parseInt(
+            new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', hour12: false }).format(new Date()),
+            10
+        ) % 24;
         const s = ch.quietHoursStart;
         const e = ch.quietHoursEnd;
         if (s <= e) return h >= s && h < e;

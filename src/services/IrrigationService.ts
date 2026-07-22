@@ -150,8 +150,10 @@ export class IrrigationService {
 
         // Maximale Laufzeit
         if (elapsed > maxRun) {
-            this.stopZone(zone, state, 'Maximale Laufzeit erreicht', groupId, state.startMoisture);
-            if (zone.dryRunProtection && zone.flowStateId && (state.flowRate === null || state.flowRate < 0.1)) {
+            const isDryRun = zone.dryRunProtection && zone.flowStateId && (state.flowRate === null || state.flowRate < 0.1);
+            const stopReason = isDryRun ? 'Trockenläufer-Schutz' : 'Maximale Laufzeit erreicht';
+            this.stopZone(zone, state, stopReason, groupId, state.startMoisture);
+            if (isDryRun) {
                 this.alarmService.raise(
                     ALARM_CODES.IRRIGATION_DRY_RUN,
                     groupId,
@@ -234,8 +236,8 @@ export class IrrigationService {
         if (!state) return;
         const now = Date.now();
         if (flowLpm !== null && state.running && state.startTs > 0 && state.lastFlowTs > 0) {
-            const dt = (now - state.lastFlowTs) / 3600000; // Delta seit letztem Update in Stunden
-            state.totalFlowLiters += flowLpm * dt;
+            const dt = (now - state.lastFlowTs) / 60000; // Delta seit letztem Update in Minuten
+            state.totalFlowLiters += flowLpm * dt; // L/min × min = Liter
         }
         state.lastFlowTs = now;
         state.flowRate = flowLpm;

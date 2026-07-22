@@ -64,11 +64,11 @@ class ScheduleService {
             vpdMax: (0, calculations_1.lerp)(from.vpdMax, to.vpdMax, t),
             temperatureMin: (0, calculations_1.lerp)(from.temperatureMin, to.temperatureMin, t),
             temperatureMax: (0, calculations_1.lerp)(from.temperatureMax, to.temperatureMax, t),
-            temperatureCritical: from.temperatureCritical,
+            temperatureCritical: Math.min(from.temperatureCritical, to.temperatureCritical),
             humidityMin: (0, calculations_1.lerp)(from.humidityMin, to.humidityMin, t),
             humidityMax: (0, calculations_1.lerp)(from.humidityMax, to.humidityMax, t),
-            humidityCritical: from.humidityCritical,
-            condensationRiskMaxHumidity: from.condensationRiskMaxHumidity,
+            humidityCritical: Math.min(from.humidityCritical, to.humidityCritical),
+            condensationRiskMaxHumidity: Math.min(from.condensationRiskMaxHumidity, to.condensationRiskMaxHumidity),
         };
     }
     /**

@@ -239,7 +239,7 @@ class ClimateController {
             hState = (0, calculations_1.hysteresisCheck)(hum, sp.humidity, sp.humidityTolerance * 2, hyst.humidity);
             hyst.humidity = hState;
         }
-        if (dir === 'up') {
+        if (dir === 'up' || dir === 'both') {
             // Befeuchter: VPD-Schutz – unteres Drittel des Sollbereichs blockiert Befeuchter
             if (hState === -1) {
                 if (act.type === 'humidifier' && vpd !== null && vpdMin !== null) {
@@ -252,11 +252,8 @@ class ClimateController {
                 this.pushAction(actions, act, true, `RH=${hum.toFixed(0)}% < ${sp.humidity}%`, false);
                 return `Befeuchter EIN (${hum.toFixed(0)}% zu trocken)`;
             }
-            else {
-                this.pushAction(actions, act, false, `RH im Zielbereich`, false);
-            }
         }
-        else if (dir === 'down' || dir === 'both') {
+        if (dir === 'down' || dir === 'both') {
             // Entfeuchter: VPD-Schutz – oberes Drittel des Sollbereichs blockiert Entfeuchter
             if (hState === 1) {
                 if (act.type === 'dehumidifier' && vpd !== null && vpdMax !== null) {
@@ -278,10 +275,9 @@ class ClimateController {
                 this.pushAction(actions, act, val, `RH=${hum.toFixed(0)}% > ${sp.humidity}%`, false);
                 return `Entfeuchter EIN (${hum.toFixed(0)}% zu feucht)`;
             }
-            else {
-                this.pushAction(actions, act, false, `RH im Zielbereich`, false);
-            }
         }
+        // RH im Zielbereich (oder dir='both' und hState===0)
+        this.pushAction(actions, act, false, `RH im Zielbereich`, false);
         return null;
     }
     // ============================================================
@@ -517,7 +513,14 @@ class ClimateController {
             });
             const mapKey = `${config.id}:${target}:${dir}`;
             if (shadowMode) {
-                // Im Shadow-Modus kein physisches Schalten → Timer einfrieren
+                // Im Shadow-Modus kein physisches Schalten → activeSince auf now zurücksetzen,
+                // damit nach Shadow-Mode-Ende die volle Wartezeit neu beginnt
+                if (stage1IsOn) {
+                    this.stage1ActiveSince.set(mapKey, now);
+                }
+                else {
+                    this.stage1ActiveSince.delete(mapKey);
+                }
             }
             else if (stage1IsOn) {
                 if (!this.stage1ActiveSince.has(mapKey)) {
