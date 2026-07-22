@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.13",
+    "version": "0.3.14",
     "news": {
+      "0.3.14": {
+        "en": "v0.3.14: Round 14 bug-fix pass — main.ts: emergencyStop changed to 60s cooldown (re-applies on reconnect), setpointTempTolerance/setpointHumidityTolerance now populated and sent to dashboard; ClimateController: inferControlTarget ignoreExplicit param for safetyOverride, applyEscalationBlocking shadowMode param freezes timer; AlarmService: removeListener method added, re-raise updates severity; SensorService: IQR filter (n-1)*0.75 formula, door sensor type guard; ActuatorService: randBetween lo/hi floor fix; WebDashboardService: SSRF allowedCameraOrigins allowlist, handleMode/handleControl input validation, DashboardGroupState tolerance fields; dashboard: gid/showLs/showDb/safeId use escAttr(), sendMode/sendControl res.ok checks, cropGroupId race condition fixed",
+        "de": "v0.3.14: Runde-14-Bug-Fix-Pass — main.ts: emergencyStop auf 60s-Cooldown umgestellt (gilt erneut bei Reconnect), setpointTempTolerance/setpointHumidityTolerance befüllt und ans Dashboard gesendet; ClimateController: inferControlTarget ignoreExplicit-Parameter für safetyOverride, applyEscalationBlocking shadowMode-Parameter friert Timer ein; AlarmService: removeListener-Methode hinzugefügt, Re-Raise aktualisiert Schweregrad; SensorService: IQR-Filter (n-1)*0,75-Formel, Türsensor-Typwächter; ActuatorService: randBetween lo/hi Floor-Fix; WebDashboardService: SSRF allowedCameraOrigins-Allowlist, handleMode/handleControl Eingabevalidierung, DashboardGroupState Toleranz-Felder; Dashboard: gid/showLs/showDb/safeId nutzen escAttr(), sendMode/sendControl res.ok-Checks, cropGroupId Race-Condition behoben"
+      },
       "0.3.13": {
         "en": "v0.3.13: Round 13 bug-fix pass — ClimateController: applyEscalationBlocking now ignores blocked stage-1 actions (action.blocked check), safetyOverride in requestByTarget; main.ts: handleEmergencyStop guard (no repeat writes per cycle), WindSimulator skip setActuatorStateWithVerify (no false alarms), emergencyStopApplied flag resets on normal cycle; dashboard: ctrlBtns/modeToggle/soilSensor onclick use escAttr(), showTrend res.ok check",
         "de": "v0.3.13: Runde-13-Bug-Fix-Pass — ClimateController: applyEscalationBlocking ignoriert geblockte Stufe-1-Aktoren (action.blocked-Prüfung), safetyOverride in requestByTarget; main.ts: handleEmergencyStop-Guard (keine wiederholten Schreibzugriffe pro Zyklus), WindSimulator überspringt setActuatorStateWithVerify (keine False-Alarms), emergencyStopApplied-Flag beim normalen Zyklus zurückgesetzt; Dashboard: ctrlBtns/modeToggle/soilSensor onclick nutzen escAttr(), showTrend res.ok-Check"

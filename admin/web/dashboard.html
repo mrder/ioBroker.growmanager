@@ -857,6 +857,9 @@ async function sendMode(groupId, mode, groupName) {
         body: JSON.stringify({ groupId, mode, pin }),
       });
       if (r2.status === 403) { pinError.textContent = 'Falsche PIN'; pinModal.classList.add('visible'); }
+      else if (!r2.ok) console.error('Mode-Fehler:', r2.status);
+    } else if (!r.ok) {
+      console.error('Mode-Fehler:', r.status);
     }
   } catch(e) { console.error('Mode-Fehler:', e); } finally { _sendInFlight = false; }
 }
@@ -883,6 +886,9 @@ async function sendControl(groupId, actuatorId, command, label) {
         body: JSON.stringify({ groupId, actuatorId, command, durationMinutes: 60, pin }),
       });
       if (r2.status === 403) { pinError.textContent = 'Falsche PIN'; pinModal.classList.add('visible'); }
+      else if (!r2.ok) console.error('Control-Fehler:', r2.status);
+    } else if (!r.ok) {
+      console.error('Control-Fehler:', r.status);
     }
   } catch(e) { console.error('Control-Fehler:', e); } finally { _sendInFlight = false; }
 }
@@ -1668,7 +1674,7 @@ function groupCardHtml(g) {
 
   // Klima-Zeile: Sollwert-Bar nur wenn der Modus diesen Wert regelt
   // Werte sind klickbar für Trend-Popup
-  const gid = g.id.replace(/'/g, "\\'");
+  const gid = escAttr(g.id);
   const tempMin = g.setpointTemp != null && g.setpointTempTolerance != null ? g.setpointTemp - g.setpointTempTolerance : (g.setpointTempMin ?? null);
   const tempMax = g.setpointTemp != null && g.setpointTempTolerance != null ? g.setpointTemp + g.setpointTempTolerance : (g.setpointTempMax ?? null);
   const tempHtml = `<div onclick="showTrend('${gid}','temperature','Temperatur','°C',${tempMin},${tempMax})" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.temperature, '°', 'Temperatur', isCtrlTemp, null, null, g.setpointTemp, 1)}</div>`;
@@ -1786,8 +1792,8 @@ function groupCardHtml(g) {
     ${cameraHtml}
     <div data-ls-bar="${g.id}">${lsBarHtml(g.id)}</div>
     <div style="padding:6px 12px 10px;display:flex;justify-content:flex-end;gap:6px">
-      <button class="db-btn" onclick="showLs('${gid}','${g.name.replace(/'/g,"\\'")}')">🗓 Kalender</button>
-      <button class="db-btn" onclick="showDb('${gid}','${g.name.replace(/'/g,"\\'")}')">📊 Verlaufsdaten</button>
+      <button class="db-btn" onclick="showLs('${gid}','${escAttr(g.name)}')">🗓 Kalender</button>
+      <button class="db-btn" onclick="showDb('${gid}','${escAttr(g.name)}')">📊 Verlaufsdaten</button>
     </div>
   </div>`;
 }
@@ -1955,7 +1961,7 @@ function wikiShowDetail(id) {
        </div>
        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-top:2px"><span>Sativa ${+sativaPercent}%</span><span>Indica ${100-sativaPercent}%</span></div>`
     : '';
-  const safeId = esc(id);
+  const safeId = escAttr(id);
 
   document.getElementById('wikiDetail').innerHTML = `
     <div class="wiki-detail-header">
@@ -2512,6 +2518,7 @@ function closeCropModal() {
 const _plantPanelOpen = new Set();
 
 async function doCropAnalyze() {
+  const snapshotGroupId = cropGroupId; // snapshot before first await (global may change)
   const statusEl = cropModal.querySelector('#crop-status');
   statusEl.textContent = '⏳ Analyse läuft...';
   cropModal.querySelector('#crop-analyze-btn').disabled = true;
@@ -2547,9 +2554,9 @@ async function doCropAnalyze() {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     closeCropModal();
-    await addAnalysisToHistory(cropGroupId, data);
-    _plantPanelOpen.add(cropGroupId);
-    renderPlantResult(cropGroupId);
+    await addAnalysisToHistory(snapshotGroupId, data);
+    _plantPanelOpen.add(snapshotGroupId);
+    renderPlantResult(snapshotGroupId);
   } catch(e) {
     statusEl.textContent = '⚠ Netzwerkfehler: ' + e;
   }

@@ -41,6 +41,7 @@ export declare class AlarmService {
     constructor(log: ILogger);
     setRetentionDays(days: number): void;
     addListener(fn: AlarmListener): void;
+    removeListener(fn: AlarmListener): void;
     /**
      * Erzeugt oder aktualisiert einen Alarm.
      */

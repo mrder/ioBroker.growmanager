@@ -80,7 +80,9 @@ export interface DashboardGroupState {
     lastDecision: string;
     irrigationRunning: boolean;
     setpointTemp: number | null;
+    setpointTempTolerance: number | null;
     setpointHumidity: number | null;
+    setpointHumidityTolerance: number | null;
     setpointVpdMin: number | null;
     setpointVpdMax: number | null;
     setpointSoilMoistureTarget: number | null;
@@ -154,6 +156,7 @@ export declare class WebDashboardService {
     private readonly adapterDir;
     private server;
     private readonly sseClients;
+    private readonly allowedCameraOrigins;
     private state;
     private dashboardHtml;
     private pin;

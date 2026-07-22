@@ -25,8 +25,9 @@ class ScheduleService {
         }
         else {
             // Nacht – Übergang prüfen (kurz nach Licht-AUS)
+            // minutesToEnd=0 bedeutet exakt die AUS-Minute → Transition beginnt jetzt
             const minutesToEnd = (0, time_1.minutesUntil)(now, lightOn.endHH, lightOn.endMM);
-            if (1440 - minutesToEnd < transitionMinutes) {
+            if (minutesToEnd === 0 || 1440 - minutesToEnd < transitionMinutes) {
                 return 'transition';
             }
             return 'night';

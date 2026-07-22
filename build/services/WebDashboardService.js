@@ -71,6 +71,8 @@ class WebDashboardService {
         this.adapterDir = adapterDir;
         this.server = null;
         this.sseClients = new Set();
+        // Erlaubte Kamera-Origins (aus Adapter-Konfiguration) für SSRF-Schutz am cam-proxy
+        this.allowedCameraOrigins = new Set();
         this.state = {
             ts: Date.now(),
             adapterVersion: '0.1.0',
@@ -287,6 +289,16 @@ class WebDashboardService {
     }
     updateState(state) {
         this.state = state;
+        // Kamera-Allowlist aus Gruppen-Konfiguration aktualisieren (SSRF-Schutz)
+        this.allowedCameraOrigins.clear();
+        for (const g of state.groups) {
+            if (g.cameraUrl) {
+                try {
+                    this.allowedCameraOrigins.add(new URL(g.cameraUrl).origin);
+                }
+                catch { /* ungültige URL */ }
+            }
+        }
         if (this.sseClients.size > 0) {
             const data = `data: ${JSON.stringify(state)}\n\n`;
             for (const client of this.sseClients) {
@@ -480,10 +492,15 @@ class WebDashboardService {
             }
             try {
                 const camUrl = new URL(decodeURIComponent(rawUrl));
-                // Only allow http/https to prevent SSRF to internal services
+                // SSRF-Schutz: nur http/https und nur konfigurierte Kamera-Origins erlauben
                 if (camUrl.protocol !== 'http:' && camUrl.protocol !== 'https:') {
                     res.writeHead(400);
                     res.end('Bad protocol');
+                    return;
+                }
+                if (this.allowedCameraOrigins.size > 0 && !this.allowedCameraOrigins.has(camUrl.origin)) {
+                    res.writeHead(403);
+                    res.end('URL not in camera allowlist');
                     return;
                 }
                 const lib = camUrl.protocol === 'https:' ? https : http;
@@ -639,6 +656,11 @@ class WebDashboardService {
                     res.end(JSON.stringify({ error: 'Adapter nicht bereit' }));
                     return;
                 }
+                if (!payload.groupId || !payload.mode) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'groupId und mode erforderlich' }));
+                    return;
+                }
                 await this.modeCallback({ groupId: payload.groupId, mode: payload.mode });
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ ok: true }));
@@ -671,6 +693,11 @@ class WebDashboardService {
                 if (!this.controlCallback) {
                     res.writeHead(503, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ error: 'Adapter nicht bereit' }));
+                    return;
+                }
+                if (!payload.groupId || !payload.actuatorId || payload.command === undefined || payload.command === null) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'groupId, actuatorId und command erforderlich' }));
                     return;
                 }
                 await this.controlCallback({

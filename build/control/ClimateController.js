@@ -10,8 +10,9 @@ const calculations_1 = require("../utils/calculations");
 const AlarmService_1 = require("../services/AlarmService");
 // Ableitung des Regelziels aus Aktor-Typ (wenn controlTarget nicht explizit gesetzt).
 // Im VPD-Modus regeln Feuchte- und Temperatur-Aktoren über VPD statt absolut.
-function inferControlTarget(act, groupMode) {
-    if (act.controlTarget)
+// ignoreExplicit=true: ignoriert act.controlTarget (für Sicherheits-Overrides)
+function inferControlTarget(act, groupMode, ignoreExplicit = false) {
+    if (!ignoreExplicit && act.controlTarget)
         return act.controlTarget;
     const isVpdMode = groupMode === 'vpd';
     switch (act.type) {
@@ -160,7 +161,8 @@ class ClimateController {
         }
         primaryReason = reasons.length > 0 ? reasons.join('; ') : 'Alle Aktoren im Zielbereich';
         // Stufenregelung: Stufe-2-Aktoren sperren bis Stufe-1 lang genug aktiv ist
-        this.applyEscalationBlocking(config, actions);
+        // shadowMode=true: keine physische Aktivität → Timer nicht akkumulieren
+        this.applyEscalationBlocking(config, actions, shadowMode);
         return this.buildDecision(config, state, primaryReason, actions, shadowMode);
     }
     // ============================================================
@@ -440,8 +442,8 @@ class ClimateController {
         for (const act of config.actuators) {
             if (!act.enabled)
                 continue;
-            // Sicherheitsübersteuerungen: Aktor nach Typ matchen, nicht nach Modus
-            const effectiveTarget = inferControlTarget(act, safetyOverride ? undefined : config.mode);
+            // Sicherheitsübersteuerungen: Aktor nach physischem Typ matchen, nicht nach Modus/controlTarget
+            const effectiveTarget = inferControlTarget(act, safetyOverride ? undefined : config.mode, safetyOverride);
             if (effectiveTarget !== target)
                 continue;
             if (dir !== 'both' && inferControlDirection(act) !== dir && inferControlDirection(act) !== 'both')
@@ -496,7 +498,7 @@ class ClimateController {
      * Stufenregelung: Stufe-2-Aktoren werden gesperrt bis Stufe-1 lange genug läuft.
      * Stufe 1 = Lüftung (primär), Stufe 2 = Klimagerät / Heizung (Eskalation).
      */
-    applyEscalationBlocking(config, actions) {
+    applyEscalationBlocking(config, actions, shadowMode = false) {
         const now = Date.now();
         // Stage-1-Tracking aktualisieren: für jede (target, dir)-Kombination prüfen ob Stufe-1 EIN
         const targets = new Set(config.actuators
@@ -514,7 +516,10 @@ class ClimateController {
                 return typeof action.requested === 'boolean' ? action.requested : action.requested > 0;
             });
             const mapKey = `${config.id}:${target}:${dir}`;
-            if (stage1IsOn) {
+            if (shadowMode) {
+                // Im Shadow-Modus kein physisches Schalten → Timer einfrieren
+            }
+            else if (stage1IsOn) {
                 if (!this.stage1ActiveSince.has(mapKey)) {
                     this.stage1ActiveSince.set(mapKey, now);
                 }

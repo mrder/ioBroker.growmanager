@@ -439,7 +439,8 @@ export class ActuatorService {
 
     private randBetween(minSec: number, maxSec: number): number {
         const lo = Math.max(1, minSec);
-        const hi = Math.max(lo + 1, maxSec);
+        const hi = Math.max(lo, maxSec);
+        if (lo === hi) return lo;
         return Math.floor(Math.random() * (hi - lo + 1)) + lo;
     }
 }

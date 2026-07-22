@@ -86,8 +86,9 @@ class GrowManagerAdapter extends utils.Adapter {
     private readonly pendingVerify = new Map<string, ioBroker.Timeout>();
     // Lock gegen parallele Regelzyklen
     private cycleRunning = false;
-    // Verhindert dass handleEmergencyStop() in jedem Zyklus Schreiboperationen wiederholt
-    private emergencyStopApplied = false;
+    // Zeitstempel des letzten E-Stop-Schreibdurchlaufs; 0 = noch nie angewendet
+    // Re-Apply alle 60s damit Geräte die reconnecten wieder sicher gestellt werden
+    private emergencyStopLastAppliedAt = 0;
 
     // Außenluft-Sensorwerte {stateId → Wert}
     private readonly outdoorValues = new Map<string, number>();
@@ -742,7 +743,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 await this.handleEmergencyStop();
                 return;
             }
-            this.emergencyStopApplied = false; // NotStop beendet → nächster NotStop schreibt wieder
+            this.emergencyStopLastAppliedAt = 0; // E-Stop beendet → nächster E-Stop schreibt sofort
 
             // Gemeinsame Aktoren: Anforderungen sammeln und danach auflösen
             this.sharedActorManager.clearCycle();
@@ -1775,7 +1776,9 @@ class GrowManagerAdapter extends utils.Adapter {
 
                 // Sollwerte aus aktivem Klimaprofil
                 let setpointTemp: number | null = null;
+                let setpointTempTolerance: number | null = null;
                 let setpointHumidity: number | null = null;
+                let setpointHumidityTolerance: number | null = null;
                 let setpointVpdMin: number | null = null;
                 let setpointVpdMax: number | null = null;
                 let setpointSoilMoistureTarget: number | null = null;
@@ -1785,7 +1788,9 @@ class GrowManagerAdapter extends utils.Adapter {
                 if (state?.activeProfile) {
                     const sp = this.scheduleService.getActiveSetpoint(state.activeProfile, state.dayNight ?? 'day', this.lightChangeTimes.get(g.id) ?? Date.now(), this.lightTransitionFromNight.get(g.id) ?? false);
                     setpointTemp = sp.temperature;
+                    setpointTempTolerance = sp.temperatureTolerance;
                     setpointHumidity = sp.humidity;
+                    setpointHumidityTolerance = sp.humidityTolerance;
                     setpointVpdMin = sp.vpdMin;
                     setpointVpdMax = sp.vpdMax;
                     setpointSoilMoistureTarget = sp.soilMoistureTarget ?? null;
@@ -1870,7 +1875,9 @@ class GrowManagerAdapter extends utils.Adapter {
                     lastDecision: state?.lastDecision ? JSON.stringify(state.lastDecision) : '',
                     irrigationRunning: this.irrigationService.isAnyZoneRunning(g),
                     setpointTemp,
+                    setpointTempTolerance,
                     setpointHumidity,
+                    setpointHumidityTolerance,
                     setpointVpdMin,
                     setpointVpdMax,
                     setpointSoilMoistureTarget,
@@ -2122,8 +2129,11 @@ class GrowManagerAdapter extends utils.Adapter {
     }
 
     private async handleEmergencyStop(): Promise<void> {
-        if (this.emergencyStopApplied) return; // bereits im Safe-Zustand – keine Wiederholung
-        this.emergencyStopApplied = true;
+        const now = Date.now();
+        // Schreibdurchlauf maximal alle 60s — verhindert Spam, erlaubt aber Re-Apply
+        // damit Geräte die zwischenzeitlich reconnecten wieder in den sicheren Zustand gebracht werden
+        if (this.emergencyStopLastAppliedAt > 0 && now - this.emergencyStopLastAppliedAt < 60_000) return;
+        this.emergencyStopLastAppliedAt = now;
         for (const group of this.growConfig.groups) {
             for (const actuator of group.actuators) {
                 const safeVal = actuator.safeState === 'off' ? actuator.offValue : actuator.onValue;

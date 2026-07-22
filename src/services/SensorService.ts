@@ -58,7 +58,14 @@ export class SensorService {
         if (rawValue === null || rawValue === undefined) {
             valid = false;
             error = 'Kein Wert vorhanden';
-        } else if (config.type !== 'door' && typeof rawValue !== 'number') {
+        } else if (config.type === 'door') {
+            if (typeof rawValue !== 'boolean' && typeof rawValue !== 'string') {
+                valid = false;
+                error = `Door-Sensor: Unerwarteter Typ ${typeof rawValue}`;
+            } else {
+                processed = rawValue as boolean | string;
+            }
+        } else if (typeof rawValue !== 'number') {
             valid = false;
             error = `Unerwarteter Datentyp: ${typeof rawValue}`;
         } else if (typeof rawValue === 'number') {
@@ -74,8 +81,6 @@ export class SensorService {
                     processed = this.applySmoothing(config, adjusted, prev?.processedValue as number);
                 }
             }
-        } else {
-            processed = rawValue as string | boolean | null;
         }
 
         // Update device-level last-seen: share liveness across all channels of the same physical device.
@@ -205,8 +210,9 @@ export class SensorService {
         if (pairs.length > 3) {
             const vals = pairs.map(p => p.value);
             const sorted = [...vals].sort((a, b) => a - b);
-            const q1 = sorted[Math.floor(sorted.length * 0.25)];
-            const q3 = sorted[Math.floor(sorted.length * 0.75)];
+            // (n-1)*0.75 statt n*0.75: verhindert dass Q3 bei n=4 immer das Maximum wird
+            const q1 = sorted[Math.floor((sorted.length - 1) * 0.25)];
+            const q3 = sorted[Math.floor((sorted.length - 1) * 0.75)];
             const iqr = q3 - q1;
             const low = q1 - 1.5 * iqr;
             const high = q3 + 1.5 * iqr;
