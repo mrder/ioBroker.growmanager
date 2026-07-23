@@ -486,20 +486,23 @@ class GrowManagerAdapter extends utils.Adapter {
                 await this.subscribeForeignStatesAsync(actuator.energyStateId);
                 this.subscribedStateIds.add(actuator.energyStateId);
             }
-            // Energie-Tracking: beim Start bereits-AN-Aktoren erfassen
+            // Energie-Tracking: W-Sensor-Initialwert lesen (unabhängig vom AN/AUS-Status),
+            // damit ratedWatts als Fallback für Perioden ohne W-State-Updates bekannt ist.
             {
+                let wStartValue = 0;
+                if (actuator.energyStateUnit === 'W' && actuator.energyStateId) {
+                    const wState = await this.getForeignStateAsync(actuator.energyStateId);
+                    if (typeof wState?.val === 'number' && wState.val > 0) {
+                        wStartValue = wState.val;
+                        this.databaseService.updateLastKnownWatts(group.id, actuator.id, actuator.name, wStartValue);
+                    }
+                }
                 const actState = this.actuatorService.getState(actuator.id);
                 const isOn = actState
                     ? (typeof actState.effectiveState === 'boolean' ? actState.effectiveState : (actState.effectiveState as number) > 0)
                     : false;
                 if (isOn && actuator.energyStateUnit !== 'kWh') {
-                    let startRatedW = actuator.ratedPowerW ?? 0;
-                    // W-Sensor: aktuellen Wert als Nennleistungs-Fallback lesen,
-                    // da ioBroker State-Events nur bei Wertänderungen feuern.
-                    if (actuator.energyStateUnit === 'W' && actuator.energyStateId && startRatedW === 0) {
-                        const wState = await this.getForeignStateAsync(actuator.energyStateId);
-                        if (typeof wState?.val === 'number' && wState.val > 0) startRatedW = wState.val;
-                    }
+                    const startRatedW = actuator.ratedPowerW ?? wStartValue;
                     this.databaseService.trackActuatorOn(group.id, actuator.id, actuator.name, startRatedW);
                 }
             }
@@ -647,6 +650,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 }
                 // Energie-Tracking: W-State (Momentanleistung) → Wh per Sample akkumulieren
                 if (actuator.energyStateId === id && typeof state.val === 'number' && actuator.energyStateUnit === 'W') {
+                    this.databaseService.updateLastKnownWatts(group.id, actuator.id, actuator.name, state.val);
                     this.databaseService.updateActuatorPowerSample(group.id, actuator.id, state.val);
                 }
             }

@@ -134,7 +134,25 @@ export class DatabaseService {
         if (!isFinite(watts) || watts < 0) return; // Ungültiger Sensorwert → Akkumulator schützen
         cur.wh += (watts * durationMin) / 60;
         cur.runtimeMin += durationMin;
+        if (watts > 0) cur.ratedWatts = watts; // zuletzt bekannte Leistung als Fallback aktualisieren
         cur.lastOnTs = now;
+    }
+
+    /**
+     * Speichert den zuletzt bekannten W-Wert eines Aktors als Schätzwert.
+     * Wird aufgerufen wenn ein W-State-Update eintrifft (unabhängig vom AN/AUS-Status).
+     * Sichert so den Fallback-Wert für getEnergy() auch wenn keine Zyklen akkumuliert wurden.
+     */
+    updateLastKnownWatts(groupId: string, actuatorId: string, name: string, watts: number): void {
+        if (watts <= 0 || !isFinite(watts)) return;
+        const group = this.energyAcc.get(groupId);
+        if (!group) return;
+        const cur = group.get(actuatorId);
+        if (cur) {
+            cur.ratedWatts = watts;
+        } else {
+            group.set(actuatorId, { wh: 0, runtimeMin: 0, name, lastOnTs: 0, ratedWatts: watts });
+        }
     }
 
     trackActuatorWh(groupId: string, actuatorId: string, name: string, deltaWh: number, durationMin: number): void {
@@ -260,8 +278,9 @@ export class DatabaseService {
         for (const [aid, acc] of eGroup) {
             const extra = acc.lastOnTs > 0 ? (now - acc.lastOnTs) / 60_000 : 0;
             const runtimeMin = acc.runtimeMin + extra;
-            // Ø-Watt aus abgeschlossenen Perioden; falls keine → Nennleistung als Fallback
-            const avgW = acc.runtimeMin > 0 ? (acc.wh / acc.runtimeMin) * 60 : acc.ratedWatts;
+            // Ø-Watt: aus tatsächlich akkumulierten W-Samples wenn vorhanden,
+            // sonst ratedWatts als Fallback (auch wenn runtimeMin>0 aber wh=0 wegen fehlender W-Events).
+            const avgW = (acc.runtimeMin > 0 && acc.wh > 0) ? (acc.wh / acc.runtimeMin) * 60 : acc.ratedWatts;
             const wh = acc.wh + (extra > 0 && avgW > 0 ? (avgW * extra / 60) : 0);
             todayEntry.actuators[aid] = {
                 name: acc.name,

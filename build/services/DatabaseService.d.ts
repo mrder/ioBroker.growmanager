@@ -49,6 +49,12 @@ export declare class DatabaseService {
      * Akkumuliert Wh seit dem letzten Sample-Zeitpunkt.
      */
     updateActuatorPowerSample(groupId: string, actuatorId: string, watts: number): void;
+    /**
+     * Speichert den zuletzt bekannten W-Wert eines Aktors als Schätzwert.
+     * Wird aufgerufen wenn ein W-State-Update eintrifft (unabhängig vom AN/AUS-Status).
+     * Sichert so den Fallback-Wert für getEnergy() auch wenn keine Zyklen akkumuliert wurden.
+     */
+    updateLastKnownWatts(groupId: string, actuatorId: string, name: string, watts: number): void;
     trackActuatorWh(groupId: string, actuatorId: string, name: string, deltaWh: number, durationMin: number): void;
     addIrrigationEvent(groupId: string, event: IrrigationEvent): Promise<void>;
     tickMidnight(groupId: string): Promise<void>;
