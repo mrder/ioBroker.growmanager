@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.20",
+    "version": "0.3.21",
     "news": {
+      "0.3.21": {
+        "en": "v0.3.21: Fix 4 regressions — (1) Actuator manual override no longer expires while group stays in MANUELL mode (override auto-renewed every 60 min); (2) PIN prompt removed from individual EIN/AUS actuator control — PIN is now only required for group mode changes (AUTO↔MANUELL); (3) Dehumidifier/humidifier in combined or humidity group mode now regulates by RH target (with VPD as hard upper/lower guard) instead of using VPD-only logic; (4) Actuator row layout fixed with flex-wrap to prevent column overflow when MANUELL badges and EIN/AUS buttons are shown simultaneously",
+        "de": "v0.3.21: 4 Regressionen behoben — (1) Manueller Aktor-Override läuft nicht mehr ab solange die Gruppe im MANUELL-Modus bleibt (Override wird alle 60 min automatisch verlängert); (2) PIN-Abfrage bei einzelnen EIN/AUS-Aktor-Befehlen entfernt — PIN wird jetzt nur noch bei Gruppenmodusänderungen (AUTO↔MANUELL) verlangt; (3) Entfeuchter/Befeuchter im kombinierten oder Feuchte-Gruppenmode regelt jetzt nach RH-Sollwert (mit VPD als hartem Überbereich-Guard) statt nur nach VPD; (4) Aktor-Zeilen-Layout mit flex-wrap korrigiert damit MANUELL-Badges und EIN/AUS-Tasten keine Spaltenüberlaufe verursachen"
+      },
       "0.3.20": {
         "en": "v0.3.20: Fix energy tracking for W-sensor actuators — energy now correctly shows Wh even when ioBroker does not fire state-change events for unchanged power values: (1) updateLastKnownWatts() stores last seen W reading independently of ON/OFF tracking; (2) getEnergy() uses ratedWatts as avgW fallback when no W-samples were accumulated (fixes wh=0 when wh/runtimeMin=0); (3) updateActuatorPowerSample() keeps ratedWatts updated on every sample; (4) initGroup reads W-state for all actuators (not only ON ones) to seed the fallback value on adapter start",
         "de": "v0.3.20: Energie-Tracking für W-Sensor-Aktoren korrigiert — Wh werden jetzt korrekt angezeigt auch wenn ioBroker für gleiche Werte keine State-Change-Events feuert: (1) updateLastKnownWatts() speichert letzten W-Wert unabhängig vom AN/AUS-Tracking; (2) getEnergy() nutzt ratedWatts als avgW-Fallback wenn keine W-Samples akkumuliert wurden (behebt wh=0 wenn wh/runtimeMin=0); (3) updateActuatorPowerSample() aktualisiert ratedWatts bei jedem Sample; (4) initGroup liest W-State für alle Aktoren (nicht nur AN) um Fallback-Wert beim Adapter-Start zu befüllen"

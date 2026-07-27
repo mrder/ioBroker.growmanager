@@ -352,7 +352,7 @@
   .actuators { padding: 10px 16px; }
   .act-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
   .actuator-row {
-    display: flex; align-items: center; gap: 8px; padding: 5px 0;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 5px 0;
     font-size: 13px; border-bottom: 1px solid var(--border);
   }
   .actuator-row:last-child { border-bottom: none; }
@@ -867,26 +867,12 @@ async function sendMode(groupId, mode, groupName) {
 async function sendControl(groupId, actuatorId, command, label) {
   if (_sendInFlight) return;
   _sendInFlight = true;
-  let pin = '';
-  if (window._pinRequired) {
-    pin = await showPinDialog(label);
-    if (pin === null) { _sendInFlight = false; return; }
-  }
   try {
     const r = await fetch('/api/control', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ groupId, actuatorId, command, durationMinutes: 60, pin }),
+      body: JSON.stringify({ groupId, actuatorId, command, durationMinutes: 60 }),
     });
-    if (r.status === 403) {
-      window._pinRequired = true;
-      pin = await showPinDialog(label);
-      if (pin === null) { _sendInFlight = false; return; }
-      const r2 = await fetch('/api/control', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId, actuatorId, command, durationMinutes: 60, pin }),
-      });
-      if (r2.status === 403) { pinError.textContent = 'Falsche PIN'; pinModal.classList.add('visible'); }
-      else if (!r2.ok) console.error('Control-Fehler:', r2.status);
+    if (!r.ok) console.error('Control-Fehler:', r.status);
     } else if (!r.ok) {
       console.error('Control-Fehler:', r.status);
     }

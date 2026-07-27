@@ -796,7 +796,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     const sharedCurrentlyOn = (currentActState?.requested ?? false) !== false
                         && (currentActState?.requested ?? false) !== 0;
                     let ownerNeed = ownerGs
-                        ? this.computeParticipantNeed(actuatorConfig.type, ownerGs, 3, sharedCurrentlyOn)
+                        ? this.computeParticipantNeed(actuatorConfig.type, ownerGs, 3, sharedCurrentlyOn, group.mode)
                         : { wantsOn: false as const, urgency: 0, reason: 'Kein Gruppenstatus' };
 
                     // Outdoor-Guard für Lüfter: Außenluft nur einsetzen wenn innen wärmer als außen.
@@ -848,7 +848,7 @@ class GrowManagerAdapter extends utils.Adapter {
                         const pState = this.groupStates.get(participant.groupId);
                         if (!pState) continue;
                         const pGroup = this.growConfig.groups.find(g => g.id === participant.groupId);
-                        let need = this.computeParticipantNeed(actuatorConfig.type, pState, 3, sharedCurrentlyOn);
+                        let need = this.computeParticipantNeed(actuatorConfig.type, pState, 3, sharedCurrentlyOn, pGroup?.mode);
                         // Outdoor-Guard für Teilnehmer-Stimmen (Zuluft/Abluft)
                         if (need.wantsOn &&
                             (actuatorConfig.type === 'supplyFan' || actuatorConfig.type === 'exhaustFan') &&
@@ -1445,6 +1445,7 @@ class GrowManagerAdapter extends utils.Adapter {
         gs: GroupState,
         defaultHysteresis: number,
         currentlyOn = false,
+        groupMode?: string,
     ): { wantsOn: boolean; urgency: number; reason: string } {
         const hyst = defaultHysteresis;
         const tempHyst = 1.5;  // °C
@@ -1469,6 +1470,18 @@ class GrowManagerAdapter extends utils.Adapter {
             case 'dehumidifier': {
                 const hum = gs.humidity;
                 if (hum === null) return { wantsOn: false, urgency: 0, reason: 'Kein Feuchtesensor' };
+
+                // Kombiniert/Feuchte-Modus: Feuchte hat Vorrang; VPD nur als Überschuss-Guard.
+                if (groupMode === 'combined' || groupMode === 'humidity') {
+                    if (vpdMax !== null && gs.vpd !== null && gs.vpd > vpdMax) {
+                        const excess = gs.vpd - vpdMax;
+                        return { wantsOn: false, urgency: Math.min(1, excess / 0.3), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch – Entfeuchter gesperrt` };
+                    }
+                    const target = humSetpoint ?? 60;
+                    const excess = hum - (target + defaultHysteresis);
+                    if (excess > 0) return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Soll ${target}% – Entfeuchten` };
+                    return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
+                }
 
                 // VPD-Modus: wenn beide VPD-Grenzen konfiguriert sind, entscheidet nur der VPD.
                 // Entfeuchter senkt Feuchte → erhöht VPD und erzeugt Abwärme → darf VPD
@@ -1515,6 +1528,18 @@ class GrowManagerAdapter extends utils.Adapter {
             case 'humidifier': {
                 const hum = gs.humidity;
                 if (hum === null) return { wantsOn: false, urgency: 0, reason: 'Kein Feuchtesensor' };
+
+                // Kombiniert/Feuchte-Modus: Feuchte hat Vorrang; VPD nur als Unterschuss-Guard.
+                if (groupMode === 'combined' || groupMode === 'humidity') {
+                    if (vpdMin !== null && gs.vpd !== null && gs.vpd < vpdMin) {
+                        const deficit = vpdMin - gs.vpd;
+                        return { wantsOn: false, urgency: Math.min(1, deficit / 0.3), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu niedrig – Befeuchter gesperrt` };
+                    }
+                    const target = humSetpoint ?? 50;
+                    const deficit = (target - defaultHysteresis) - hum;
+                    if (deficit > 0) return { wantsOn: true, urgency: Math.min(1, deficit / 10), reason: `RH ${hum.toFixed(0)}% < Soll ${target}% – Befeuchten` };
+                    return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
+                }
 
                 // VPD-Modus: wenn beide VPD-Grenzen konfiguriert sind, entscheidet nur der VPD.
                 if (vpdMin !== null && vpdMax !== null) {
@@ -1876,7 +1901,16 @@ class GrowManagerAdapter extends utils.Adapter {
                 for (const a of g.actuators) {
                     const ov = this.dashboardOverrides.get(a.id);
                     if (ov && ov.until > now) manualOverrides[a.id] = ov;
-                    else if (ov) { this.dashboardOverrides.delete(a.id); this.actuatorService.unlockManual(a.id); }
+                    else if (ov) {
+                        if (this.dashboardModeOverrides.has(g.id)) {
+                            // Gruppe noch MANUELL → Override verlängern statt löschen
+                            ov.until = now + 60 * 60_000;
+                            manualOverrides[a.id] = ov;
+                        } else {
+                            this.dashboardOverrides.delete(a.id);
+                            this.actuatorService.unlockManual(a.id);
+                        }
+                    }
                 }
                 // Manuelle Übersteuerungen auch für externe geteilte Aktoren anzeigen (Teilnehmer-Sicht)
                 for (const a of actuators) {

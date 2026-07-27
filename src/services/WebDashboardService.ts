@@ -747,12 +747,6 @@ export class WebDashboardService {
                     command: boolean | number; durationMinutes?: number; pin?: string;
                 };
 
-                if (this.pin && payload.pin !== this.pin) {
-                    res.writeHead(403, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: 'Falsche PIN' }));
-                    return;
-                }
-
                 if (!this.controlCallback) {
                     res.writeHead(503, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ error: 'Adapter nicht bereit' }));
