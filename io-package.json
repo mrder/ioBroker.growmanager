@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.24",
+    "version": "0.3.25",
     "news": {
+      "0.3.25": {
+        "en": "v0.3.25: Fix humidifier VPD guard hysteresis in combined/humidity mode — uses a 0.05 kPa band (when OFF: stays blocked until VPD > vpdMin+0.05; when ON: blocks at vpdMin) to prevent rapid on/off toggling when VPD oscillates near vpdMin",
+        "de": "v0.3.25: Befeuchter VPD-Guard Hysterese im kombinierten/Feuchte-Modus behoben — 0.05 kPa Totzone (wenn AUS: gesperrt bis VPD > vpdMin+0.05; wenn EIN: Sperre ab vpdMin) verhindert schnelles Flattern wenn VPD um vpdMin schwankt"
+      },
       "0.3.24": {
         "en": "v0.3.24: Fix 3 confirmed bugs — (1) 'auto' mode was missing from VALID_MODES in handleMode: switching a group back to AUTO via dashboard always returned HTTP 400 and never cleared dashboardModeOverrides, causing actuator overrides to persist permanently; (2) Override renewal guard now correctly checks for mode === 'manual' instead of any truthy map entry, preventing non-manual modes from accidentally extending overrides; (3) VPD guard for dehumidifier in combined/humidity mode now uses a 0.05 kPa hysteresis band to prevent rapid on/off toggling when VPD oscillates near vpdMax",
         "de": "v0.3.24: 3 bestätigte Fehler behoben — (1) 'auto'-Modus fehlte in VALID_MODES in handleMode: Umschalten einer Gruppe zurück auf AUTO im Dashboard lieferte immer HTTP 400 und löschte dashboardModeOverrides nie, wodurch Aktor-Overrides dauerhaft bestehen blieben; (2) Override-Verlängerungs-Guard prüft jetzt korrekt auf mode === 'manual' statt jeden vorhandenen Map-Eintrag, damit Nicht-MANUELL-Modi keine Overrides verlängern; (3) VPD-Guard für Entfeuchter im kombinierten/Feuchte-Modus nutzt jetzt eine 0.05 kPa Hysterese um schnelles An/Aus-Flattern bei VPD nahe vpdMax zu verhindern"

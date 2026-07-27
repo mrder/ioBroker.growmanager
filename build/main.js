@@ -1440,9 +1440,13 @@ class GrowManagerAdapter extends utils.Adapter {
                     return { wantsOn: false, urgency: 0, reason: 'Kein Feuchtesensor' };
                 // Kombiniert/Feuchte-Modus: Feuchte hat Vorrang; VPD nur als Unterschuss-Guard.
                 if (groupMode === 'combined' || groupMode === 'humidity') {
-                    if (vpdMin !== null && gs.vpd !== null && gs.vpd < vpdMin) {
-                        const deficit = vpdMin - gs.vpd;
-                        return { wantsOn: false, urgency: Math.min(1, deficit / 0.3), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu niedrig – Befeuchter gesperrt` };
+                    if (vpdMin !== null && gs.vpd !== null) {
+                        // Hysterese: wenn AUS → Guard bis VPD > vpdMin+0.05; wenn EIN → Guard ab vpdMin
+                        const vpdGuardHum = currentlyOn ? vpdMin : vpdMin + 0.05;
+                        if (gs.vpd < vpdGuardHum) {
+                            const deficit = vpdMin - gs.vpd;
+                            return { wantsOn: false, urgency: Math.min(1, deficit / 0.3), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu niedrig – Befeuchter gesperrt` };
+                        }
                     }
                     const target = humSetpoint ?? 50;
                     const deficit = (target - defaultHysteresis) - hum;
