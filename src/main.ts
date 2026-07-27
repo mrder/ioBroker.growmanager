@@ -1450,6 +1450,12 @@ class GrowManagerAdapter extends utils.Adapter {
         const hyst = defaultHysteresis;
         const tempHyst = 1.5;  // °C
 
+        // Inaktive Gruppen stimmen nie für Aktoren ab
+        if (!groupMode || groupMode === 'off' || groupMode === 'manual' || groupMode === 'schedule'
+                || groupMode === 'monitorOnly' || groupMode === 'maintenance') {
+            return { wantsOn: false, urgency: 0, reason: `Gruppe inaktiv (${groupMode ?? 'unbekannt'})` };
+        }
+
         // Sollwerte aus aktivem Profil ermitteln
         let tempSetpoint: number | null = null;
         let humSetpoint: number | null = null;
@@ -1468,6 +1474,9 @@ class GrowManagerAdapter extends utils.Adapter {
 
         switch (actuatorType) {
             case 'dehumidifier': {
+                // Temperatur-only-Gruppe regelt keine Feuchte → kein Abstimmungsbedarf
+                if (groupMode === 'temperature') return { wantsOn: false, urgency: 0, reason: 'Temperaturregelung – Entfeuchter nicht benötigt' };
+
                 const hum = gs.humidity;
                 if (hum === null) return { wantsOn: false, urgency: 0, reason: 'Kein Feuchtesensor' };
 
@@ -1526,6 +1535,9 @@ class GrowManagerAdapter extends utils.Adapter {
                 return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
             }
             case 'humidifier': {
+                // Temperatur-only-Gruppe regelt keine Feuchte → kein Abstimmungsbedarf
+                if (groupMode === 'temperature') return { wantsOn: false, urgency: 0, reason: 'Temperaturregelung – Befeuchter nicht benötigt' };
+
                 const hum = gs.humidity;
                 if (hum === null) return { wantsOn: false, urgency: 0, reason: 'Kein Feuchtesensor' };
 
@@ -1580,6 +1592,20 @@ class GrowManagerAdapter extends utils.Adapter {
             case 'cooling':
             case 'exhaustFan':
             case 'supplyFan': {
+                // Feuchte-only-Gruppe: Kühlung hilft nicht mit Feuchte → AUS
+                if (groupMode === 'humidity' && actuatorType === 'cooling') {
+                    return { wantsOn: false, urgency: 0, reason: 'Feuchtigkeitsregelung – Kühlung nicht benötigt' };
+                }
+                // Feuchte-only-Gruppe: Zu-/Abluft kann helfen wenn Feuchte zu hoch
+                if (groupMode === 'humidity' && (actuatorType === 'exhaustFan' || actuatorType === 'supplyFan')) {
+                    const hum = gs.humidity;
+                    if (hum === null) return { wantsOn: false, urgency: 0, reason: 'Kein Feuchtesensor' };
+                    const target = humSetpoint ?? 60;
+                    const excess = hum - (target + hyst);
+                    if (excess > 0) return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Soll ${target}% – Lüftung für Entfeuchtung` };
+                    return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
+                }
+
                 const target = tempSetpoint ?? 25;
                 const temp = gs.temperature;
                 if (temp !== null) {
@@ -1616,6 +1642,9 @@ class GrowManagerAdapter extends utils.Adapter {
                 return { wantsOn: false, urgency: 0, reason: `T/VPD im Sollbereich` };
             }
             case 'heating': {
+                // Feuchte-only-Gruppe regelt keine Temperatur → kein Abstimmungsbedarf
+                if (groupMode === 'humidity') return { wantsOn: false, urgency: 0, reason: 'Feuchtigkeitsregelung – Heizung nicht benötigt' };
+
                 const target = tempSetpoint ?? 20;
                 const temp = gs.temperature;
                 if (temp === null) return { wantsOn: false, urgency: 0, reason: 'Kein Temperatursensor' };
@@ -1637,6 +1666,9 @@ class GrowManagerAdapter extends utils.Adapter {
             }
             case 'circulationFan':
             case 'damper': {
+                // Feuchte-only-Gruppe: Umluft hilft nicht direkt mit Feuchte → AUS
+                if (groupMode === 'humidity') return { wantsOn: false, urgency: 0, reason: 'Feuchtigkeitsregelung – Umluft nicht benötigt' };
+
                 // Zirkulationslüfter: läuft wenn Temp oder VPD erhöht
                 const target = tempSetpoint ?? 25;
                 const temp = gs.temperature;

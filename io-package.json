@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.21",
+    "version": "0.3.22",
     "news": {
+      "0.3.22": {
+        "en": "v0.3.22: Harden shared-actor voting for all group-mode combinations — computeParticipantNeed now enforces mode boundaries: (1) inactive groups (off/manual/schedule/monitorOnly/maintenance) always vote AUS; (2) dehumidifier/humidifier vote AUS in temperature-only groups; (3) exhaustFan/supplyFan in humidity-only groups vote based on RH target instead of temperature; (4) cooling votes AUS in humidity-only groups; (5) heating votes AUS in humidity-only groups; (6) circulationFan/damper votes AUS in humidity-only groups",
+        "de": "v0.3.22: Geteilte-Aktor-Abstimmung für alle Gruppenmode-Kombinationen gehärtet — computeParticipantNeed setzt jetzt Mode-Grenzen durch: (1) Inaktive Gruppen (off/manual/schedule/monitorOnly/maintenance) stimmen immer AUS; (2) Entfeuchter/Befeuchter stimmen AUS in reinen Temperatur-Gruppen; (3) Zu-/Abluft in reinen Feuchte-Gruppen stimmt nach RH-Sollwert statt Temperatur; (4) Kühlung stimmt AUS in reinen Feuchte-Gruppen; (5) Heizung stimmt AUS in reinen Feuchte-Gruppen; (6) Umluft/Dämpfer stimmt AUS in reinen Feuchte-Gruppen"
+      },
       "0.3.21": {
         "en": "v0.3.21: Fix 4 regressions — (1) Actuator manual override no longer expires while group stays in MANUELL mode (override auto-renewed every 60 min); (2) PIN prompt removed from individual EIN/AUS actuator control — PIN is now only required for group mode changes (AUTO↔MANUELL); (3) Dehumidifier/humidifier in combined or humidity group mode now regulates by RH target (with VPD as hard upper/lower guard) instead of using VPD-only logic; (4) Actuator row layout fixed with flex-wrap to prevent column overflow when MANUELL badges and EIN/AUS buttons are shown simultaneously",
         "de": "v0.3.21: 4 Regressionen behoben — (1) Manueller Aktor-Override läuft nicht mehr ab solange die Gruppe im MANUELL-Modus bleibt (Override wird alle 60 min automatisch verlängert); (2) PIN-Abfrage bei einzelnen EIN/AUS-Aktor-Befehlen entfernt — PIN wird jetzt nur noch bei Gruppenmodusänderungen (AUTO↔MANUELL) verlangt; (3) Entfeuchter/Befeuchter im kombinierten oder Feuchte-Gruppenmode regelt jetzt nach RH-Sollwert (mit VPD als hartem Überbereich-Guard) statt nur nach VPD; (4) Aktor-Zeilen-Layout mit flex-wrap korrigiert damit MANUELL-Badges und EIN/AUS-Tasten keine Spaltenüberlaufe verursachen"
