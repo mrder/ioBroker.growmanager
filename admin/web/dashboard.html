@@ -873,9 +873,6 @@ async function sendControl(groupId, actuatorId, command, label) {
       body: JSON.stringify({ groupId, actuatorId, command, durationMinutes: 60 }),
     });
     if (!r.ok) console.error('Control-Fehler:', r.status);
-    } else if (!r.ok) {
-      console.error('Control-Fehler:', r.status);
-    }
   } catch(e) { console.error('Control-Fehler:', e); } finally { _sendInFlight = false; }
 }
 

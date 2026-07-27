@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.22",
+    "version": "0.3.23",
     "news": {
+      "0.3.23": {
+        "en": "v0.3.23: Fix JavaScript syntax error in sendControl (dangling else-if after PIN removal in v0.3.21) that prevented the dashboard from connecting to the adapter",
+        "de": "v0.3.23: JavaScript-Syntaxfehler in sendControl behoben (übergebliebenes else-if nach PIN-Entfernung in v0.3.21) der verhinderte dass das Dashboard eine Verbindung zum Adapter aufbauen konnte"
+      },
       "0.3.22": {
         "en": "v0.3.22: Harden shared-actor voting for all group-mode combinations — computeParticipantNeed now enforces mode boundaries: (1) inactive groups (off/manual/schedule/monitorOnly/maintenance) always vote AUS; (2) dehumidifier/humidifier vote AUS in temperature-only groups; (3) exhaustFan/supplyFan in humidity-only groups vote based on RH target instead of temperature; (4) cooling votes AUS in humidity-only groups; (5) heating votes AUS in humidity-only groups; (6) circulationFan/damper votes AUS in humidity-only groups",
         "de": "v0.3.22: Geteilte-Aktor-Abstimmung für alle Gruppenmode-Kombinationen gehärtet — computeParticipantNeed setzt jetzt Mode-Grenzen durch: (1) Inaktive Gruppen (off/manual/schedule/monitorOnly/maintenance) stimmen immer AUS; (2) Entfeuchter/Befeuchter stimmen AUS in reinen Temperatur-Gruppen; (3) Zu-/Abluft in reinen Feuchte-Gruppen stimmt nach RH-Sollwert statt Temperatur; (4) Kühlung stimmt AUS in reinen Feuchte-Gruppen; (5) Heizung stimmt AUS in reinen Feuchte-Gruppen; (6) Umluft/Dämpfer stimmt AUS in reinen Feuchte-Gruppen"
