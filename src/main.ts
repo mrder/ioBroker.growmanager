@@ -1482,9 +1482,13 @@ class GrowManagerAdapter extends utils.Adapter {
 
                 // Kombiniert/Feuchte-Modus: Feuchte hat Vorrang; VPD nur als Überschuss-Guard.
                 if (groupMode === 'combined' || groupMode === 'humidity') {
-                    if (vpdMax !== null && gs.vpd !== null && gs.vpd > vpdMax) {
-                        const excess = gs.vpd - vpdMax;
-                        return { wantsOn: false, urgency: Math.min(1, excess / 0.3), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch – Entfeuchter gesperrt` };
+                    if (vpdMax !== null && gs.vpd !== null) {
+                        // Hysterese: wenn EIN → Guard schon bei vpdMax; wenn AUS → erst Freigabe wenn VPD < vpdMax-0.05
+                        const vpdGuard = currentlyOn ? vpdMax : vpdMax - 0.05;
+                        if (gs.vpd > vpdGuard) {
+                            const excess = gs.vpd - vpdMax;
+                            return { wantsOn: false, urgency: Math.min(1, excess / 0.3), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch – Entfeuchter gesperrt` };
+                        }
                     }
                     const target = humSetpoint ?? 60;
                     const excess = hum - (target + defaultHysteresis);
@@ -1934,7 +1938,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     const ov = this.dashboardOverrides.get(a.id);
                     if (ov && ov.until > now) manualOverrides[a.id] = ov;
                     else if (ov) {
-                        if (this.dashboardModeOverrides.has(g.id)) {
+                        if (this.dashboardModeOverrides.get(g.id) === 'manual') {
                             // Gruppe noch MANUELL → Override verlängern statt löschen
                             ov.until = now + 60 * 60_000;
                             manualOverrides[a.id] = ov;

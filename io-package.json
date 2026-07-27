@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.23",
+    "version": "0.3.24",
     "news": {
+      "0.3.24": {
+        "en": "v0.3.24: Fix 3 confirmed bugs — (1) 'auto' mode was missing from VALID_MODES in handleMode: switching a group back to AUTO via dashboard always returned HTTP 400 and never cleared dashboardModeOverrides, causing actuator overrides to persist permanently; (2) Override renewal guard now correctly checks for mode === 'manual' instead of any truthy map entry, preventing non-manual modes from accidentally extending overrides; (3) VPD guard for dehumidifier in combined/humidity mode now uses a 0.05 kPa hysteresis band to prevent rapid on/off toggling when VPD oscillates near vpdMax",
+        "de": "v0.3.24: 3 bestätigte Fehler behoben — (1) 'auto'-Modus fehlte in VALID_MODES in handleMode: Umschalten einer Gruppe zurück auf AUTO im Dashboard lieferte immer HTTP 400 und löschte dashboardModeOverrides nie, wodurch Aktor-Overrides dauerhaft bestehen blieben; (2) Override-Verlängerungs-Guard prüft jetzt korrekt auf mode === 'manual' statt jeden vorhandenen Map-Eintrag, damit Nicht-MANUELL-Modi keine Overrides verlängern; (3) VPD-Guard für Entfeuchter im kombinierten/Feuchte-Modus nutzt jetzt eine 0.05 kPa Hysterese um schnelles An/Aus-Flattern bei VPD nahe vpdMax zu verhindern"
+      },
       "0.3.23": {
         "en": "v0.3.23: Fix JavaScript syntax error in sendControl (dangling else-if after PIN removal in v0.3.21) that prevented the dashboard from connecting to the adapter",
         "de": "v0.3.23: JavaScript-Syntaxfehler in sendControl behoben (übergebliebenes else-if nach PIN-Entfernung in v0.3.21) der verhinderte dass das Dashboard eine Verbindung zum Adapter aufbauen konnte"
