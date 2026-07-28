@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.25",
+    "version": "0.3.26",
     "news": {
+      "0.3.26": {
+        "en": "v0.3.26: Fix RH regulation hysteresis for humidifier and dehumidifier in combined/humidity mode — (1) humidityTolerance from active profile is now used as hysteresis band instead of hardcoded 3%; (2) currentlyOn hysteresis: device now runs until setpoint is reached (not just until the turn-on threshold); (3) reason text now distinguishes 'above/below setpoint – no need' vs 'within hysteresis band [X–Y%]' instead of the misleading 'im Sollbereich'",
+        "de": "v0.3.26: RH-Regelungs-Hysterese für Befeuchter und Entfeuchter im kombinierten/Feuchte-Modus korrigiert — (1) humidityTolerance aus dem aktiven Profil wird jetzt als Hysterese-Band verwendet statt fest eingecodierter 3%; (2) currentlyOn-Hysterese: Gerät läuft jetzt bis zum Sollwert (nicht nur bis zur Einschaltschwelle); (3) Reason-Text unterscheidet jetzt 'über/unter Sollwert – kein Bedarf' vs. 'in Hysterese [X–Y%]' statt des irreführenden 'im Sollbereich'"
+      },
       "0.3.25": {
         "en": "v0.3.25: Fix humidifier VPD guard hysteresis in combined/humidity mode — uses a 0.05 kPa band (when OFF: stays blocked until VPD > vpdMin+0.05; when ON: blocks at vpdMin) to prevent rapid on/off toggling when VPD oscillates near vpdMin",
         "de": "v0.3.25: Befeuchter VPD-Guard Hysterese im kombinierten/Feuchte-Modus behoben — 0.05 kPa Totzone (wenn AUS: gesperrt bis VPD > vpdMin+0.05; wenn EIN: Sperre ab vpdMin) verhindert schnelles Flattern wenn VPD um vpdMin schwankt"

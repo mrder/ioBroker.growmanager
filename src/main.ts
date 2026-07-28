@@ -1459,6 +1459,7 @@ class GrowManagerAdapter extends utils.Adapter {
         // Sollwerte aus aktivem Profil ermitteln
         let tempSetpoint: number | null = null;
         let humSetpoint: number | null = null;
+        let humHyst = hyst; // Feuchte-Hysterese: aus Profil-Toleranz, Fallback = defaultHysteresis
         let vpdMax: number | null = null;
         let vpdMin: number | null = null;
         if (gs.activeProfile) {
@@ -1467,6 +1468,7 @@ class GrowManagerAdapter extends utils.Adapter {
             if (sp) {
                 tempSetpoint = sp.temperature ?? null;
                 humSetpoint = sp.humidity ?? null;
+                humHyst = sp.humidityTolerance ?? hyst;
                 vpdMax = sp.vpdMax ?? null;
                 vpdMin = sp.vpdMin ?? null;
             }
@@ -1491,9 +1493,16 @@ class GrowManagerAdapter extends utils.Adapter {
                         }
                     }
                     const target = humSetpoint ?? 60;
-                    const excess = hum - (target + defaultHysteresis);
+                    // currentlyOn-Hysterese: läuft weiter bis Sollwert erreicht (nicht nur bis Schwelle)
+                    if (currentlyOn && hum > target) {
+                        return { wantsOn: true, urgency: Math.min(1, (hum - target) / 10), reason: `RH ${hum.toFixed(0)}% noch über Soll ${target}% – weiter Entfeuchten` };
+                    }
+                    const excess = hum - (target + humHyst);
                     if (excess > 0) return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Soll ${target}% – Entfeuchten` };
-                    return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
+                    const reasonDh = hum <= target
+                        ? `RH ${hum.toFixed(0)}% ≤ Soll ${target}% – kein Bedarf`
+                        : `RH ${hum.toFixed(0)}% in Hysterese [${target}–${(target + humHyst).toFixed(0)}%]`;
+                    return { wantsOn: false, urgency: 0, reason: reasonDh };
                 }
 
                 // VPD-Modus: wenn beide VPD-Grenzen konfiguriert sind, entscheidet nur der VPD.
@@ -1534,9 +1543,15 @@ class GrowManagerAdapter extends utils.Adapter {
                     return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa im Schutzbereich (>${dehum_vpdGuard.toFixed(2)}) – Entfeuchter gesperrt` };
                 }
                 const target = humSetpoint ?? 60;
-                const excess = hum - (target + hyst);
+                if (currentlyOn && hum > target) {
+                    return { wantsOn: true, urgency: Math.min(1, (hum - target) / 10), reason: `RH ${hum.toFixed(0)}% noch über Soll ${target}% – weiter Entfeuchten` };
+                }
+                const excess = hum - (target + humHyst);
                 if (excess > 0) return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Soll ${target}% – Entfeuchten` };
-                return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
+                const reasonDhF = hum <= target
+                    ? `RH ${hum.toFixed(0)}% ≤ Soll ${target}% – kein Bedarf`
+                    : `RH ${hum.toFixed(0)}% in Hysterese [${target}–${(target + humHyst).toFixed(0)}%]`;
+                return { wantsOn: false, urgency: 0, reason: reasonDhF };
             }
             case 'humidifier': {
                 // Temperatur-only-Gruppe regelt keine Feuchte → kein Abstimmungsbedarf
@@ -1556,9 +1571,16 @@ class GrowManagerAdapter extends utils.Adapter {
                         }
                     }
                     const target = humSetpoint ?? 50;
-                    const deficit = (target - defaultHysteresis) - hum;
+                    // currentlyOn-Hysterese: läuft weiter bis Sollwert erreicht
+                    if (currentlyOn && hum < target) {
+                        return { wantsOn: true, urgency: Math.min(1, (target - hum) / 10), reason: `RH ${hum.toFixed(0)}% noch unter Soll ${target}% – weiter Befeuchten` };
+                    }
+                    const deficit = (target - humHyst) - hum;
                     if (deficit > 0) return { wantsOn: true, urgency: Math.min(1, deficit / 10), reason: `RH ${hum.toFixed(0)}% < Soll ${target}% – Befeuchten` };
-                    return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
+                    const reasonHum = hum >= target
+                        ? `RH ${hum.toFixed(0)}% ≥ Soll ${target}% – kein Bedarf`
+                        : `RH ${hum.toFixed(0)}% in Hysterese [${(target - humHyst).toFixed(0)}–${target}%]`;
+                    return { wantsOn: false, urgency: 0, reason: reasonHum };
                 }
 
                 // VPD-Modus: wenn beide VPD-Grenzen konfiguriert sind, entscheidet nur der VPD.
@@ -1593,9 +1615,15 @@ class GrowManagerAdapter extends utils.Adapter {
                     return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa im Schutzbereich (<${hum_vpdGuard.toFixed(2)}) – Befeuchter gesperrt` };
                 }
                 const target = humSetpoint ?? 50;
-                const deficit = (target - hyst) - hum;
+                if (currentlyOn && hum < target) {
+                    return { wantsOn: true, urgency: Math.min(1, (target - hum) / 10), reason: `RH ${hum.toFixed(0)}% noch unter Soll ${target}% – weiter Befeuchten` };
+                }
+                const deficit = (target - humHyst) - hum;
                 if (deficit > 0) return { wantsOn: true, urgency: Math.min(1, deficit / 10), reason: `RH ${hum.toFixed(0)}% < Soll ${target}% – Befeuchten` };
-                return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
+                const reasonHumF = hum >= target
+                    ? `RH ${hum.toFixed(0)}% ≥ Soll ${target}% – kein Bedarf`
+                    : `RH ${hum.toFixed(0)}% in Hysterese [${(target - humHyst).toFixed(0)}–${target}%]`;
+                return { wantsOn: false, urgency: 0, reason: reasonHumF };
             }
             case 'cooling':
             case 'exhaustFan':
