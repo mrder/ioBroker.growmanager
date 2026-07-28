@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.27",
+    "version": "0.3.28",
     "news": {
+      "0.3.28": {
+        "en": "v0.3.28: Add urgency to AUS votes at RH boundaries for correct majority voting — humidifier voting AUS because RH > Max now carries urgency proportional to the overshoot (so a strong EIN vote from another group cannot override it); dehumidifier voting AUS because RH < Min carries urgency proportional to the undershoot; votes within the setpoint or hysteresis band stay urgency=0",
+        "de": "v0.3.28: AUS-Stimmen an RH-Grenzen erhalten jetzt Urgency für korrekte Mehrheitsabstimmung — Befeuchter der AUS stimmt weil RH > Max bekommt Urgency proportional zur Überschreitung (damit eine starke EIN-Stimme aus einer anderen Gruppe nicht overriden kann); Entfeuchter der AUS stimmt weil RH < Min bekommt Urgency proportional zur Unterschreitung; Stimmen innerhalb von Sollwert oder Hysterese-Band bleiben urgency=0"
+      },
       "0.3.27": {
         "en": "v0.3.27: Sharpen voting reason texts for humidifier and dehumidifier — reason now correctly shows 'RH X% > Max Y% – Entfeuchter zuständig' when humidity exceeds the max boundary, 'RH X% < Min Y% – Befeuchter zuständig' when below the min boundary, 'in Hysterese [Min–Soll%]' when in the band, and 'kein Bedarf' when on the correct side of the setpoint",
         "de": "v0.3.27: Abstimmungs-Reason-Texte für Befeuchter und Entfeuchter präzisiert — zeigt jetzt korrekt 'RH X% > Max Y% – Entfeuchter zuständig' wenn RH über Max-Grenze liegt, 'RH X% < Min Y% – Befeuchter zuständig' wenn unter Min-Grenze, 'in Hysterese [Min–Soll%]' im Hysterese-Band, und 'kein Bedarf' wenn auf der richtigen Seite des Sollwerts"

@@ -1394,11 +1394,13 @@ class GrowManagerAdapter extends utils.Adapter {
                     if (excess > 0)
                         return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Max ${(target + humHyst).toFixed(0)}% – Entfeuchten` };
                     const humMin = target - humHyst;
-                    const reasonDh = hum < humMin
-                        ? `RH ${hum.toFixed(0)}% < Min ${humMin.toFixed(0)}% – Befeuchter zuständig`
-                        : hum <= target
-                            ? `RH ${hum.toFixed(0)}% ≤ Soll ${target}% – kein Bedarf`
-                            : `RH ${hum.toFixed(0)}% in Hysterese [${target}–${(target + humHyst).toFixed(0)}%]`;
+                    if (hum < humMin) {
+                        // RH unter Min → Entfeuchter darf nicht laufen, Urgency für Mehrheits-Veto
+                        return { wantsOn: false, urgency: Math.min(1, (humMin - hum) / 10), reason: `RH ${hum.toFixed(0)}% < Min ${humMin.toFixed(0)}% – Befeuchter zuständig` };
+                    }
+                    const reasonDh = hum <= target
+                        ? `RH ${hum.toFixed(0)}% ≤ Soll ${target}% – kein Bedarf`
+                        : `RH ${hum.toFixed(0)}% in Hysterese [${target}–${(target + humHyst).toFixed(0)}%]`;
                     return { wantsOn: false, urgency: 0, reason: reasonDh };
                 }
                 // VPD-Modus: wenn beide VPD-Grenzen konfiguriert sind, entscheidet nur der VPD.
@@ -1445,11 +1447,12 @@ class GrowManagerAdapter extends utils.Adapter {
                 if (excess > 0)
                     return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Max ${(target + humHyst).toFixed(0)}% – Entfeuchten` };
                 const humMinF = target - humHyst;
-                const reasonDhF = hum < humMinF
-                    ? `RH ${hum.toFixed(0)}% < Min ${humMinF.toFixed(0)}% – Befeuchter zuständig`
-                    : hum <= target
-                        ? `RH ${hum.toFixed(0)}% ≤ Soll ${target}% – kein Bedarf`
-                        : `RH ${hum.toFixed(0)}% in Hysterese [${target}–${(target + humHyst).toFixed(0)}%]`;
+                if (hum < humMinF) {
+                    return { wantsOn: false, urgency: Math.min(1, (humMinF - hum) / 10), reason: `RH ${hum.toFixed(0)}% < Min ${humMinF.toFixed(0)}% – Befeuchter zuständig` };
+                }
+                const reasonDhF = hum <= target
+                    ? `RH ${hum.toFixed(0)}% ≤ Soll ${target}% – kein Bedarf`
+                    : `RH ${hum.toFixed(0)}% in Hysterese [${target}–${(target + humHyst).toFixed(0)}%]`;
                 return { wantsOn: false, urgency: 0, reason: reasonDhF };
             }
             case 'humidifier': {
@@ -1478,11 +1481,13 @@ class GrowManagerAdapter extends utils.Adapter {
                     if (deficit > 0)
                         return { wantsOn: true, urgency: Math.min(1, deficit / 10), reason: `RH ${hum.toFixed(0)}% < Min ${(target - humHyst).toFixed(0)}% – Befeuchten` };
                     const humMax = target + humHyst;
-                    const reasonHum = hum > humMax
-                        ? `RH ${hum.toFixed(0)}% > Max ${humMax.toFixed(0)}% – Entfeuchter zuständig`
-                        : hum >= target
-                            ? `RH ${hum.toFixed(0)}% ≥ Soll ${target}% – kein Bedarf`
-                            : `RH ${hum.toFixed(0)}% in Hysterese [${(target - humHyst).toFixed(0)}–${target}%]`;
+                    if (hum > humMax) {
+                        // RH über Max → Befeuchter darf nicht laufen, Urgency für Mehrheits-Veto
+                        return { wantsOn: false, urgency: Math.min(1, (hum - humMax) / 10), reason: `RH ${hum.toFixed(0)}% > Max ${humMax.toFixed(0)}% – Entfeuchter zuständig` };
+                    }
+                    const reasonHum = hum >= target
+                        ? `RH ${hum.toFixed(0)}% ≥ Soll ${target}% – kein Bedarf`
+                        : `RH ${hum.toFixed(0)}% in Hysterese [${(target - humHyst).toFixed(0)}–${target}%]`;
                     return { wantsOn: false, urgency: 0, reason: reasonHum };
                 }
                 // VPD-Modus: wenn beide VPD-Grenzen konfiguriert sind, entscheidet nur der VPD.
@@ -1523,11 +1528,12 @@ class GrowManagerAdapter extends utils.Adapter {
                 if (deficit > 0)
                     return { wantsOn: true, urgency: Math.min(1, deficit / 10), reason: `RH ${hum.toFixed(0)}% < Min ${(target - humHyst).toFixed(0)}% – Befeuchten` };
                 const humMaxF = target + humHyst;
-                const reasonHumF = hum > humMaxF
-                    ? `RH ${hum.toFixed(0)}% > Max ${humMaxF.toFixed(0)}% – Entfeuchter zuständig`
-                    : hum >= target
-                        ? `RH ${hum.toFixed(0)}% ≥ Soll ${target}% – kein Bedarf`
-                        : `RH ${hum.toFixed(0)}% in Hysterese [${(target - humHyst).toFixed(0)}–${target}%]`;
+                if (hum > humMaxF) {
+                    return { wantsOn: false, urgency: Math.min(1, (hum - humMaxF) / 10), reason: `RH ${hum.toFixed(0)}% > Max ${humMaxF.toFixed(0)}% – Entfeuchter zuständig` };
+                }
+                const reasonHumF = hum >= target
+                    ? `RH ${hum.toFixed(0)}% ≥ Soll ${target}% – kein Bedarf`
+                    : `RH ${hum.toFixed(0)}% in Hysterese [${(target - humHyst).toFixed(0)}–${target}%]`;
                 return { wantsOn: false, urgency: 0, reason: reasonHumF };
             }
             case 'cooling':
