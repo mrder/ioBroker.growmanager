@@ -1498,10 +1498,13 @@ class GrowManagerAdapter extends utils.Adapter {
                         return { wantsOn: true, urgency: Math.min(1, (hum - target) / 10), reason: `RH ${hum.toFixed(0)}% noch über Soll ${target}% – weiter Entfeuchten` };
                     }
                     const excess = hum - (target + humHyst);
-                    if (excess > 0) return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Soll ${target}% – Entfeuchten` };
-                    const reasonDh = hum <= target
-                        ? `RH ${hum.toFixed(0)}% ≤ Soll ${target}% – kein Bedarf`
-                        : `RH ${hum.toFixed(0)}% in Hysterese [${target}–${(target + humHyst).toFixed(0)}%]`;
+                    if (excess > 0) return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Max ${(target + humHyst).toFixed(0)}% – Entfeuchten` };
+                    const humMin = target - humHyst;
+                    const reasonDh = hum < humMin
+                        ? `RH ${hum.toFixed(0)}% < Min ${humMin.toFixed(0)}% – Befeuchter zuständig`
+                        : hum <= target
+                            ? `RH ${hum.toFixed(0)}% ≤ Soll ${target}% – kein Bedarf`
+                            : `RH ${hum.toFixed(0)}% in Hysterese [${target}–${(target + humHyst).toFixed(0)}%]`;
                     return { wantsOn: false, urgency: 0, reason: reasonDh };
                 }
 
@@ -1547,10 +1550,13 @@ class GrowManagerAdapter extends utils.Adapter {
                     return { wantsOn: true, urgency: Math.min(1, (hum - target) / 10), reason: `RH ${hum.toFixed(0)}% noch über Soll ${target}% – weiter Entfeuchten` };
                 }
                 const excess = hum - (target + humHyst);
-                if (excess > 0) return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Soll ${target}% – Entfeuchten` };
-                const reasonDhF = hum <= target
-                    ? `RH ${hum.toFixed(0)}% ≤ Soll ${target}% – kein Bedarf`
-                    : `RH ${hum.toFixed(0)}% in Hysterese [${target}–${(target + humHyst).toFixed(0)}%]`;
+                if (excess > 0) return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Max ${(target + humHyst).toFixed(0)}% – Entfeuchten` };
+                const humMinF = target - humHyst;
+                const reasonDhF = hum < humMinF
+                    ? `RH ${hum.toFixed(0)}% < Min ${humMinF.toFixed(0)}% – Befeuchter zuständig`
+                    : hum <= target
+                        ? `RH ${hum.toFixed(0)}% ≤ Soll ${target}% – kein Bedarf`
+                        : `RH ${hum.toFixed(0)}% in Hysterese [${target}–${(target + humHyst).toFixed(0)}%]`;
                 return { wantsOn: false, urgency: 0, reason: reasonDhF };
             }
             case 'humidifier': {
@@ -1576,10 +1582,13 @@ class GrowManagerAdapter extends utils.Adapter {
                         return { wantsOn: true, urgency: Math.min(1, (target - hum) / 10), reason: `RH ${hum.toFixed(0)}% noch unter Soll ${target}% – weiter Befeuchten` };
                     }
                     const deficit = (target - humHyst) - hum;
-                    if (deficit > 0) return { wantsOn: true, urgency: Math.min(1, deficit / 10), reason: `RH ${hum.toFixed(0)}% < Soll ${target}% – Befeuchten` };
-                    const reasonHum = hum >= target
-                        ? `RH ${hum.toFixed(0)}% ≥ Soll ${target}% – kein Bedarf`
-                        : `RH ${hum.toFixed(0)}% in Hysterese [${(target - humHyst).toFixed(0)}–${target}%]`;
+                    if (deficit > 0) return { wantsOn: true, urgency: Math.min(1, deficit / 10), reason: `RH ${hum.toFixed(0)}% < Min ${(target - humHyst).toFixed(0)}% – Befeuchten` };
+                    const humMax = target + humHyst;
+                    const reasonHum = hum > humMax
+                        ? `RH ${hum.toFixed(0)}% > Max ${humMax.toFixed(0)}% – Entfeuchter zuständig`
+                        : hum >= target
+                            ? `RH ${hum.toFixed(0)}% ≥ Soll ${target}% – kein Bedarf`
+                            : `RH ${hum.toFixed(0)}% in Hysterese [${(target - humHyst).toFixed(0)}–${target}%]`;
                     return { wantsOn: false, urgency: 0, reason: reasonHum };
                 }
 
@@ -1619,10 +1628,13 @@ class GrowManagerAdapter extends utils.Adapter {
                     return { wantsOn: true, urgency: Math.min(1, (target - hum) / 10), reason: `RH ${hum.toFixed(0)}% noch unter Soll ${target}% – weiter Befeuchten` };
                 }
                 const deficit = (target - humHyst) - hum;
-                if (deficit > 0) return { wantsOn: true, urgency: Math.min(1, deficit / 10), reason: `RH ${hum.toFixed(0)}% < Soll ${target}% – Befeuchten` };
-                const reasonHumF = hum >= target
-                    ? `RH ${hum.toFixed(0)}% ≥ Soll ${target}% – kein Bedarf`
-                    : `RH ${hum.toFixed(0)}% in Hysterese [${(target - humHyst).toFixed(0)}–${target}%]`;
+                if (deficit > 0) return { wantsOn: true, urgency: Math.min(1, deficit / 10), reason: `RH ${hum.toFixed(0)}% < Min ${(target - humHyst).toFixed(0)}% – Befeuchten` };
+                const humMaxF = target + humHyst;
+                const reasonHumF = hum > humMaxF
+                    ? `RH ${hum.toFixed(0)}% > Max ${humMaxF.toFixed(0)}% – Entfeuchter zuständig`
+                    : hum >= target
+                        ? `RH ${hum.toFixed(0)}% ≥ Soll ${target}% – kein Bedarf`
+                        : `RH ${hum.toFixed(0)}% in Hysterese [${(target - humHyst).toFixed(0)}–${target}%]`;
                 return { wantsOn: false, urgency: 0, reason: reasonHumF };
             }
             case 'cooling':

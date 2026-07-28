@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.26",
+    "version": "0.3.27",
     "news": {
+      "0.3.27": {
+        "en": "v0.3.27: Sharpen voting reason texts for humidifier and dehumidifier — reason now correctly shows 'RH X% > Max Y% – Entfeuchter zuständig' when humidity exceeds the max boundary, 'RH X% < Min Y% – Befeuchter zuständig' when below the min boundary, 'in Hysterese [Min–Soll%]' when in the band, and 'kein Bedarf' when on the correct side of the setpoint",
+        "de": "v0.3.27: Abstimmungs-Reason-Texte für Befeuchter und Entfeuchter präzisiert — zeigt jetzt korrekt 'RH X% > Max Y% – Entfeuchter zuständig' wenn RH über Max-Grenze liegt, 'RH X% < Min Y% – Befeuchter zuständig' wenn unter Min-Grenze, 'in Hysterese [Min–Soll%]' im Hysterese-Band, und 'kein Bedarf' wenn auf der richtigen Seite des Sollwerts"
+      },
       "0.3.26": {
         "en": "v0.3.26: Fix RH regulation hysteresis for humidifier and dehumidifier in combined/humidity mode — (1) humidityTolerance from active profile is now used as hysteresis band instead of hardcoded 3%; (2) currentlyOn hysteresis: device now runs until setpoint is reached (not just until the turn-on threshold); (3) reason text now distinguishes 'above/below setpoint – no need' vs 'within hysteresis band [X–Y%]' instead of the misleading 'im Sollbereich'",
         "de": "v0.3.26: RH-Regelungs-Hysterese für Befeuchter und Entfeuchter im kombinierten/Feuchte-Modus korrigiert — (1) humidityTolerance aus dem aktiven Profil wird jetzt als Hysterese-Band verwendet statt fest eingecodierter 3%; (2) currentlyOn-Hysterese: Gerät läuft jetzt bis zum Sollwert (nicht nur bis zur Einschaltschwelle); (3) Reason-Text unterscheidet jetzt 'über/unter Sollwert – kein Bedarf' vs. 'in Hysterese [X–Y%]' statt des irreführenden 'im Sollbereich'"
