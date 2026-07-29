@@ -14,6 +14,13 @@ const SEVERITY_EMOJI: Record<string, string> = {
     critical: '🚨',
 };
 
+const SEVERITY_LABEL_DE: Record<string, string> = {
+    info:     'Info',
+    warning:  'Warnung',
+    fault:    'Fehler',
+    critical: 'Kritisch',
+};
+
 const SEVERITY_COLOR: Record<string, number> = {
     info:     0x1976d2,
     warning:  0xfbc02d,
@@ -48,7 +55,8 @@ export class NotificationService {
         const lastTs = this.lastSent.get(alarm.id) ?? 0;
         if (Date.now() - lastTs < cooldownMs) return;
 
-        const text = this.formatText(alarm, groupName);
+        const htmlText = this.formatText(alarm, groupName, 'html');
+        const plainText = this.formatText(alarm, groupName, 'plain');
         const embed = this.buildDiscordEmbed(alarm, groupName);
 
         let sentAtLeastOne = false;
@@ -58,7 +66,7 @@ export class NotificationService {
             if (this.isQuietHour(ch)) continue;
 
             try {
-                await this.sendToChannel(ch, text, embed);
+                await this.sendToChannel(ch, htmlText, plainText, embed);
                 sentAtLeastOne = true;
             } catch (err) {
                 this.log.error(`NotificationService: Kanal ${ch.id} Fehler: ${err}`);
@@ -77,10 +85,11 @@ export class NotificationService {
             message: 'Dies ist eine Test-Benachrichtigung vom GrowManager. 🌱',
             acknowledged: false, repeatCount: 1,
         };
-        const text = this.formatText(fakeAlarm, 'Testgruppe');
+        const htmlText = this.formatText(fakeAlarm, 'Testgruppe', 'html');
+        const plainText = this.formatText(fakeAlarm, 'Testgruppe', 'plain');
         const embed = this.buildDiscordEmbed(fakeAlarm, 'Testgruppe');
         try {
-            await this.sendToChannel(channel, text, embed);
+            await this.sendToChannel(channel, htmlText, plainText, embed);
             return { ok: true };
         } catch (err) {
             return { ok: false, error: String(err) };
@@ -93,13 +102,14 @@ export class NotificationService {
 
     private async sendToChannel(
         ch: NotificationChannel,
-        text: string,
+        htmlText: string,
+        plainText: string,
         embed: object,
     ): Promise<void> {
         switch (ch.type) {
             case 'telegram': {
                 const instance = ch.telegramInstance ?? '0';
-                const payload: Record<string, unknown> = { text, parse_mode: 'HTML' };
+                const payload: Record<string, unknown> = { text: htmlText, parse_mode: 'HTML' };
                 if (ch.telegramChatId) payload.chatId = ch.telegramChatId;
                 this.sendTo(`telegram.${instance}`, 'send', payload);
                 this.log.info(`Telegram-Notification gesendet (Instanz ${instance})`);
@@ -107,14 +117,14 @@ export class NotificationService {
             }
             case 'whatsapp': {
                 const instance = ch.whatsappInstance ?? '0';
-                this.sendTo(`whatsapp-cmb.${instance}`, 'send', { text });
+                this.sendTo(`whatsapp-cmb.${instance}`, 'send', { text: plainText });
                 this.log.info(`WhatsApp-Notification gesendet (Instanz ${instance})`);
                 break;
             }
             case 'signal': {
                 const instance = ch.signalInstance ?? '0';
                 this.sendTo(`signal-cmb.${instance}`, 'send', {
-                    text,
+                    text: plainText,
                     phone: ch.signalPhone ?? '',
                 });
                 this.log.info(`Signal-Notification gesendet (Instanz ${instance})`);
@@ -129,7 +139,7 @@ export class NotificationService {
             case 'pushover': {
                 const instance = ch.pushoverInstance ?? '0';
                 this.sendTo(`pushover.${instance}`, 'send', {
-                    message: this.stripHtml(text),
+                    message: plainText,
                     title: 'GrowManager Alarm',
                     sound: 'none',
                 });
@@ -139,19 +149,33 @@ export class NotificationService {
         }
     }
 
-    private formatText(alarm: AlarmRecord, groupName: string): string {
+    private formatText(alarm: AlarmRecord, groupName: string, format: 'html' | 'plain'): string {
         const emoji = SEVERITY_EMOJI[alarm.severity] ?? '⚪';
-        const ts = new Date(alarm.since).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
+        const sev = SEVERITY_LABEL_DE[alarm.severity] ?? alarm.severity;
+        const ts = new Date(alarm.since).toLocaleString('de-DE', {
+            timeZone: 'Europe/Berlin',
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+        });
+
+        if (format === 'html') {
+            return [
+                `${emoji} <b>GrowManager – ${sev}</b>`,
+                ``,
+                `<b>Gruppe:</b> ${groupName}`,
+                `<b>Zeit:</b> ${ts}`,
+                ``,
+                alarm.message,
+            ].join('\n');
+        }
+
         return [
-            `${emoji} <b>GrowManager Alarm</b>`,
-            `──────────────────`,
-            `Gruppe:   <b>${groupName}</b>`,
-            `Code:     <code>${alarm.code}</code>`,
-            `Schwere:  <b>${alarm.severity.toUpperCase()}</b>`,
-            `──────────────────`,
+            `${emoji} GrowManager – ${sev}`,
+            ``,
+            `Gruppe: ${groupName}`,
+            `Zeit: ${ts}`,
+            ``,
             alarm.message,
-            `──────────────────`,
-            ts,
         ].join('\n');
     }
 

@@ -35,6 +35,12 @@ const SEVERITY_EMOJI = {
     fault: '🔥',
     critical: '🚨',
 };
+const SEVERITY_LABEL_DE = {
+    info: 'Info',
+    warning: 'Warnung',
+    fault: 'Fehler',
+    critical: 'Kritisch',
+};
 const SEVERITY_COLOR = {
     info: 0x1976d2,
     warning: 0xfbc02d,
@@ -59,7 +65,8 @@ class NotificationService {
         const lastTs = this.lastSent.get(alarm.id) ?? 0;
         if (Date.now() - lastTs < cooldownMs)
             return;
-        const text = this.formatText(alarm, groupName);
+        const htmlText = this.formatText(alarm, groupName, 'html');
+        const plainText = this.formatText(alarm, groupName, 'plain');
         const embed = this.buildDiscordEmbed(alarm, groupName);
         let sentAtLeastOne = false;
         for (const ch of config.channels) {
@@ -70,7 +77,7 @@ class NotificationService {
             if (this.isQuietHour(ch))
                 continue;
             try {
-                await this.sendToChannel(ch, text, embed);
+                await this.sendToChannel(ch, htmlText, plainText, embed);
                 sentAtLeastOne = true;
             }
             catch (err) {
@@ -89,10 +96,11 @@ class NotificationService {
             message: 'Dies ist eine Test-Benachrichtigung vom GrowManager. 🌱',
             acknowledged: false, repeatCount: 1,
         };
-        const text = this.formatText(fakeAlarm, 'Testgruppe');
+        const htmlText = this.formatText(fakeAlarm, 'Testgruppe', 'html');
+        const plainText = this.formatText(fakeAlarm, 'Testgruppe', 'plain');
         const embed = this.buildDiscordEmbed(fakeAlarm, 'Testgruppe');
         try {
-            await this.sendToChannel(channel, text, embed);
+            await this.sendToChannel(channel, htmlText, plainText, embed);
             return { ok: true };
         }
         catch (err) {
@@ -102,11 +110,11 @@ class NotificationService {
     stripHtml(html) {
         return html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
     }
-    async sendToChannel(ch, text, embed) {
+    async sendToChannel(ch, htmlText, plainText, embed) {
         switch (ch.type) {
             case 'telegram': {
                 const instance = ch.telegramInstance ?? '0';
-                const payload = { text, parse_mode: 'HTML' };
+                const payload = { text: htmlText, parse_mode: 'HTML' };
                 if (ch.telegramChatId)
                     payload.chatId = ch.telegramChatId;
                 this.sendTo(`telegram.${instance}`, 'send', payload);
@@ -115,14 +123,14 @@ class NotificationService {
             }
             case 'whatsapp': {
                 const instance = ch.whatsappInstance ?? '0';
-                this.sendTo(`whatsapp-cmb.${instance}`, 'send', { text });
+                this.sendTo(`whatsapp-cmb.${instance}`, 'send', { text: plainText });
                 this.log.info(`WhatsApp-Notification gesendet (Instanz ${instance})`);
                 break;
             }
             case 'signal': {
                 const instance = ch.signalInstance ?? '0';
                 this.sendTo(`signal-cmb.${instance}`, 'send', {
-                    text,
+                    text: plainText,
                     phone: ch.signalPhone ?? '',
                 });
                 this.log.info(`Signal-Notification gesendet (Instanz ${instance})`);
@@ -138,7 +146,7 @@ class NotificationService {
             case 'pushover': {
                 const instance = ch.pushoverInstance ?? '0';
                 this.sendTo(`pushover.${instance}`, 'send', {
-                    message: this.stripHtml(text),
+                    message: plainText,
                     title: 'GrowManager Alarm',
                     sound: 'none',
                 });
@@ -147,19 +155,31 @@ class NotificationService {
             }
         }
     }
-    formatText(alarm, groupName) {
+    formatText(alarm, groupName, format) {
         const emoji = SEVERITY_EMOJI[alarm.severity] ?? '⚪';
-        const ts = new Date(alarm.since).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
+        const sev = SEVERITY_LABEL_DE[alarm.severity] ?? alarm.severity;
+        const ts = new Date(alarm.since).toLocaleString('de-DE', {
+            timeZone: 'Europe/Berlin',
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+        });
+        if (format === 'html') {
+            return [
+                `${emoji} <b>GrowManager – ${sev}</b>`,
+                ``,
+                `<b>Gruppe:</b> ${groupName}`,
+                `<b>Zeit:</b> ${ts}`,
+                ``,
+                alarm.message,
+            ].join('\n');
+        }
         return [
-            `${emoji} <b>GrowManager Alarm</b>`,
-            `──────────────────`,
-            `Gruppe:   <b>${groupName}</b>`,
-            `Code:     <code>${alarm.code}</code>`,
-            `Schwere:  <b>${alarm.severity.toUpperCase()}</b>`,
-            `──────────────────`,
+            `${emoji} GrowManager – ${sev}`,
+            ``,
+            `Gruppe: ${groupName}`,
+            `Zeit: ${ts}`,
+            ``,
             alarm.message,
-            `──────────────────`,
-            ts,
         ].join('\n');
     }
     buildDiscordEmbed(alarm, groupName) {
