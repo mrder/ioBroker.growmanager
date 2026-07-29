@@ -2688,15 +2688,24 @@ const NotificationSettings: React.FC<{
         }
     };
 
-    const testChannel = (ch: NotificationChannel) => {
+    const testChannel = async (ch: NotificationChannel) => {
         setTestResults(prev => ({ ...prev, [ch.id]: '⏳ Sende…' }));
-        iobSendTo('growmanager.0', 'testNotification', { channel: ch }, (result: unknown) => {
-            const r = result as { ok: boolean; error?: string } | null;
+        const port = webPort || 8097;
+        try {
+            const resp = await fetch(`http://${window.location.hostname}:${port}/api/test-notification`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channel: ch }),
+                signal: AbortSignal.timeout(15000),
+            });
+            const r = await resp.json() as { ok: boolean; error?: string };
             setTestResults(prev => ({
                 ...prev,
-                [ch.id]: r?.ok ? '✅ Gesendet' : `❌ ${r?.error ?? 'Kein Ergebnis – Adapter läuft?'}`,
+                [ch.id]: r?.ok ? '✅ Gesendet' : `❌ ${r?.error ?? 'Unbekannter Fehler'}`,
             }));
-        });
+        } catch {
+            setTestResults(prev => ({ ...prev, [ch.id]: '❌ Keine Verbindung zum Adapter' }));
+        }
     };
 
     return (
@@ -2788,7 +2797,7 @@ const NotificationSettings: React.FC<{
                             </div>
                             <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
                                 {ch.type === 'telegram' && `telegram.${ch.telegramInstance ?? '0'}${ch.telegramChatId ? ` · Chat: ${ch.telegramChatId}` : ' · Broadcast'}`}
-                                {ch.type === 'whatsapp' && `whatsapp-cmb.${ch.whatsappInstance ?? '0'} · ${ch.whatsappPhone ?? 'keine Nummer'}`}
+                                {ch.type === 'whatsapp' && `whatsapp-cmb.${ch.whatsappInstance ?? '0'}`}
                                 {ch.type === 'signal' && `signal-cmb.${ch.signalInstance ?? '0'} · ${ch.signalPhone ?? 'keine Nummer'}`}
                                 {ch.type === 'discord' && (ch.discordWebhookUrl ? 'Webhook konfiguriert ✓' : '⚠ Webhook-URL fehlt')}
                                 {ch.type === 'pushover' && `pushover.${ch.pushoverInstance ?? '0'}`}
@@ -2852,12 +2861,9 @@ const NotificationChannelEditor: React.FC<{
                 </>)}
 
                 {ch.type === 'whatsapp' && (<>
-                    <FieldLabel tip="Instanznummer des whatsapp-cmb Adapters">Instanz-Nummer</FieldLabel>
+                    <FieldLabel tip="Instanznummer des whatsapp-cmb Adapters (Telefonnummer wird in den Adaptereinstellungen konfiguriert)">Instanz-Nummer</FieldLabel>
                     <input style={styles.input} placeholder="0" value={ch.whatsappInstance ?? ''}
                         onChange={e => setCh({ ...ch, whatsappInstance: e.target.value })} />
-                    <FieldLabel tip="Telefonnummer im E.164-Format, z.B. +491234567890">Telefonnummer</FieldLabel>
-                    <input style={styles.input} placeholder="+491234567890" value={ch.whatsappPhone ?? ''}
-                        onChange={e => setCh({ ...ch, whatsappPhone: e.target.value })} />
                 </>)}
 
                 {ch.type === 'discord' && (<>

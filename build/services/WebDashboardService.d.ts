@@ -173,6 +173,7 @@ export declare class WebDashboardService {
     private plantIdApiKey;
     private strainsFilePath;
     private detectedAdapters;
+    private testNotificationCallback;
     constructor(log: {
         info: (m: string) => void;
         warn: (m: string) => void;
@@ -182,6 +183,10 @@ export declare class WebDashboardService {
     setDetectedAdapters(adapters: Array<{
         type: string;
         instance: string;
+    }>): void;
+    setTestNotificationCallback(cb: (channel: unknown) => Promise<{
+        ok: boolean;
+        error?: string;
     }>): void;
     setPlantIdApiKey(key: string): void;
     setControlCallback(cb: (cmd: ControlCommand) => Promise<void>): void;

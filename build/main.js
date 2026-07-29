@@ -173,6 +173,10 @@ class GrowManagerAdapter extends utils.Adapter {
         const webBind = this.growConfig.webBindAddress ?? '0.0.0.0';
         this.webDashboard.setPin(this.growConfig.dashboardPin ?? '');
         this.webDashboard.setPlantIdApiKey(this.growConfig.plantIdApiKey ?? '');
+        this.webDashboard.setTestNotificationCallback(async (channel) => {
+            const ch = channel;
+            return this.notificationService.sendTest(ch);
+        });
         this.webDashboard.setModeCallback(async ({ groupId, mode }) => {
             const group = this.growConfig.groups.find(g => g.id === groupId);
             if (!group)

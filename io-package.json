@@ -1,8 +1,12 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.30",
+    "version": "0.3.31",
     "news": {
+      "0.3.31": {
+        "en": "v0.3.31: WhatsApp no longer requires phone number in channel config (adapter uses its own settings); test notification via HTTP instead of broken socket.io; add /api/test-notification endpoint",
+        "de": "v0.3.31: WhatsApp benötigt keine Telefonnummer mehr in der Kanal-Konfiguration (Adapter nutzt eigene Einstellungen); Test-Benachrichtigung über HTTP statt defektem socket.io; /api/test-notification Endpoint hinzugefügt"
+      },
       "0.3.30": {
         "en": "v0.3.30: Fix admin UI live preview (fetch from WebDashboard API port instead of broken socket.io in Admin 5+ iframe); fix blank Alarme tab (React hook violation inside switch); add /api/adapters endpoint for adapter detection without socket dependency",
         "de": "v0.3.30: Admin-UI Live-Preview repariert (Fetch direkt vom WebDashboard-API-Port statt defektem socket.io im Admin 5+ iframe); leere Alarme-Seite behoben (React-Hook-Verletzung in switch); /api/adapters Endpoint für Adapter-Erkennung ohne Socket-Abhängigkeit"
@@ -845,4 +849,5 @@
     }
   ]
 }
+
 

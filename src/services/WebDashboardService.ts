@@ -202,6 +202,7 @@ export class WebDashboardService {
     private plantIdApiKey = '';
     private strainsFilePath = '';
     private detectedAdapters: Array<{ type: string; instance: string }> = [];
+    private testNotificationCallback: ((channel: unknown) => Promise<{ ok: boolean; error?: string }>) | null = null;
 
     constructor(
         private readonly log: {
@@ -214,6 +215,7 @@ export class WebDashboardService {
 
     setPin(pin: string): void { this.pin = pin; }
     setDetectedAdapters(adapters: Array<{ type: string; instance: string }>): void { this.detectedAdapters = adapters; }
+    setTestNotificationCallback(cb: (channel: unknown) => Promise<{ ok: boolean; error?: string }>): void { this.testNotificationCallback = cb; }
     setPlantIdApiKey(key: string): void { this.plantIdApiKey = key; }
     setControlCallback(cb: (cmd: ControlCommand) => Promise<void>): void { this.controlCallback = cb; }
     setModeCallback(cb: (cmd: ModeCommand) => Promise<void>): void { this.modeCallback = cb; }
@@ -435,6 +437,27 @@ export class WebDashboardService {
         if (url === '/api/adapters') {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ detected: this.detectedAdapters }));
+            return;
+        }
+
+        if (url === '/api/test-notification' && req.method === 'POST') {
+            const json = (data: unknown, status = 200) => {
+                if (res.headersSent) return;
+                res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.end(JSON.stringify(data));
+            };
+            if (!this.testNotificationCallback) { json({ ok: false, error: 'Adapter nicht bereit' }, 503); return; }
+            let body = '';
+            req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+            req.on('end', async () => {
+                try {
+                    const { channel } = JSON.parse(body) as { channel: unknown };
+                    const result = await this.testNotificationCallback!(channel);
+                    json(result);
+                } catch (e) {
+                    json({ ok: false, error: String(e) }, 500);
+                }
+            });
             return;
         }
 

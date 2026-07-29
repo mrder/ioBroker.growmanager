@@ -95,9 +95,11 @@ class WebDashboardService {
         this.plantIdApiKey = '';
         this.strainsFilePath = '';
         this.detectedAdapters = [];
+        this.testNotificationCallback = null;
     }
     setPin(pin) { this.pin = pin; }
     setDetectedAdapters(adapters) { this.detectedAdapters = adapters; }
+    setTestNotificationCallback(cb) { this.testNotificationCallback = cb; }
     setPlantIdApiKey(key) { this.plantIdApiKey = key; }
     setControlCallback(cb) { this.controlCallback = cb; }
     setModeCallback(cb) { this.modeCallback = cb; }
@@ -338,6 +340,31 @@ class WebDashboardService {
         if (url === '/api/adapters') {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ detected: this.detectedAdapters }));
+            return;
+        }
+        if (url === '/api/test-notification' && req.method === 'POST') {
+            const json = (data, status = 200) => {
+                if (res.headersSent)
+                    return;
+                res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.end(JSON.stringify(data));
+            };
+            if (!this.testNotificationCallback) {
+                json({ ok: false, error: 'Adapter nicht bereit' }, 503);
+                return;
+            }
+            let body = '';
+            req.on('data', (chunk) => { body += chunk.toString(); });
+            req.on('end', async () => {
+                try {
+                    const { channel } = JSON.parse(body);
+                    const result = await this.testNotificationCallback(channel);
+                    json(result);
+                }
+                catch (e) {
+                    json({ ok: false, error: String(e) }, 500);
+                }
+            });
             return;
         }
         if (url === '/api/events') {
