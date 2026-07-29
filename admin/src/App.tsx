@@ -1848,7 +1848,8 @@ function newActuatorRule(groupId = '', actuatorId = ''): ActuatorAlertRule {
         actuatorId,
         condition: 'off_when_should_be_on',
         severity: 'warning',
-        cooldownMinutes: 15,
+        triggerDelayMinutes: 5,
+        cooldownMinutes: 30,
     };
 }
 
@@ -1958,6 +1959,12 @@ const ActuatorAlertRulesEditor: React.FC<{
                         </select>
                     </div>
                     <div style={{ flex: 1, ...fieldWrap }}>
+                        <div style={labelStyle}>Verzögerung (Min.)</div>
+                        <input style={inputStyle} type="number" min={0}
+                            value={editRule.triggerDelayMinutes ?? 5}
+                            onChange={e => setEditRule(r => r && ({ ...r, triggerDelayMinutes: +e.target.value }))} />
+                    </div>
+                    <div style={{ flex: 1, ...fieldWrap }}>
                         <div style={labelStyle}>Cooldown (Min.)</div>
                         <input style={inputStyle} type="number" min={0}
                             value={editRule.cooldownMinutes}
@@ -2001,7 +2008,7 @@ const ActuatorAlertRulesEditor: React.FC<{
                         <div style={{ flex: 1 }}>
                             <strong>{rule.name}</strong>
                             <span style={{ marginLeft: 8, fontSize: 12, color: '#666' }}>
-                                {groupName} · {actuatorName} · {ACTUATOR_CONDITION_LABELS[rule.condition]}
+                                {groupName} · {actuatorName} · {ACTUATOR_CONDITION_LABELS[rule.condition]} · {rule.triggerDelayMinutes ?? 5} Min. Verzögerung
                             </span>
                         </div>
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

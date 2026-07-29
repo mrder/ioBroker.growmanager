@@ -507,6 +507,7 @@ export interface ActuatorAlertRule {
     actuatorId: string;
     condition: ActuatorAlertCondition;
     severity: 'info' | 'warning' | 'fault' | 'critical';
+    triggerDelayMinutes: number;    // Mindestdauer des Fehlerzustands bevor Alarm feuert
     cooldownMinutes: number;
 }
 

@@ -319,6 +319,7 @@ export interface ActuatorAlertRule {
     actuatorId: string;
     condition: ActuatorAlertCondition;
     severity: 'info' | 'warning' | 'fault' | 'critical';
+    triggerDelayMinutes: number;
     cooldownMinutes: number;
 }
 export type StartBehavior = 'lastState' | 'delayedStart' | 'safeTurnOff' | 'monitorOnly';

@@ -59,6 +59,8 @@ class GrowManagerAdapter extends utils.Adapter {
         this.lightChangeTimes = new Map();
         this.lightTransitionFromNight = new Map(); // true = Morgen-Übergang (Nacht→Tag)
         this.subscribedStateIds = new Set();
+        // Aktor-Alarmregeln: Zeitstempel wenn Bedingung erstmals ausgelöst (ruleId → ts)
+        this.actuatorRuleTriggerTs = new Map();
         // Letzte bekannte Tag/Nacht-Zustände für Wechselerkennung
         this.lastDayNight = new Map();
         // Manuelle Übersteuerungen vom Dashboard {actuatorId → {command, until}}
@@ -1245,6 +1247,7 @@ class GrowManagerAdapter extends utils.Adapter {
         if (rules.length === 0)
             return;
         const group = this.growConfig.groups.find(g => g.id === groupId);
+        const now = Date.now();
         for (const rule of rules) {
             const actState = this.actuatorService.getState(rule.actuatorId);
             if (!actState)
@@ -1262,13 +1265,23 @@ class GrowManagerAdapter extends utils.Adapter {
                     break;
             }
             if (triggered) {
-                const actuatorName = group?.actuators.find(a => a.id === rule.actuatorId)?.name ?? rule.actuatorId;
-                const condMsg = rule.condition === 'off_when_should_be_on' ? 'soll EIN sein, reagiert aber nicht' :
-                    rule.condition === 'no_power_when_on' ? 'ist EIN, verbraucht aber keinen Strom' :
-                        'bleibt AN trotz AUS-Befehl';
-                this.alarmService.raise(AlarmService_1.ALARM_CODES.ACTUATOR_ALERT, groupId, rule.id, rule.severity, `${rule.name}: ${actuatorName} ${condMsg}`);
+                // Ersttrigger-Zeitstempel merken; erst nach triggerDelayMinutes auslösen
+                if (!this.actuatorRuleTriggerTs.has(rule.id)) {
+                    this.actuatorRuleTriggerTs.set(rule.id, now);
+                }
+                const firstTs = this.actuatorRuleTriggerTs.get(rule.id);
+                const delayMs = (rule.triggerDelayMinutes ?? 5) * 60000;
+                if (now - firstTs >= delayMs) {
+                    const actuatorName = group?.actuators.find(a => a.id === rule.actuatorId)?.name ?? rule.actuatorId;
+                    const condMsg = rule.condition === 'off_when_should_be_on' ? 'soll EIN sein, reagiert aber nicht' :
+                        rule.condition === 'no_power_when_on' ? 'ist EIN, verbraucht aber keinen Strom' :
+                            'bleibt AN trotz AUS-Befehl';
+                    this.alarmService.raise(AlarmService_1.ALARM_CODES.ACTUATOR_ALERT, groupId, rule.id, rule.severity, `${rule.name}: ${actuatorName} ${condMsg}`);
+                }
             }
             else {
+                // Zustand wieder OK → Timer und Alarm zurücksetzen
+                this.actuatorRuleTriggerTs.delete(rule.id);
                 this.alarmService.clear(AlarmService_1.ALARM_CODES.ACTUATOR_ALERT, groupId, rule.id);
             }
         }

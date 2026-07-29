@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.3.33",
+    "version": "0.3.34",
     "news": {
+      "0.3.34": {
+        "en": "v0.3.34: Actuator alert rules now have a configurable trigger delay — alarm only fires if the fault state persists uninterrupted for the set number of minutes (default 5). Timer resets automatically if actuator recovers.",
+        "de": "v0.3.34: Aktor-Alarmregeln haben jetzt eine konfigurierbare Verzögerungszeit — Alarm feuert nur wenn der Fehlerzustand mindestens X Minuten ununterbrochen anhält (Standard 5 Min.). Timer wird automatisch zurückgesetzt wenn Aktor sich erholt."
+      },
       "0.3.33": {
         "en": "v0.3.33: Add configurable actuator alert rules — monitor individual actuators with custom severity: alarm when actuator should be ON but doesn't respond (feedback), consumes no power while ON (power monitoring), or stays ON despite OFF command (stuck relay)",
         "de": "v0.3.33: Konfigurierbare Aktor-Alarmregeln — einzelne Aktoren mit eigenem Schweregrad überwachen: Alarm wenn Aktor EIN sein soll aber nicht reagiert (Feedback), keinen Strom verbraucht obwohl eingeschaltet (Leistungsüberwachung), oder AN bleibt trotz AUS-Befehl (hängendes Relais)"
