@@ -222,7 +222,7 @@ class AirSystemService {
                 if (delta < minDelta) {
                     return {
                         blocked: true,
-                        reason: `Außenluft nicht kühler genug: ${outdoorTemp.toFixed(1)}°C innen ${insideTemp.toFixed(1)}°C (Δ${delta.toFixed(1)}K < ${minDelta}K)`,
+                        reason: `Außenluft nicht kühler genug: ${outdoorTemp.toFixed(1)}°C innen ${insideTemp.toFixed(1)}°C (Δ${delta.toFixed(1)}K < ${Number(minDelta).toFixed(1)}K)`,
                     };
                 }
             }
@@ -233,7 +233,7 @@ class AirSystemService {
                 if (humDelta > maxHumDelta) {
                     return {
                         blocked: true,
-                        reason: `Außenluft zu feucht: ${outdoorHumidity.toFixed(0)}% > Innen ${insideHumidity.toFixed(0)}% + ${maxHumDelta}%`,
+                        reason: `Außenluft zu feucht: ${outdoorHumidity.toFixed(0)}% > Innen ${insideHumidity.toFixed(0)}% + ${Number(maxHumDelta).toFixed(0)}%`,
                     };
                 }
             }

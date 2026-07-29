@@ -94,8 +94,10 @@ class WebDashboardService {
         this.analysesSetCallback = null;
         this.plantIdApiKey = '';
         this.strainsFilePath = '';
+        this.detectedAdapters = [];
     }
     setPin(pin) { this.pin = pin; }
+    setDetectedAdapters(adapters) { this.detectedAdapters = adapters; }
     setPlantIdApiKey(key) { this.plantIdApiKey = key; }
     setControlCallback(cb) { this.controlCallback = cb; }
     setModeCallback(cb) { this.modeCallback = cb; }
@@ -331,6 +333,11 @@ class WebDashboardService {
         if (url === '/api/state') {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(this.state));
+            return;
+        }
+        if (url === '/api/adapters') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ detected: this.detectedAdapters }));
             return;
         }
         if (url === '/api/events') {

@@ -201,6 +201,7 @@ export class WebDashboardService {
     private analysesSetCallback: ((groupId: string, analyses: AnalysisEntry[]) => Promise<void>) | null = null;
     private plantIdApiKey = '';
     private strainsFilePath = '';
+    private detectedAdapters: Array<{ type: string; instance: string }> = [];
 
     constructor(
         private readonly log: {
@@ -212,6 +213,7 @@ export class WebDashboardService {
     ) {}
 
     setPin(pin: string): void { this.pin = pin; }
+    setDetectedAdapters(adapters: Array<{ type: string; instance: string }>): void { this.detectedAdapters = adapters; }
     setPlantIdApiKey(key: string): void { this.plantIdApiKey = key; }
     setControlCallback(cb: (cmd: ControlCommand) => Promise<void>): void { this.controlCallback = cb; }
     setModeCallback(cb: (cmd: ModeCommand) => Promise<void>): void { this.modeCallback = cb; }
@@ -427,6 +429,12 @@ export class WebDashboardService {
         if (url === '/api/state') {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(this.state));
+            return;
+        }
+
+        if (url === '/api/adapters') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ detected: this.detectedAdapters }));
             return;
         }
 

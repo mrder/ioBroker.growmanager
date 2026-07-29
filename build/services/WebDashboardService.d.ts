@@ -172,12 +172,17 @@ export declare class WebDashboardService {
     private analysesSetCallback;
     private plantIdApiKey;
     private strainsFilePath;
+    private detectedAdapters;
     constructor(log: {
         info: (m: string) => void;
         warn: (m: string) => void;
         error: (m: string) => void;
     }, adapterDir: string);
     setPin(pin: string): void;
+    setDetectedAdapters(adapters: Array<{
+        type: string;
+        instance: string;
+    }>): void;
     setPlantIdApiKey(key: string): void;
     setControlCallback(cb: (cmd: ControlCommand) => Promise<void>): void;
     setModeCallback(cb: (cmd: ModeCommand) => Promise<void>): void;

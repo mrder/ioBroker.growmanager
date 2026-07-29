@@ -1,8 +1,16 @@
 ﻿{
   "common": {
     "name": "growmanager",
-    "version": "0.3.28",
+    "version": "0.3.30",
     "news": {
+      "0.3.30": {
+        "en": "v0.3.30: Fix admin UI live preview (fetch from WebDashboard API port instead of broken socket.io in Admin 5+ iframe); fix blank Alarme tab (React hook violation inside switch); add /api/adapters endpoint for adapter detection without socket dependency",
+        "de": "v0.3.30: Admin-UI Live-Preview repariert (Fetch direkt vom WebDashboard-API-Port statt defektem socket.io im Admin 5+ iframe); leere Alarme-Seite behoben (React-Hook-Verletzung in switch); /api/adapters Endpoint für Adapter-Erkennung ohne Socket-Abhängigkeit"
+      },
+      "0.3.29": {
+        "en": "v0.3.29: Fix energy Wh accumulation (0W samples no longer reset the timing reference, fixing permanently-0 Wh display for actuators with live W sensors); fix all floating-point rounding in reason strings and dashboard alarm tips (max 2 decimal places everywhere)",
+        "de": "v0.3.29: Energie-Wh-Akkumulation repariert (0W-Samples setzen den Zeitstempel nicht mehr zurück, behebt dauerhaft 0 Wh-Anzeige bei Aktoren mit Live-Leistungssensor); alle Gleitkomma-Rundungsprobleme in Reason-Strings und Dashboard-Alarm-Tipps behoben (max. 2 Nachkommastellen überall)"
+      },
       "0.3.28": {
         "en": "v0.3.28: Add urgency to AUS votes at RH boundaries for correct majority voting — humidifier voting AUS because RH > Max now carries urgency proportional to the overshoot (so a strong EIN vote from another group cannot override it); dehumidifier voting AUS because RH < Min carries urgency proportional to the undershoot; votes within the setpoint or hysteresis band stay urgency=0",
         "de": "v0.3.28: AUS-Stimmen an RH-Grenzen erhalten jetzt Urgency für korrekte Mehrheitsabstimmung — Befeuchter der AUS stimmt weil RH > Max bekommt Urgency proportional zur Überschreitung (damit eine starke EIN-Stimme aus einer anderen Gruppe nicht overriden kann); Entfeuchter der AUS stimmt weil RH < Min bekommt Urgency proportional zur Unterschreitung; Stimmen innerhalb von Sollwert oder Hysterese-Band bleiben urgency=0"

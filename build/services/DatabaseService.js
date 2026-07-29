@@ -105,8 +105,8 @@ class DatabaseService {
         const durationMin = (now - cur.lastOnTs) / 60000;
         if (durationMin < 0.001)
             return; // Zu kurzes Intervall ignorieren
-        if (!isFinite(watts) || watts < 0)
-            return; // Ungültiger Sensorwert → Akkumulator schützen
+        if (!isFinite(watts) || watts <= 0)
+            return; // 0 W = Gerät AUS → lastOnTs nicht resetten
         cur.wh += (watts * durationMin) / 60;
         cur.runtimeMin += durationMin;
         if (watts > 0)

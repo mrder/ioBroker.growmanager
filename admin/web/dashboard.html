@@ -1562,7 +1562,7 @@ function diagHintHtml(g) {
     const tol = 2; // ±2°C Toleranzband (grob, kein setpointTempTol im Stream)
     if (g.temperature > g.setpointTemp + tol) {
       const delta = (g.temperature - g.setpointTemp).toFixed(1);
-      let tip = `Temperatur zu hoch (+${delta}°C über Soll ${g.setpointTemp}°C).`;
+      let tip = `Temperatur zu hoch (+${delta}°C über Soll ${g.setpointTemp.toFixed(1)}°C).`;
       const fixes = [];
       if (hasAct('cooling'))    fixes.push(actNames('cooling'));
       if (hasAct('exhaustFan')) fixes.push(`Abluft (${actNames('exhaustFan')})`);
@@ -1572,7 +1572,7 @@ function diagHintHtml(g) {
       hints.push({ lvl: 'warn', text: tip });
     } else if (g.temperature < g.setpointTemp - tol) {
       const delta = (g.setpointTemp - g.temperature).toFixed(1);
-      let tip = `Temperatur zu niedrig (−${delta}°C unter Soll ${g.setpointTemp}°C).`;
+      let tip = `Temperatur zu niedrig (−${delta}°C unter Soll ${g.setpointTemp.toFixed(1)}°C).`;
       if (hasAct('heating')) tip += ` Heizung: ${actNames('heating')}.`;
       hints.push({ lvl: 'warn', text: tip });
     }
@@ -1581,11 +1581,11 @@ function diagHintHtml(g) {
   // Luftfeuchte-Analyse (nur wenn nicht VPD-gesteuert)
   if (isCtrlHum && !isCtrlVpd && g.humidity !== null && g.setpointHumidity !== null) {
     if (g.humidity > g.setpointHumidity + 5) {
-      let tip = `Luftfeuchte zu hoch (${g.humidity.toFixed(0)}%, Soll ~${g.setpointHumidity}%).`;
+      let tip = `Luftfeuchte zu hoch (${g.humidity.toFixed(0)}%, Soll ~${g.setpointHumidity.toFixed(0)}%).`;
       if (hasAct('dehumidifier')) tip += ` Entfeuchter: ${actNames('dehumidifier')}.`;
       hints.push({ lvl: 'warn', text: tip });
     } else if (g.humidity < g.setpointHumidity - 5) {
-      let tip = `Luftfeuchte zu niedrig (${g.humidity.toFixed(0)}%, Soll ~${g.setpointHumidity}%).`;
+      let tip = `Luftfeuchte zu niedrig (${g.humidity.toFixed(0)}%, Soll ~${g.setpointHumidity.toFixed(0)}%).`;
       if (hasAct('humidifier')) tip += ` Befeuchter: ${actNames('humidifier')}.`;
       hints.push({ lvl: 'warn', text: tip });
     }
@@ -1975,15 +1975,15 @@ function wikiShowDetail(id) {
 
       <div class="wiki-section">
         <div class="wiki-section-title">🌡 Temperatur</div>
-        <div class="wiki-row"><span class="wiki-row-label">Tag (Min–Max)</span><span class="wiki-row-val">${s.tempDayMin != null ? +s.tempDayMin : '–'}–${s.tempDayMax != null ? +s.tempDayMax : '–'} °C</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">Nacht (Min–Max)</span><span class="wiki-row-val">${s.tempNightMin != null ? +s.tempNightMin : '–'}–${s.tempNightMax != null ? +s.tempNightMax : '–'} °C</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Tag (Min–Max)</span><span class="wiki-row-val">${s.tempDayMin != null ? (+s.tempDayMin).toFixed(1) : '–'}–${s.tempDayMax != null ? (+s.tempDayMax).toFixed(1) : '–'} °C</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Nacht (Min–Max)</span><span class="wiki-row-val">${s.tempNightMin != null ? (+s.tempNightMin).toFixed(1) : '–'}–${s.tempNightMax != null ? (+s.tempNightMax).toFixed(1) : '–'} °C</span></div>
       </div>
 
       <div class="wiki-section">
         <div class="wiki-section-title">💧 Feuchte & VPD</div>
-        <div class="wiki-row"><span class="wiki-row-label">Feuchte Wachstum</span><span class="wiki-row-val">${s.humidityVeg != null ? +s.humidityVeg : '–'} %</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">Feuchte Blüte</span><span class="wiki-row-val">${s.humidityBloom != null ? +s.humidityBloom : '–'} %</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">VPD-Bereich</span><span class="wiki-row-val">${s.vpdMin != null ? +s.vpdMin : '–'}–${s.vpdMax != null ? +s.vpdMax : '–'} kPa</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Feuchte Wachstum</span><span class="wiki-row-val">${s.humidityVeg != null ? (+s.humidityVeg).toFixed(0) : '–'} %</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Feuchte Blüte</span><span class="wiki-row-val">${s.humidityBloom != null ? (+s.humidityBloom).toFixed(0) : '–'} %</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">VPD-Bereich</span><span class="wiki-row-val">${s.vpdMin != null ? (+s.vpdMin).toFixed(2) : '–'}–${s.vpdMax != null ? (+s.vpdMax).toFixed(2) : '–'} kPa</span></div>
       </div>
 
       <div class="wiki-section">

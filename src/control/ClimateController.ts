@@ -105,7 +105,7 @@ export class ClimateController {
         if (temp !== null && temp > setpoint.temperatureCritical) {
             this.alarmService.raise(
                 ALARM_CODES.TEMPERATURE_HIGH, config.id, 'climate', 'critical',
-                `Kritische Übertemperatur: ${temp.toFixed(1)} °C > ${setpoint.temperatureCritical} °C`
+                `Kritische Übertemperatur: ${temp.toFixed(1)} °C > ${setpoint.temperatureCritical.toFixed(1)} °C`
             );
             primaryReason = `Übertemperatur ${temp.toFixed(1)} °C – Maximalabluft`;
             this.requestByTarget(config, 'temperature', 'down', actions, true, 100, primaryReason, null, null, false, true);
@@ -256,7 +256,7 @@ export class ClimateController {
         if (dir === 'up' || dir === 'both') {
             // Heizung
             if (tState === -1) {
-                this.pushAction(actions, act, true, `T=${temp.toFixed(1)}°C < ${sp.temperature}°C`, false);
+                this.pushAction(actions, act, true, `T=${temp.toFixed(1)}°C < ${sp.temperature.toFixed(1)}°C`, false);
                 return `Heizung EIN (${temp.toFixed(1)} °C zu kalt)`;
             }
         }
@@ -268,12 +268,12 @@ export class ClimateController {
                     const minDelta = outdoorCfg?.minTempDeltaCelsius ?? 2;
                     const delta = temp - outdoorTemp;
                     if (delta < minDelta) {
-                        this.pushAction(actions, act, false, `Außenluft zu warm (${outdoorTemp.toFixed(1)}°C, Δ${delta.toFixed(1)}K < ${minDelta}K)`, false);
+                        this.pushAction(actions, act, false, `Außenluft zu warm (${outdoorTemp.toFixed(1)}°C, Δ${delta.toFixed(1)}K < ${Number(minDelta).toFixed(1)}K)`, false);
                         return `Lüfter gesperrt: Außenluft nicht kühler genug (${outdoorTemp.toFixed(1)}°C)`;
                     }
                 }
                 const val = act.supportsPercent ? 60 : true;
-                this.pushAction(actions, act, val, `T=${temp.toFixed(1)}°C > ${sp.temperature}°C`, false);
+                this.pushAction(actions, act, val, `T=${temp.toFixed(1)}°C > ${sp.temperature.toFixed(1)}°C`, false);
                 return `Kühlung EIN (${temp.toFixed(1)} °C zu warm)`;
             }
         }
@@ -321,7 +321,7 @@ export class ClimateController {
                         return null;
                     }
                 }
-                this.pushAction(actions, act, true, `RH=${hum.toFixed(0)}% < ${sp.humidity}%`, false);
+                this.pushAction(actions, act, true, `RH=${hum.toFixed(0)}% < ${sp.humidity.toFixed(0)}%`, false);
                 return `Befeuchter EIN (${hum.toFixed(0)}% zu trocken)`;
             }
         }
@@ -344,7 +344,7 @@ export class ClimateController {
                     }
                 }
                 const val = act.supportsPercent ? 60 : true;
-                this.pushAction(actions, act, val, `RH=${hum.toFixed(0)}% > ${sp.humidity}%`, false);
+                this.pushAction(actions, act, val, `RH=${hum.toFixed(0)}% > ${sp.humidity.toFixed(0)}%`, false);
                 return `Entfeuchter EIN (${hum.toFixed(0)}% zu feucht)`;
             }
         }
@@ -432,7 +432,7 @@ export class ClimateController {
                 }
                 const val = act.supportsPercent ? 50 : true;
                 this.pushAction(actions, act, val, `VPD ${vpd.toFixed(2)} zu niedrig – Entfeuchten`, false);
-                return `VPD ${vpd.toFixed(2)} kPa (Ziel: ${sp.vpdMin}–${sp.vpdMax}) → zu niedrig: Entfeuchten`;
+                return `VPD ${vpd.toFixed(2)} kPa (Ziel: ${sp.vpdMin?.toFixed(2)}–${sp.vpdMax?.toFixed(2)}) → zu niedrig: Entfeuchten`;
             } else if (dir === 'up' || dir === 'both') {
                 // dir='up'/'both' mit Heizung: Heizung EIN → Temperatur und damit VPD erhöhen
                 if (act.type === 'heating') {

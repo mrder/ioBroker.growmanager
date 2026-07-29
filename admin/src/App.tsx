@@ -2637,6 +2637,7 @@ const SettingsView: React.FC<{
             <NotificationSettings
                 value={config.notifications ?? { enabled: false, channels: [], cooldownMinutes: 30 }}
                 onChange={n => onChange({ ...config, notifications: n })}
+                webPort={config.webPort}
             />
         </div>
     );
@@ -2667,22 +2668,24 @@ function defaultChannel(type: NotificationChannelType): NotificationChannel {
 const NotificationSettings: React.FC<{
     value: NotificationConfig;
     onChange: (v: NotificationConfig) => void;
-}> = ({ value, onChange }) => {
+    webPort?: number;
+}> = ({ value, onChange, webPort }) => {
     const [detected, setDetected] = useState<Array<{ type: string; instance: string }> | null>(null);
     const [testResults, setTestResults] = useState<Record<string, string>>({});
     const [editingChannel, setEditingChannel] = useState<NotificationChannel | null>(null);
 
     const setChannels = (channels: NotificationChannel[]) => onChange({ ...value, channels });
 
-    const detectAdapters = () => {
-        iobSendTo('growmanager.0', 'detectAdapters', {}, (result: unknown) => {
-            if (result === null) {
-                alert('Adapter-Erkennung nicht verfügbar – bitte Instanznummer manuell eintragen.');
-                return;
-            }
-            const r = result as { detected: Array<{ type: string; instance: string }> };
+    const detectAdapters = async () => {
+        const port = webPort || 8097;
+        try {
+            const resp = await fetch(`http://${window.location.hostname}:${port}/api/adapters`, { signal: AbortSignal.timeout(4000) });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const r = await resp.json() as { detected: Array<{ type: string; instance: string }> };
             setDetected(r?.detected ?? []);
-        });
+        } catch {
+            alert('Adapter-Erkennung nicht verfügbar – bitte Instanznummer manuell eintragen.');
+        }
     };
 
     const testChannel = (ch: NotificationChannel) => {
@@ -2936,6 +2939,7 @@ const App: React.FC = () => {
     const [saveError, setSaveError] = useState('');
     // adapterReady = ioBroker-Bridge ist bereit (loadConfig wurde aufgerufen)
     const [adapterReady, setAdapterReady] = useState(false);
+    const [alarmSubTab, setAlarmSubTab] = useState<'active' | 'rules'>('active');
 
     // ioBroker-Anbindung: config laden sobald loadConfig verfügbar
     useEffect(() => {
@@ -2960,60 +2964,66 @@ const App: React.FC = () => {
     // Stabile Referenz der Gruppen-IDs — verhindert Neustart des Intervals bei jedem Keystroke
     const groupIds = config.groups.map(g => g.id).join(',');
 
-    // Live-Polling via sendTo('getGroupState') — funktioniert ohne socket.io im iframe
+    // Live-Polling via WebDashboard-API — zuverlässiger als socket.io im Admin-iframe
     useEffect(() => {
         if (!adapterReady || !groupIds) return;
-        const urlInstance = new URLSearchParams(window.location.search).get('instance') ?? '0';
-        const instanceId = urlInstance.replace(/^growmanager\./, '');
-        const instanceName = `growmanager.${instanceId}`;
         const groups = config.groups;
+        const webPort = config.webPort || 8097;
+        const apiUrl = `http://${window.location.hostname}:${webPort}/api/state`;
 
-        type ActSt = { requested: unknown; feedback: unknown; power: number | null; health: string };
-        type GS = {
-            temperature?: number | null;
-            humidity?: number | null;
-            vpd?: number | null;
-            sensorQuality?: number;
-            degradation?: string;
-            mode?: string;
-            lastDecision?: { reason?: string } | null;
-            actuators?: Record<string, ActSt>;
-            highestAlarmSeverity?: string;
-        } | null;
-
-        function pollGroup(g: typeof groups[0]): Promise<void> {
-            return new Promise(resolve => {
-                iobSendTo(instanceName, 'getGroupState', { groupId: g.id }, (result: unknown) => {
-                    const gs = result as GS;
-                    const acts: Record<string, ActSt> = {};
-                    if (gs?.actuators) {
-                        for (const [id, a] of Object.entries(gs.actuators)) {
-                            acts[id] = { requested: a.requested, feedback: a.feedback, power: a.power ?? null, health: a.health ?? 'unknown' };
-                        }
-                    }
-                    setLiveStates(prev => ({
-                        ...prev,
-                        [g.id]: {
-                            temperature: gs?.temperature ?? null,
-                            humidity: gs?.humidity ?? null,
-                            vpd: gs?.vpd ?? null,
-                            sensorQuality: typeof gs?.sensorQuality === 'number' ? gs.sensorQuality : 0,
-                            health: gs?.degradation ?? 'FULL',
-                            mode: gs?.mode ?? g.mode,
-                            phase: g.phase,
-                            alarmSeverity: gs?.highestAlarmSeverity ?? 'none',
-                            nextChange: '',
-                            actuators: acts,
-                            lastDecision: gs?.lastDecision?.reason ?? '',
-                        },
-                    }));
-                    resolve();
-                });
-            });
-        }
+        type ApiAct = { id: string; command: unknown; feedback: unknown; power: number | null; health: string };
+        type ApiGroup = {
+            id: string;
+            temperature: number | null;
+            humidity: number | null;
+            vpd: number | null;
+            sensorQuality: number;
+            health: string;
+            mode: string;
+            actuators: ApiAct[];
+            alarms: Array<{ severity: string }>;
+            lastDecision: string;
+        };
 
         async function poll() {
-            await Promise.all(groups.map(pollGroup));
+            try {
+                const resp = await fetch(apiUrl, { signal: AbortSignal.timeout(4000) });
+                if (!resp.ok) return;
+                const state = await resp.json() as { groups?: ApiGroup[] };
+                if (!state.groups) return;
+                const byId = new Map(state.groups.map(g => [g.id, g]));
+                setLiveStates(prev => {
+                    const next = { ...prev };
+                    for (const g of groups) {
+                        const live = byId.get(g.id);
+                        if (!live) continue;
+                        const acts: Record<string, { requested: unknown; feedback: unknown; power: number | null; health: string }> = {};
+                        for (const a of live.actuators ?? []) {
+                            acts[a.id] = { requested: a.command, feedback: a.feedback, power: a.power ?? null, health: a.health ?? 'unknown' };
+                        }
+                        const worstSev = (live.alarms ?? []).reduce<string>((w, a) =>
+                            a.severity === 'critical' ? 'critical'
+                            : w !== 'critical' && a.severity === 'warning' ? 'warning'
+                            : w, 'none');
+                        next[g.id] = {
+                            temperature: live.temperature,
+                            humidity: live.humidity,
+                            vpd: live.vpd,
+                            sensorQuality: typeof live.sensorQuality === 'number' ? live.sensorQuality : 0,
+                            health: live.health ?? 'FULL',
+                            mode: live.mode ?? g.mode,
+                            phase: g.phase,
+                            alarmSeverity: worstSev,
+                            nextChange: '',
+                            actuators: acts,
+                            lastDecision: live.lastDecision ?? '',
+                        };
+                    }
+                    return next;
+                });
+            } catch {
+                // Fetch fehlgeschlagen (Port falsch, Adapter gestoppt) → Zustand unverändert
+            }
         }
 
         poll();
@@ -3128,7 +3138,6 @@ const App: React.FC = () => {
                 );
 
             case 'alarms': {
-                const [alarmSubTab, setAlarmSubTab] = React.useState<'active' | 'rules'>('active');
                 const subTabStyle = (t: 'active' | 'rules'): React.CSSProperties => ({
                     padding: '6px 18px', cursor: 'pointer', background: 'none', border: 'none',
                     fontSize: 13, fontWeight: alarmSubTab === t ? 600 : 400,

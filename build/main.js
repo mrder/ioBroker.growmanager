@@ -307,6 +307,7 @@ class GrowManagerAdapter extends utils.Adapter {
         });
         await this.initGlobalDatabase();
         this.webDashboard.start(webPort, webBind);
+        this.detectAndCacheAdapters();
         // Regelzyklus starten
         this.scheduleNextCycle();
         // Watchdog
@@ -679,6 +680,28 @@ class GrowManagerAdapter extends utils.Adapter {
     // ============================================================
     // Regelzyklus
     // ============================================================
+    detectAndCacheAdapters() {
+        const ADAPTER_MAP = [
+            { adapter: 'telegram', type: 'telegram' },
+            { adapter: 'whatsapp-cmb', type: 'whatsapp' },
+            { adapter: 'signal-cmb', type: 'signal' },
+            { adapter: 'pushover', type: 'pushover' },
+        ];
+        const detected = [];
+        const checks = [];
+        for (const { adapter, type } of ADAPTER_MAP) {
+            for (let i = 0; i <= 4; i++) {
+                checks.push(this.getForeignObjectAsync(`system.adapter.${adapter}.${i}`)
+                    .then(obj => { if (obj)
+                    detected.push({ type, instance: String(i) }); })
+                    .catch(() => { }));
+            }
+        }
+        Promise.all(checks).then(() => {
+            detected.push({ type: 'discord', instance: '' });
+            this.webDashboard.setDetectedAdapters(detected);
+        }).catch(() => { });
+    }
     scheduleNextCycle() {
         const interval = (this.growConfig.controlCycleSeconds ?? 10) * 1000;
         this.cycleTimer = this.setTimeout(async () => {
@@ -1198,10 +1221,11 @@ class GrowManagerAdapter extends utils.Adapter {
                     break;
             }
             if (triggered) {
-                const condDesc = rule.condition === 'above' ? `> ${rule.threshold}`
-                    : rule.condition === 'below' ? `< ${rule.threshold}`
-                        : rule.condition === 'outside' ? `außerhalb ${rule.thresholdMin}–${rule.thresholdMax}`
-                            : `innerhalb ${rule.thresholdMin}–${rule.thresholdMax}`;
+                const fmtThr = (v) => v != null ? +(v.toFixed(2)) : v;
+                const condDesc = rule.condition === 'above' ? `> ${fmtThr(rule.threshold)}`
+                    : rule.condition === 'below' ? `< ${fmtThr(rule.threshold)}`
+                        : rule.condition === 'outside' ? `außerhalb ${fmtThr(rule.thresholdMin)}–${fmtThr(rule.thresholdMax)}`
+                            : `innerhalb ${fmtThr(rule.thresholdMin)}–${fmtThr(rule.thresholdMax)}`;
                 this.alarmService.raise(AlarmService_1.ALARM_CODES.CUSTOM_ALERT, config.id, rule.id, rule.severity, `${rule.name}: ${rule.metric} = ${val.toFixed(2)} (${condDesc})`);
             }
             else {
@@ -1388,7 +1412,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     const target = humSetpoint ?? 60;
                     // currentlyOn-Hysterese: läuft weiter bis Sollwert erreicht (nicht nur bis Schwelle)
                     if (currentlyOn && hum > target) {
-                        return { wantsOn: true, urgency: Math.min(1, (hum - target) / 10), reason: `RH ${hum.toFixed(0)}% noch über Soll ${target}% – weiter Entfeuchten` };
+                        return { wantsOn: true, urgency: Math.min(1, (hum - target) / 10), reason: `RH ${hum.toFixed(0)}% noch über Soll ${target.toFixed(0)}% – weiter Entfeuchten` };
                     }
                     const excess = hum - (target + humHyst);
                     if (excess > 0)
@@ -1399,8 +1423,8 @@ class GrowManagerAdapter extends utils.Adapter {
                         return { wantsOn: false, urgency: Math.min(1, (humMin - hum) / 10), reason: `RH ${hum.toFixed(0)}% < Min ${humMin.toFixed(0)}% – Befeuchter zuständig` };
                     }
                     const reasonDh = hum <= target
-                        ? `RH ${hum.toFixed(0)}% ≤ Soll ${target}% – kein Bedarf`
-                        : `RH ${hum.toFixed(0)}% in Hysterese [${target}–${(target + humHyst).toFixed(0)}%]`;
+                        ? `RH ${hum.toFixed(0)}% ≤ Soll ${target.toFixed(0)}% – kein Bedarf`
+                        : `RH ${hum.toFixed(0)}% in Hysterese [${target.toFixed(0)}–${(target + humHyst).toFixed(0)}%]`;
                     return { wantsOn: false, urgency: 0, reason: reasonDh };
                 }
                 // VPD-Modus: wenn beide VPD-Grenzen konfiguriert sind, entscheidet nur der VPD.
@@ -1441,7 +1465,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 }
                 const target = humSetpoint ?? 60;
                 if (currentlyOn && hum > target) {
-                    return { wantsOn: true, urgency: Math.min(1, (hum - target) / 10), reason: `RH ${hum.toFixed(0)}% noch über Soll ${target}% – weiter Entfeuchten` };
+                    return { wantsOn: true, urgency: Math.min(1, (hum - target) / 10), reason: `RH ${hum.toFixed(0)}% noch über Soll ${target.toFixed(0)}% – weiter Entfeuchten` };
                 }
                 const excess = hum - (target + humHyst);
                 if (excess > 0)
@@ -1451,8 +1475,8 @@ class GrowManagerAdapter extends utils.Adapter {
                     return { wantsOn: false, urgency: Math.min(1, (humMinF - hum) / 10), reason: `RH ${hum.toFixed(0)}% < Min ${humMinF.toFixed(0)}% – Befeuchter zuständig` };
                 }
                 const reasonDhF = hum <= target
-                    ? `RH ${hum.toFixed(0)}% ≤ Soll ${target}% – kein Bedarf`
-                    : `RH ${hum.toFixed(0)}% in Hysterese [${target}–${(target + humHyst).toFixed(0)}%]`;
+                    ? `RH ${hum.toFixed(0)}% ≤ Soll ${target.toFixed(0)}% – kein Bedarf`
+                    : `RH ${hum.toFixed(0)}% in Hysterese [${target.toFixed(0)}–${(target + humHyst).toFixed(0)}%]`;
                 return { wantsOn: false, urgency: 0, reason: reasonDhF };
             }
             case 'humidifier': {
@@ -1475,7 +1499,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     const target = humSetpoint ?? 50;
                     // currentlyOn-Hysterese: läuft weiter bis Sollwert erreicht
                     if (currentlyOn && hum < target) {
-                        return { wantsOn: true, urgency: Math.min(1, (target - hum) / 10), reason: `RH ${hum.toFixed(0)}% noch unter Soll ${target}% – weiter Befeuchten` };
+                        return { wantsOn: true, urgency: Math.min(1, (target - hum) / 10), reason: `RH ${hum.toFixed(0)}% noch unter Soll ${target.toFixed(0)}% – weiter Befeuchten` };
                     }
                     const deficit = (target - humHyst) - hum;
                     if (deficit > 0)
@@ -1486,8 +1510,8 @@ class GrowManagerAdapter extends utils.Adapter {
                         return { wantsOn: false, urgency: Math.min(1, (hum - humMax) / 10), reason: `RH ${hum.toFixed(0)}% > Max ${humMax.toFixed(0)}% – Entfeuchter zuständig` };
                     }
                     const reasonHum = hum >= target
-                        ? `RH ${hum.toFixed(0)}% ≥ Soll ${target}% – kein Bedarf`
-                        : `RH ${hum.toFixed(0)}% in Hysterese [${(target - humHyst).toFixed(0)}–${target}%]`;
+                        ? `RH ${hum.toFixed(0)}% ≥ Soll ${target.toFixed(0)}% – kein Bedarf`
+                        : `RH ${hum.toFixed(0)}% in Hysterese [${(target - humHyst).toFixed(0)}–${target.toFixed(0)}%]`;
                     return { wantsOn: false, urgency: 0, reason: reasonHum };
                 }
                 // VPD-Modus: wenn beide VPD-Grenzen konfiguriert sind, entscheidet nur der VPD.
@@ -1522,7 +1546,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 }
                 const target = humSetpoint ?? 50;
                 if (currentlyOn && hum < target) {
-                    return { wantsOn: true, urgency: Math.min(1, (target - hum) / 10), reason: `RH ${hum.toFixed(0)}% noch unter Soll ${target}% – weiter Befeuchten` };
+                    return { wantsOn: true, urgency: Math.min(1, (target - hum) / 10), reason: `RH ${hum.toFixed(0)}% noch unter Soll ${target.toFixed(0)}% – weiter Befeuchten` };
                 }
                 const deficit = (target - humHyst) - hum;
                 if (deficit > 0)
@@ -1532,8 +1556,8 @@ class GrowManagerAdapter extends utils.Adapter {
                     return { wantsOn: false, urgency: Math.min(1, (hum - humMaxF) / 10), reason: `RH ${hum.toFixed(0)}% > Max ${humMaxF.toFixed(0)}% – Entfeuchter zuständig` };
                 }
                 const reasonHumF = hum >= target
-                    ? `RH ${hum.toFixed(0)}% ≥ Soll ${target}% – kein Bedarf`
-                    : `RH ${hum.toFixed(0)}% in Hysterese [${(target - humHyst).toFixed(0)}–${target}%]`;
+                    ? `RH ${hum.toFixed(0)}% ≥ Soll ${target.toFixed(0)}% – kein Bedarf`
+                    : `RH ${hum.toFixed(0)}% in Hysterese [${(target - humHyst).toFixed(0)}–${target.toFixed(0)}%]`;
                 return { wantsOn: false, urgency: 0, reason: reasonHumF };
             }
             case 'cooling':
@@ -1551,7 +1575,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     const target = humSetpoint ?? 60;
                     const excess = hum - (target + hyst);
                     if (excess > 0)
-                        return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Soll ${target}% – Lüftung für Entfeuchtung` };
+                        return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Soll ${target.toFixed(0)}% – Lüftung für Entfeuchtung` };
                     return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
                 }
                 const target = tempSetpoint ?? 25;
@@ -1564,11 +1588,11 @@ class GrowManagerAdapter extends utils.Adapter {
                     }
                     // Hysterese: wenn gerade EIN, bis Sollwert (Mitte) weiterkühlen
                     if (currentlyOn && temp > target) {
-                        return { wantsOn: true, urgency: Math.max(0, (temp - target) / tempHyst), reason: `T ${temp.toFixed(1)}°C noch über Sollwert ${target}°C – weiter Kühlen` };
+                        return { wantsOn: true, urgency: Math.max(0, (temp - target) / tempHyst), reason: `T ${temp.toFixed(1)}°C noch über Sollwert ${target.toFixed(1)}°C – weiter Kühlen` };
                     }
                     const excess = temp - (target + tempHyst);
                     if (excess > 0)
-                        return { wantsOn: true, urgency: Math.min(1, excess / 5), reason: `T ${temp.toFixed(1)}°C > Soll ${target}°C – Lüftung/Kühlung` };
+                        return { wantsOn: true, urgency: Math.min(1, excess / 5), reason: `T ${temp.toFixed(1)}°C > Soll ${target.toFixed(1)}°C – Lüftung/Kühlung` };
                 }
                 // VPD klar zu hoch → Lüftung/Kühlung hilft
                 if (vpdMax !== null && gs.vpd !== null && gs.vpd > vpdMax + 0.2) {
@@ -1579,7 +1603,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 // bevor Hysterese überschritten wird. Outdoor-Guard blockiert bei ungünstiger Außenluft.
                 if (actuatorType === 'supplyFan' || actuatorType === 'exhaustFan') {
                     if (temp !== null && tempSetpoint !== null && temp > tempSetpoint) {
-                        return { wantsOn: true, urgency: 0.1, reason: `T ${temp.toFixed(1)}°C > Sollwert ${tempSetpoint}°C – präventive Lüftung` };
+                        return { wantsOn: true, urgency: 0.1, reason: `T ${temp.toFixed(1)}°C > Sollwert ${tempSetpoint.toFixed(1)}°C – präventive Lüftung` };
                     }
                     if (vpdMax !== null && vpdMin !== null && gs.vpd !== null) {
                         const mid = vpdMin + (vpdMax - vpdMin) * 0.5;
@@ -1605,13 +1629,13 @@ class GrowManagerAdapter extends utils.Adapter {
                 }
                 // Hysterese: wenn gerade EIN, bis Sollwert (Mitte) weiterheizen
                 if (currentlyOn && temp < target) {
-                    return { wantsOn: true, urgency: Math.max(0, (target - temp) / tempHyst), reason: `T ${temp.toFixed(1)}°C noch unter Sollwert ${target}°C – weiter Heizen` };
+                    return { wantsOn: true, urgency: Math.max(0, (target - temp) / tempHyst), reason: `T ${temp.toFixed(1)}°C noch unter Sollwert ${target.toFixed(1)}°C – weiter Heizen` };
                 }
                 const deficit = (target - tempHyst) - temp;
                 return {
                     wantsOn: deficit > 0,
                     urgency: Math.min(1, Math.max(0, deficit / 5)),
-                    reason: deficit > 0 ? `T ${temp.toFixed(1)}°C < Soll ${target}°C – Heizen` : `T ${temp.toFixed(1)}°C im Sollbereich`,
+                    reason: deficit > 0 ? `T ${temp.toFixed(1)}°C < Soll ${target.toFixed(1)}°C – Heizen` : `T ${temp.toFixed(1)}°C im Sollbereich`,
                 };
             }
             case 'circulationFan':
@@ -1623,7 +1647,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 const target = tempSetpoint ?? 25;
                 const temp = gs.temperature;
                 if (temp !== null && temp > target + tempHyst) {
-                    return { wantsOn: true, urgency: Math.min(1, (temp - target - tempHyst) / 5), reason: `T ${temp.toFixed(1)}°C > Soll ${target}°C – Umluft` };
+                    return { wantsOn: true, urgency: Math.min(1, (temp - target - tempHyst) / 5), reason: `T ${temp.toFixed(1)}°C > Soll ${target.toFixed(1)}°C – Umluft` };
                 }
                 if (vpdMax !== null && gs.vpd !== null && gs.vpd > vpdMax + 0.3) {
                     return { wantsOn: true, urgency: Math.min(1, (gs.vpd - vpdMax) / 0.5), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch – Umluft` };
