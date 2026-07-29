@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.3.32",
+    "version": "0.3.33",
     "news": {
+      "0.3.33": {
+        "en": "v0.3.33: Add configurable actuator alert rules — monitor individual actuators with custom severity: alarm when actuator should be ON but doesn't respond (feedback), consumes no power while ON (power monitoring), or stays ON despite OFF command (stuck relay)",
+        "de": "v0.3.33: Konfigurierbare Aktor-Alarmregeln — einzelne Aktoren mit eigenem Schweregrad überwachen: Alarm wenn Aktor EIN sein soll aber nicht reagiert (Feedback), keinen Strom verbraucht obwohl eingeschaltet (Leistungsüberwachung), oder AN bleibt trotz AUS-Befehl (hängendes Relais)"
+      },
       "0.3.32": {
         "en": "v0.3.32: Rework push notification format — cleaner layout without dividers or internal codes; German severity labels (Warnung/Fehler/Kritisch); HTML formatting only for Telegram (bold/italic), plain text for WhatsApp/Signal/Pushover to avoid literal HTML tags",
         "de": "v0.3.32: Push-Benachrichtigungsformat überarbeitet — sauberes Layout ohne Trennlinien oder interne Codes; deutsche Severity-Labels (Warnung/Fehler/Kritisch); HTML-Formatierung nur für Telegram, Klartext für WhatsApp/Signal/Pushover (keine literal HTML-Tags mehr)"

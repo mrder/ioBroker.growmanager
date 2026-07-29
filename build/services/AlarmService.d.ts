@@ -24,6 +24,7 @@ export declare const ALARM_CODES: {
     readonly SENSOR_DEGRADED: "SENSOR_DEGRADED";
     readonly EMERGENCY_STOP: "EMERGENCY_STOP";
     readonly CUSTOM_ALERT: "CUSTOM_ALERT";
+    readonly ACTUATOR_ALERT: "ACTUATOR_ALERT";
     readonly CO2_HIGH: "CO2_HIGH";
     readonly CO2_LOW: "CO2_LOW";
 };

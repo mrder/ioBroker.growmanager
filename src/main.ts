@@ -1276,7 +1276,10 @@ class GrowManagerAdapter extends utils.Adapter {
         // 8) Benutzerdefinierte Alarmregeln auswerten
         this.evaluateCustomAlertRules(config, state);
 
-        // 9) ioBroker-States aktualisieren
+        // 9) Aktor-Alarmregeln auswerten
+        this.evaluateActuatorAlertRules(config.id);
+
+        // 10) ioBroker-States aktualisieren
         await this.updateGroupStates(config, state);
     }
 
@@ -1328,6 +1331,40 @@ class GrowManagerAdapter extends utils.Adapter {
                 );
             } else {
                 this.alarmService.clear(ALARM_CODES.CUSTOM_ALERT, config.id, rule.id);
+            }
+        }
+    }
+
+    private evaluateActuatorAlertRules(groupId: string): void {
+        const rules = (this.growConfig.actuatorAlertRules ?? [])
+            .filter(r => r.enabled && r.groupId === groupId);
+        if (rules.length === 0) return;
+
+        const group = this.growConfig.groups.find(g => g.id === groupId);
+
+        for (const rule of rules) {
+            const actState = this.actuatorService.getState(rule.actuatorId);
+            if (!actState) continue;
+
+            let triggered = false;
+            switch (rule.condition) {
+                case 'off_when_should_be_on': triggered = actState.health === 'noFeedback'; break;
+                case 'no_power_when_on':      triggered = actState.health === 'noPower';    break;
+                case 'stuck_on':              triggered = actState.health === 'stuckOn';    break;
+            }
+
+            if (triggered) {
+                const actuatorName = group?.actuators.find(a => a.id === rule.actuatorId)?.name ?? rule.actuatorId;
+                const condMsg =
+                    rule.condition === 'off_when_should_be_on' ? 'soll EIN sein, reagiert aber nicht' :
+                    rule.condition === 'no_power_when_on'      ? 'ist EIN, verbraucht aber keinen Strom' :
+                                                                 'bleibt AN trotz AUS-Befehl';
+                this.alarmService.raise(
+                    ALARM_CODES.ACTUATOR_ALERT, groupId, rule.id, rule.severity,
+                    `${rule.name}: ${actuatorName} ${condMsg}`,
+                );
+            } else {
+                this.alarmService.clear(ALARM_CODES.ACTUATOR_ALERT, groupId, rule.id);
             }
         }
     }

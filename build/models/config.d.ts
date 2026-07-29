@@ -310,6 +310,17 @@ export interface CustomAlertRule {
     severity: 'info' | 'warning' | 'fault' | 'critical';
     cooldownMinutes: number;
 }
+export type ActuatorAlertCondition = 'off_when_should_be_on' | 'no_power_when_on' | 'stuck_on';
+export interface ActuatorAlertRule {
+    id: string;
+    name: string;
+    enabled: boolean;
+    groupId: string;
+    actuatorId: string;
+    condition: ActuatorAlertCondition;
+    severity: 'info' | 'warning' | 'fault' | 'critical';
+    cooldownMinutes: number;
+}
 export type StartBehavior = 'lastState' | 'delayedStart' | 'safeTurnOff' | 'monitorOnly';
 export interface GrowManagerConfig {
     language: 'de' | 'en';
@@ -330,6 +341,7 @@ export interface GrowManagerConfig {
     notifications?: NotificationConfig;
     plantIdApiKey?: string;
     customAlertRules?: CustomAlertRule[];
+    actuatorAlertRules?: ActuatorAlertRule[];
 }
 export type DegradationLevel = 'FULL' | 'LIMITED' | 'FALLBACK' | 'MONITOR_ONLY' | 'SAFE' | 'FAULT';
 export type DayNight = 'day' | 'night' | 'transition';

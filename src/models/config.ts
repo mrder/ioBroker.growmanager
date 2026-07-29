@@ -492,6 +492,24 @@ export interface CustomAlertRule {
     cooldownMinutes: number;
 }
 
+// ---- Aktor-Alarmregeln ------------------------------------
+
+export type ActuatorAlertCondition =
+    | 'off_when_should_be_on'   // Feedback sagt AUS, obwohl Befehl EIN (noFeedback)
+    | 'no_power_when_on'        // Kein Stromverbrauch obwohl eingeschaltet (noPower)
+    | 'stuck_on';               // Bleibt an trotz Aus-Befehl (stuckOn)
+
+export interface ActuatorAlertRule {
+    id: string;
+    name: string;
+    enabled: boolean;
+    groupId: string;
+    actuatorId: string;
+    condition: ActuatorAlertCondition;
+    severity: 'info' | 'warning' | 'fault' | 'critical';
+    cooldownMinutes: number;
+}
+
 // ---- Globale Konfiguration ---------------------------------
 
 export type StartBehavior = 'lastState' | 'delayedStart' | 'safeTurnOff' | 'monitorOnly';
@@ -515,6 +533,7 @@ export interface GrowManagerConfig {
     notifications?: NotificationConfig;
     plantIdApiKey?: string;
     customAlertRules?: CustomAlertRule[];
+    actuatorAlertRules?: ActuatorAlertRule[];
 }
 
 // ---- Laufzeitzustände (nicht persistent) -------------------

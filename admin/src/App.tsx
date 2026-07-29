@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { GrowManagerConfig, GroupConfig, ClimateProfile, ControlTarget, ControlDirection, OutdoorSensorConfig, SharedParticipant, NotificationChannel, NotificationConfig, NotificationChannelType, WindSimulatorConfig, CirculationScheduleWindow, CustomAlertRule, CustomAlertMetric, CustomAlertCondition } from './types';
+import type { GrowManagerConfig, GroupConfig, ClimateProfile, ControlTarget, ControlDirection, OutdoorSensorConfig, SharedParticipant, NotificationChannel, NotificationConfig, NotificationChannelType, WindSimulatorConfig, CirculationScheduleWindow, CustomAlertRule, CustomAlertMetric, CustomAlertCondition, ActuatorAlertRule, ActuatorAlertCondition } from './types';
 
 // ioBroker Admin-Globals (werden vom Admin-Framework bereitgestellt)
 declare const socket: {
@@ -1831,6 +1831,196 @@ const CustomAlertRulesEditor: React.FC<{
     );
 };
 
+// ---- ActuatorAlertRulesEditor ------------------------------
+
+const ACTUATOR_CONDITION_LABELS: Record<ActuatorAlertCondition, string> = {
+    off_when_should_be_on: 'AUS obwohl EIN sein sollte (Feedback)',
+    no_power_when_on:      'Kein Strom obwohl eingeschaltet (Leistung)',
+    stuck_on:              'Bleibt AN trotz AUS-Befehl (hängendes Relais)',
+};
+
+function newActuatorRule(groupId = '', actuatorId = ''): ActuatorAlertRule {
+    return {
+        id: `actrule_${Date.now()}`,
+        name: '',
+        enabled: true,
+        groupId,
+        actuatorId,
+        condition: 'off_when_should_be_on',
+        severity: 'warning',
+        cooldownMinutes: 15,
+    };
+}
+
+const ActuatorAlertRulesEditor: React.FC<{
+    rules: ActuatorAlertRule[];
+    groups: GroupConfig[];
+    onChange: (rules: ActuatorAlertRule[]) => void;
+}> = ({ rules, groups, onChange }) => {
+    const [editIdx, setEditIdx] = useState<number | null>(null);
+    const [editRule, setEditRule] = useState<ActuatorAlertRule | null>(null);
+
+    const firstGroup = groups[0];
+    const firstActuator = firstGroup?.actuators[0];
+
+    const startNew = () => {
+        setEditRule(newActuatorRule(firstGroup?.id ?? '', firstActuator?.id ?? ''));
+        setEditIdx(-1);
+    };
+
+    const startEdit = (idx: number) => {
+        setEditIdx(idx);
+        setEditRule({ ...rules[idx] });
+    };
+
+    const saveEdit = () => {
+        if (!editRule) return;
+        if (!editRule.name.trim()) { alert('Bitte einen Namen vergeben.'); return; }
+        if (!editRule.groupId) { alert('Bitte eine Gruppe wählen.'); return; }
+        if (!editRule.actuatorId) { alert('Bitte einen Aktor wählen.'); return; }
+        const updated = [...rules];
+        if (editIdx === -1) updated.push(editRule);
+        else if (editIdx !== null) updated[editIdx] = editRule;
+        onChange(updated);
+        setEditIdx(null);
+        setEditRule(null);
+    };
+
+    const deleteRule = (idx: number) => {
+        if (!window.confirm(`Aktor-Regel „${rules[idx].name}" wirklich löschen?`)) return;
+        onChange(rules.filter((_, i) => i !== idx));
+    };
+
+    const toggleRule = (idx: number) => {
+        const updated = [...rules];
+        updated[idx] = { ...updated[idx], enabled: !updated[idx].enabled };
+        onChange(updated);
+    };
+
+    const inputStyle: React.CSSProperties = {
+        border: '1px solid #ccc', borderRadius: 4, padding: '4px 8px', fontSize: 13, width: '100%', boxSizing: 'border-box',
+    };
+    const labelStyle: React.CSSProperties = { fontSize: 12, color: '#555', marginBottom: 2 };
+    const fieldWrap: React.CSSProperties = { marginBottom: 10 };
+    const row: React.CSSProperties = { display: 'flex', gap: 10, marginBottom: 10 };
+
+    const selectedGroup = editRule ? groups.find(g => g.id === editRule.groupId) : null;
+    const actuatorsInGroup = selectedGroup?.actuators ?? [];
+
+    if (editRule !== null) {
+        return (
+            <div style={{ background: '#f9f9f9', border: '1px solid #ddd', borderRadius: 6, padding: 16, marginTop: 16 }}>
+                <h4 style={{ margin: '0 0 12px' }}>{editIdx === -1 ? 'Neue Aktor-Alarmregel' : 'Aktor-Regel bearbeiten'}</h4>
+                <div style={row}>
+                    <div style={{ flex: 2, ...fieldWrap }}>
+                        <div style={labelStyle}>Name *</div>
+                        <input style={inputStyle} value={editRule.name}
+                            onChange={e => setEditRule(r => r && ({ ...r, name: e.target.value }))}
+                            placeholder="z.B. Licht Blüteraum Überwachung" />
+                    </div>
+                </div>
+                <div style={row}>
+                    <div style={{ flex: 1, ...fieldWrap }}>
+                        <div style={labelStyle}>Gruppe *</div>
+                        <select style={inputStyle} value={editRule.groupId}
+                            onChange={e => setEditRule(r => r && ({ ...r, groupId: e.target.value, actuatorId: '' }))}>
+                            <option value="">– wählen –</option>
+                            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                        </select>
+                    </div>
+                    <div style={{ flex: 1, ...fieldWrap }}>
+                        <div style={labelStyle}>Aktor *</div>
+                        <select style={inputStyle} value={editRule.actuatorId}
+                            onChange={e => setEditRule(r => r && ({ ...r, actuatorId: e.target.value }))}>
+                            <option value="">– wählen –</option>
+                            {actuatorsInGroup.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                        </select>
+                    </div>
+                </div>
+                <div style={row}>
+                    <div style={{ flex: 2, ...fieldWrap }}>
+                        <div style={labelStyle}>Bedingung</div>
+                        <select style={inputStyle} value={editRule.condition}
+                            onChange={e => setEditRule(r => r && ({ ...r, condition: e.target.value as ActuatorAlertCondition }))}>
+                            {(Object.keys(ACTUATOR_CONDITION_LABELS) as ActuatorAlertCondition[]).map(c =>
+                                <option key={c} value={c}>{ACTUATOR_CONDITION_LABELS[c]}</option>
+                            )}
+                        </select>
+                    </div>
+                    <div style={{ flex: 1, ...fieldWrap }}>
+                        <div style={labelStyle}>Schweregrad</div>
+                        <select style={inputStyle} value={editRule.severity}
+                            onChange={e => setEditRule(r => r && ({ ...r, severity: e.target.value as ActuatorAlertRule['severity'] }))}>
+                            <option value="info">ℹ Info</option>
+                            <option value="warning">⚠ Warnung</option>
+                            <option value="fault">🔥 Fehler</option>
+                            <option value="critical">🚨 Kritisch</option>
+                        </select>
+                    </div>
+                    <div style={{ flex: 1, ...fieldWrap }}>
+                        <div style={labelStyle}>Cooldown (Min.)</div>
+                        <input style={inputStyle} type="number" min={0}
+                            value={editRule.cooldownMinutes}
+                            onChange={e => setEditRule(r => r && ({ ...r, cooldownMinutes: +e.target.value }))} />
+                    </div>
+                </div>
+                {(editRule.condition === 'off_when_should_be_on') && (
+                    <p style={{ fontSize: 11, color: '#888', margin: '0 0 10px' }}>
+                        ℹ Erfordert einen konfigurierten Feedback-Datenpunkt am Aktor.
+                    </p>
+                )}
+                {(editRule.condition === 'no_power_when_on') && (
+                    <p style={{ fontSize: 11, color: '#888', margin: '0 0 10px' }}>
+                        ℹ Erfordert einen konfigurierten Leistungs-Datenpunkt am Aktor.
+                    </p>
+                )}
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <button style={styles.btnPrimary} onClick={saveEdit}>Speichern</button>
+                    <button style={styles.btnSecondary} onClick={() => { setEditIdx(null); setEditRule(null); }}>Abbrechen</button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ marginTop: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <h4 style={{ margin: 0 }}>Aktor-Überwachung ({rules.length})</h4>
+                <button style={styles.btnPrimary} onClick={startNew}>+ Neue Aktor-Regel</button>
+            </div>
+            {rules.length === 0 && (
+                <p style={{ color: '#888', fontSize: 13 }}>
+                    Noch keine Aktor-Regeln. Damit lassen sich z.B. Lampen überwachen: Alarm wenn das Licht EIN sein sollte, aber kein Feedback kommt oder kein Strom verbraucht wird.
+                </p>
+            )}
+            {rules.map((rule, idx) => {
+                const groupName = groups.find(g => g.id === rule.groupId)?.name ?? rule.groupId;
+                const actuatorName = groups.find(g => g.id === rule.groupId)?.actuators.find(a => a.id === rule.actuatorId)?.name ?? rule.actuatorId;
+                return (
+                    <div key={rule.id} style={{ ...styles.listRow, opacity: rule.enabled ? 1 : 0.5, borderLeft: `4px solid ${SEVERITY_COLORS[rule.severity]}` }}>
+                        <div style={{ flex: 1 }}>
+                            <strong>{rule.name}</strong>
+                            <span style={{ marginLeft: 8, fontSize: 12, color: '#666' }}>
+                                {groupName} · {actuatorName} · {ACTUATOR_CONDITION_LABELS[rule.condition]}
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <span style={{ fontSize: 11, color: SEVERITY_COLORS[rule.severity], fontWeight: 600 }}>
+                                {rule.severity.toUpperCase()}
+                            </span>
+                            <button style={styles.btnSecondary} onClick={() => toggleRule(idx)}>
+                                {rule.enabled ? 'Deaktivieren' : 'Aktivieren'}
+                            </button>
+                            <button style={styles.btnSecondary} onClick={() => startEdit(idx)}>Bearbeiten</button>
+                            <button style={{ ...styles.btnSecondary, color: '#d32f2f' }} onClick={() => deleteRule(idx)}>Löschen</button>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
 // ---- AlarmView ---------------------------------------------
 
 interface AlarmRecord {
@@ -3157,16 +3347,23 @@ const App: React.FC = () => {
                                 Aktive Alarme {alarms.filter(a => a.active).length > 0 ? `(${alarms.filter(a => a.active).length})` : ''}
                             </button>
                             <button style={subTabStyle('rules')} onClick={() => setAlarmSubTab('rules')}>
-                                Alarmregeln ({(config.customAlertRules ?? []).length})
+                                Alarmregeln ({(config.customAlertRules ?? []).length + (config.actuatorAlertRules ?? []).length})
                             </button>
                         </div>
                         {alarmSubTab === 'active'
                             ? <AlarmView alarms={alarms} onAck={handleAck} />
-                            : <CustomAlertRulesEditor
-                                rules={config.customAlertRules ?? []}
-                                groups={config.groups}
-                                onChange={rules => { setConfig(prev => ({ ...prev, customAlertRules: rules })); setDirty(true); }}
-                              />
+                            : <>
+                                <CustomAlertRulesEditor
+                                    rules={config.customAlertRules ?? []}
+                                    groups={config.groups}
+                                    onChange={rules => { setConfig(prev => ({ ...prev, customAlertRules: rules })); setDirty(true); }}
+                                />
+                                <ActuatorAlertRulesEditor
+                                    rules={config.actuatorAlertRules ?? []}
+                                    groups={config.groups}
+                                    onChange={rules => { setConfig(prev => ({ ...prev, actuatorAlertRules: rules })); setDirty(true); }}
+                                />
+                              </>
                         }
                     </div>
                 );
