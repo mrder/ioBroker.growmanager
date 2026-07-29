@@ -419,8 +419,17 @@ export class WebDashboardService {
     private async handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
         const url = (req.url ?? '/').split('?')[0];
 
-        // CORS für lokale Entwicklung
+        // CORS für lokale Entwicklung (Admin-UI auf Port 8081 → WebDashboard auf Port 8097)
         res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        // CORS-Preflight für POST-Requests (Browser sendet OPTIONS vor jedem cross-origin POST)
+        if (req.method === 'OPTIONS') {
+            res.writeHead(204);
+            res.end();
+            return;
+        }
 
         if (url === '/' || url === '/index.html') {
             res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
