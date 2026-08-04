@@ -1928,6 +1928,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     .map(a => ({ id: a.id, code: a.code, severity: a.severity, message: a.message, since: a.since }));
 
                 const now2 = Date.now();
+                const learnedPeaks = this.databaseService.getLearnedPeakWatts(g.id);
                 const actuators: import('./services/WebDashboardService').DashboardActuatorState[] = g.actuators
                     .filter(a => a.enabled)
                     .map(a => {
@@ -1968,7 +1969,7 @@ class GrowManagerAdapter extends utils.Adapter {
                             windSimIsOn: wsInfo?.isOn,
                             windSimNextChangeAt: wsInfo?.nextChangeAt,
                             power: as?.power ?? null,
-                            ratedPowerW: a.ratedPowerW,
+                            ratedPowerW: a.ratedPowerW ?? learnedPeaks[a.id],
                         };
                     });
 

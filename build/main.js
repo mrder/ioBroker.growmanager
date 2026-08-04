@@ -1803,6 +1803,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 .slice(0, 5)
                 .map(a => ({ id: a.id, code: a.code, severity: a.severity, message: a.message, since: a.since }));
             const now2 = Date.now();
+            const learnedPeaks = this.databaseService.getLearnedPeakWatts(g.id);
             const actuators = g.actuators
                 .filter(a => a.enabled)
                 .map(a => {
@@ -1843,7 +1844,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     windSimIsOn: wsInfo?.isOn,
                     windSimNextChangeAt: wsInfo?.nextChangeAt,
                     power: as?.power ?? null,
-                    ratedPowerW: a.ratedPowerW,
+                    ratedPowerW: a.ratedPowerW ?? learnedPeaks[a.id],
                 };
             });
             // Externe geteilte Aktoren: Aktoren aus anderen Gruppen die diese Gruppe als Teilnehmer listen

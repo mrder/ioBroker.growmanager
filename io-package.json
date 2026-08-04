@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.3.36",
+    "version": "0.3.37",
     "news": {
+      "0.3.37": {
+        "en": "v0.3.37: Fix group power chip layout (buttons no longer shift left when no power data) and use auto-learned peak watts as ratedPowerW fallback in dashboard state so the chip appears even without manual ratedPowerW configuration.",
+        "de": "v0.3.37: Layout-Fix für Gruppenleistungs-Chip (Buttons bleiben rechts auch ohne Leistungsdaten) + auto-gelernte Spitzenwatt als ratedPowerW-Fallback im Dashboard-State, damit der Chip auch ohne manuelle ratedPowerW-Konfiguration erscheint."
+      },
       "0.3.36": {
         "en": "v0.3.36: Dashboard group cards now show total live group power (in watts) below the analysis section — shared actuators are only counted at their owner group. Shows live watts when available, estimated watts (from ratedPowerW) as fallback.",
         "de": "v0.3.36: Dashboard-Gruppenkarten zeigen jetzt die Gruppengesamt-Istleistung (in Watt) unterhalb der Analysen — geteilte Aktoren werden nur beim Eigentümer gezählt. Zeigt Live-Watt wenn verfügbar, sonst geschätzten Wert (aus ratedPowerW)."

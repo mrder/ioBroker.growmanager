@@ -1818,9 +1818,9 @@ function groupCardHtml(g) {
     ${alarmHtml}
     ${cameraHtml}
     <div data-ls-bar="${esc(g.id)}">${lsBarHtml(g.id)}</div>
-    <div style="padding:6px 12px 10px;display:flex;justify-content:space-between;align-items:center;gap:6px">
+    <div style="padding:6px 12px 10px;display:flex;align-items:center;gap:6px">
       ${groupTotalPowerHtml(g)}
-      <div style="display:flex;gap:6px">
+      <div style="display:flex;gap:6px;margin-left:auto">
         <button class="db-btn" onclick="showLs('${gid}','${escAttr(g.name)}')">🗓 Kalender</button>
         <button class="db-btn" onclick="showDb('${gid}','${escAttr(g.name)}')">📊 Verlaufsdaten</button>
       </div>
