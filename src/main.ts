@@ -502,6 +502,8 @@ class GrowManagerAdapter extends utils.Adapter {
                     if (typeof wState?.val === 'number' && wState.val > 0) {
                         wStartValue = wState.val;
                         this.databaseService.updateLastKnownWatts(group.id, actuator.id, actuator.name, wStartValue);
+                        const actSt = this.actuatorService.getState(actuator.id);
+                        if (actSt) this.actuatorService.processFeedback(actuator, actSt.feedback, wStartValue);
                     }
                 }
                 const actState = this.actuatorService.getState(actuator.id);
@@ -659,6 +661,8 @@ class GrowManagerAdapter extends utils.Adapter {
                 if (actuator.energyStateId === id && typeof state.val === 'number' && actuator.energyStateUnit === 'W') {
                     this.databaseService.updateLastKnownWatts(group.id, actuator.id, actuator.name, state.val);
                     this.databaseService.updateActuatorPowerSample(group.id, actuator.id, state.val);
+                    const actSt = this.actuatorService.getState(actuator.id);
+                    if (actSt) this.actuatorService.processFeedback(actuator, actSt.feedback, state.val);
                 }
             }
 

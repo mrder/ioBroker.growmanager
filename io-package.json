@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.3.37",
+    "version": "0.3.38",
     "news": {
+      "0.3.38": {
+        "en": "v0.3.38: Fix ActuatorState.power never being set from energyStateId (W unit) — both at startup and on live state changes. Group power chip now shows correct live watts for all actuators with an energy datapoint configured.",
+        "de": "v0.3.38: Fix: ActuatorState.power wurde bei energyStateId (Einheit W) nie gesetzt — weder beim Start noch bei Live-Zustandsänderungen. Der Gruppenleistungs-Chip zeigt jetzt korrekte Live-Watt für alle Aktoren mit konfiguriertem Energiedatenpunkt."
+      },
       "0.3.37": {
         "en": "v0.3.37: Fix group power chip layout (buttons no longer shift left when no power data) and use auto-learned peak watts as ratedPowerW fallback in dashboard state so the chip appears even without manual ratedPowerW configuration.",
         "de": "v0.3.37: Layout-Fix für Gruppenleistungs-Chip (Buttons bleiben rechts auch ohne Leistungsdaten) + auto-gelernte Spitzenwatt als ratedPowerW-Fallback im Dashboard-State, damit der Chip auch ohne manuelle ratedPowerW-Konfiguration erscheint."
