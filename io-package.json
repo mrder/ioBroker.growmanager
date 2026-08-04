@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.3.39",
+    "version": "0.3.40",
     "news": {
+      "0.3.40": {
+        "en": "v0.3.40: Live power badge on individual actuator rows now only shown when actuator is ON — prevents misleading standby/stale watt readings on OFF actuators.",
+        "de": "v0.3.40: Live-Leistungsbadge an Aktor-Zeilen wird jetzt nur noch bei eingeschalteten Aktoren angezeigt — verhindert irreführende Standby-/veraltete Watt-Werte bei ausgeschalteten Aktoren."
+      },
       "0.3.39": {
         "en": "v0.3.39: Fix energyStateUnit defaulting — when energyStateId is configured but unit was never explicitly saved, it now correctly defaults to W (was: silent no-op, causing 0 Wh and no group power chip). Admin also pre-sets W when energyStateId is first entered.",
         "de": "v0.3.39: Fix energyStateUnit-Default — wenn energyStateId konfiguriert aber Einheit nie explizit gespeichert wurde, wird jetzt korrekt W angenommen (bisher: stiller No-Op, führte zu 0 Wh und fehlendem Gruppenleistungs-Chip). Admin setzt W jetzt automatisch beim ersten Eintragen der energyStateId."

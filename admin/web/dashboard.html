@@ -1511,7 +1511,7 @@ function actuatorHtml(a, groupId, groupName, manualOverrides, isManualMode) {
     ? `<span class="act-shared-badge" title="Geteilt mit ${a.sharedParticipants.length} Gruppe(n) · ${esc(a.sharedVotingMode ?? 'any')}">⇄ ${a.sharedParticipants.length}</span>`
     : '';
 
-  const powerHtml = (typeof a.power === 'number')
+  const powerHtml = (istOn && typeof a.power === 'number')
     ? `<span class="act-power" title="Live-Leistung">⚡${a.power.toFixed(0)} W</span>`
     : (a.ratedPowerW && istOn)
       ? `<span class="act-power act-power-rated" title="Nennleistung (geschätzt)">~${+a.ratedPowerW} W</span>`
