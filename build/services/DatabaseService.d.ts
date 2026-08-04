@@ -15,6 +15,7 @@ export interface DailyEnergyStat {
         name: string;
         wh: number;
         runtimeMin: number;
+        peakW?: number;
     }>;
 }
 export interface IrrigationEvent {
@@ -38,6 +39,7 @@ export declare class DatabaseService {
     private readonly irrCache;
     private readonly sensorAcc;
     private readonly energyAcc;
+    private readonly peakWatts;
     private readonly lastMidnightFlush;
     constructor(log: ILogger, setState: SetStateFn, getState: GetStateFn);
     loadGroup(groupId: string): Promise<void>;
@@ -62,6 +64,8 @@ export declare class DatabaseService {
     getStats(groupId: string): DailySensorStat[];
     getEnergy(groupId: string): DailyEnergyStat[];
     getIrrigation(groupId: string): IrrigationEvent[];
+    getLearnedPeakWatts(groupId: string): Record<string, number>;
+    private recordPeak;
     private readJson;
     private flush;
     private todayStr;

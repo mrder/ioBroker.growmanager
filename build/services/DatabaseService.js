@@ -23,6 +23,8 @@ class DatabaseService {
         this.sensorAcc = new Map();
         // Akkumulator für laufende Energiewerte pro Gruppe/Aktor
         this.energyAcc = new Map();
+        // Beobachteter Spitzenwert pro Aktor (persistent über Neustarts)
+        this.peakWatts = new Map();
         this.lastMidnightFlush = new Map();
     }
     // ---- Initialisierung: Caches aus States laden -------------
@@ -32,6 +34,14 @@ class DatabaseService {
         this.irrCache.set(groupId, await this.readJson(`database.${groupId}.irrigation`, []));
         this.sensorAcc.set(groupId, new Map());
         this.energyAcc.set(groupId, new Map());
+        // Persistierte Spitzenwerte laden und als ratedWatts-Fallback in energyAcc vorbelegen
+        const peakData = await this.readJson(`database.${groupId}.peakWatts`, {});
+        const peakMap = new Map(Object.entries(peakData));
+        this.peakWatts.set(groupId, peakMap);
+        const eGroup = this.energyAcc.get(groupId);
+        for (const [aid, w] of peakMap) {
+            eGroup.set(aid, { wh: 0, runtimeMin: 0, name: aid, lastOnTs: 0, ratedWatts: w });
+        }
         // Heutigen Tag vormerken – verhindert dass der erste Watchdog-Tick
         // tickMidnight() feuert und die leeren Akkumulatoren flusht.
         this.lastMidnightFlush.set(groupId, new Date().toDateString());
@@ -109,9 +119,9 @@ class DatabaseService {
             return; // 0 W = Gerät AUS → lastOnTs nicht resetten
         cur.wh += (watts * durationMin) / 60;
         cur.runtimeMin += durationMin;
-        if (watts > 0)
-            cur.ratedWatts = watts; // zuletzt bekannte Leistung als Fallback aktualisieren
+        cur.ratedWatts = watts; // zuletzt bekannte Leistung als Fallback aktualisieren
         cur.lastOnTs = now;
+        this.recordPeak(groupId, actuatorId, watts);
     }
     /**
      * Speichert den zuletzt bekannten W-Wert eines Aktors als Schätzwert.
@@ -127,10 +137,12 @@ class DatabaseService {
         const cur = group.get(actuatorId);
         if (cur) {
             cur.ratedWatts = watts;
+            cur.name = name;
         }
         else {
             group.set(actuatorId, { wh: 0, runtimeMin: 0, name, lastOnTs: 0, ratedWatts: watts });
         }
+        this.recordPeak(groupId, actuatorId, watts);
     }
     trackActuatorWh(groupId, actuatorId, name, deltaWh, durationMin) {
         const group = this.energyAcc.get(groupId);
@@ -222,6 +234,11 @@ class DatabaseService {
                     acc.lastOnTs = Date.now();
             }
         }
+        // Spitzenwerte persistieren (überleben Adapter-Neustarts)
+        const peakGroup = this.peakWatts.get(groupId);
+        if (peakGroup && peakGroup.size > 0) {
+            await this.flush(`database.${groupId}.peakWatts`, Object.fromEntries(peakGroup));
+        }
     }
     // ---- Getter für Dashboard-API ----------------------------
     getStats(groupId) {
@@ -254,6 +271,7 @@ class DatabaseService {
             return historical;
         const now = Date.now();
         const todayEntry = { date: dateStr + ' (heute)', actuators: {} };
+        const peakGroup = this.peakWatts.get(groupId);
         for (const [aid, acc] of eGroup) {
             const extra = acc.lastOnTs > 0 ? (now - acc.lastOnTs) / 60000 : 0;
             const runtimeMin = acc.runtimeMin + extra;
@@ -261,10 +279,12 @@ class DatabaseService {
             // sonst ratedWatts als Fallback (auch wenn runtimeMin>0 aber wh=0 wegen fehlender W-Events).
             const avgW = (acc.runtimeMin > 0 && acc.wh > 0) ? (acc.wh / acc.runtimeMin) * 60 : acc.ratedWatts;
             const wh = acc.wh + (extra > 0 && avgW > 0 ? (avgW * extra / 60) : 0);
+            const peakW = peakGroup?.get(aid) ?? 0;
             todayEntry.actuators[aid] = {
                 name: acc.name,
                 wh: +wh.toFixed(1),
                 runtimeMin: +runtimeMin.toFixed(1),
+                ...(peakW > 0 ? { peakW: +peakW.toFixed(0) } : {}),
             };
         }
         const filtered = historical.filter(d => d.date !== dateStr && d.date !== todayEntry.date);
@@ -273,7 +293,21 @@ class DatabaseService {
     getIrrigation(groupId) {
         return this.irrCache.get(groupId) ?? [];
     }
+    getLearnedPeakWatts(groupId) {
+        const g = this.peakWatts.get(groupId);
+        return g ? Object.fromEntries(g) : {};
+    }
     // ---- Interne Helfer ---------------------------------------
+    recordPeak(groupId, actuatorId, watts) {
+        if (watts <= 0 || !isFinite(watts))
+            return;
+        const g = this.peakWatts.get(groupId);
+        if (!g)
+            return;
+        const prev = g.get(actuatorId) ?? 0;
+        if (watts > prev)
+            g.set(actuatorId, watts);
+    }
     async readJson(id, fallback) {
         try {
             const raw = await this.getState(id);

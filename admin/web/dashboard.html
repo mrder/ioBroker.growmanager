@@ -1221,14 +1221,27 @@ function renderEnergyTable(data) {
     const h = Math.floor(min / 60), m = Math.round(min % 60);
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   };
-  const fmtAvgW = (wh, runtimeMin) => runtimeMin > 0 ? (wh / (runtimeMin / 60)).toFixed(0) + ' W' : '–';
+  const fmtAvgW = (wh, runtimeMin, fallbackW) => {
+    if (runtimeMin > 0 && wh > 0) return (wh / (runtimeMin / 60)).toFixed(0) + ' W';
+    if (fallbackW > 0) return '~' + fallbackW + ' W';
+    return '-';
+  };
   const fmtWh = wh => wh >= 1000 ? (wh / 1000).toFixed(2) + ' kWh' : wh.toFixed(0) + ' Wh';
+
+  // Spitzenwert pro Aktor aus heutigem Eintrag lesen (wird vom Adapter geliefert)
+  const peakByAct = {};
+  data.forEach(d => actIds.forEach(id => {
+    const a = d.actuators?.[id];
+    if (a?.peakW > 0 && (peakByAct[id] == null || a.peakW > peakByAct[id])) peakByAct[id] = a.peakW;
+  }));
 
   let html = '<div style="display:flex;flex-wrap:wrap;gap:16px;padding:4px 0">';
   for (const id of actIds) {
     const tot = totals[id];
+    const peak = peakByAct[id];
+    const peakHint = peak ? `<span style="font-size:11px;font-weight:400;color:var(--text-dim);margin-left:8px">Spitzenwert: ${peak} W</span>` : '';
     html += `<div style="flex:1 1 280px;min-width:260px;border:1px solid var(--border);border-radius:8px;overflow:hidden">`;
-    html += `<div style="padding:10px 14px;background:var(--bg-card, rgba(255,255,255,.04));border-bottom:1px solid var(--border);font-weight:600">${esc(names[id] ?? id)}</div>`;
+    html += `<div style="padding:10px 14px;background:var(--bg-card, rgba(255,255,255,.04));border-bottom:1px solid var(--border);font-weight:600">${esc(names[id] ?? id)}${peakHint}</div>`;
     html += `<table class="db-table" style="margin:0;border:none">`;
     html += `<thead><tr><th>Datum</th><th style="text-align:right">Energie</th><th style="text-align:right">Laufzeit</th><th style="text-align:right">Ø W</th></tr></thead><tbody>`;
     for (const row of data) {
@@ -1238,14 +1251,14 @@ function renderEnergyTable(data) {
       html += `<td>${esc(row.date)}</td>`;
       html += `<td style="text-align:right">${fmtWh(a.wh)}</td>`;
       html += `<td style="text-align:right">${fmtRuntime(a.runtimeMin)}</td>`;
-      html += `<td style="text-align:right;color:var(--text-dim)">${fmtAvgW(a.wh, a.runtimeMin)}</td>`;
+      html += `<td style="text-align:right;color:var(--text-dim)">${fmtAvgW(a.wh, a.runtimeMin, peak)}</td>`;
       html += `</tr>`;
     }
     html += `<tr style="font-weight:600;border-top:2px solid var(--border)">`;
     html += `<td>Gesamt</td>`;
     html += `<td style="text-align:right;color:var(--accent)">${fmtWh(tot.wh)}</td>`;
     html += `<td style="text-align:right">${fmtRuntime(tot.runtimeMin)}</td>`;
-    html += `<td style="text-align:right;color:var(--text-dim)">${fmtAvgW(tot.wh, tot.runtimeMin)}</td>`;
+    html += `<td style="text-align:right;color:var(--text-dim)">${fmtAvgW(tot.wh, tot.runtimeMin, peak)}</td>`;
     html += `</tr>`;
     html += `</tbody></table></div>`;
   }

@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.3.34",
+    "version": "0.3.35",
     "news": {
+      "0.3.35": {
+        "en": "v0.3.35: Auto-learn peak watt values from live energy state readings — persisted across restarts so ratedPowerW is always available as fallback even without manual configuration. Dashboard Energie tab now shows observed peak watts per actuator.",
+        "de": "v0.3.35: Automatisches Lernen von Spitzenwerten aus Live-Leistungsdaten — wird über Neustarts hinweg gespeichert, sodass ratedPowerW als Fallback immer verfügbar ist. Energie-Tab im Dashboard zeigt den beobachteten Spitzenwert je Aktor."
+      },
       "0.3.34": {
         "en": "v0.3.34: Actuator alert rules now have a configurable trigger delay — alarm only fires if the fault state persists uninterrupted for the set number of minutes (default 5). Timer resets automatically if actuator recovers.",
         "de": "v0.3.34: Aktor-Alarmregeln haben jetzt eine konfigurierbare Verzögerungszeit — Alarm feuert nur wenn der Fehlerzustand mindestens X Minuten ununterbrochen anhält (Standard 5 Min.). Timer wird automatisch zurückgesetzt wenn Aktor sich erholt."
