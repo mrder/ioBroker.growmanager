@@ -790,35 +790,44 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                     <option value="custom">Benutzerdefiniert</option>
                 </select>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    <div>
-                        <label style={styles.fieldLabel}>Regelziel (controlTarget)</label>
-                        <select style={styles.select}
-                            value={edit.controlTarget ?? ''}
-                            onChange={e => setEdit(prev => ({ ...prev, controlTarget: (e.target.value || undefined) as ControlTarget | undefined }))}>
-                            <option value="">– Auto (vom Typ abgeleitet) –</option>
-                            <option value="temperature">Temperatur</option>
-                            <option value="humidity">Luftfeuchtigkeit</option>
-                            <option value="vpd">VPD (koordiniert)</option>
-                            <option value="co2">CO₂</option>
-                            <option value="soilMoisture">Bodenfeuchte</option>
-                            <option value="light">Licht (Zeitplan)</option>
-                            <option value="timer">Timer (immer EIN)</option>
-                            <option value="custom">Benutzerdefiniert</option>
-                        </select>
+                {edit.type === 'timedActuator' && (
+                    <TimedActuatorScheduleEditor
+                        entries={edit.scheduleEntries ?? []}
+                        onChange={entries => setEdit(prev => ({ ...prev, scheduleEntries: entries }))}
+                    />
+                )}
+
+                {edit.type !== 'timedActuator' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        <div>
+                            <label style={styles.fieldLabel}>Regelziel (controlTarget)</label>
+                            <select style={styles.select}
+                                value={edit.controlTarget ?? ''}
+                                onChange={e => setEdit(prev => ({ ...prev, controlTarget: (e.target.value || undefined) as ControlTarget | undefined }))}>
+                                <option value="">– Auto (vom Typ abgeleitet) –</option>
+                                <option value="temperature">Temperatur</option>
+                                <option value="humidity">Luftfeuchtigkeit</option>
+                                <option value="vpd">VPD (koordiniert)</option>
+                                <option value="co2">CO₂</option>
+                                <option value="soilMoisture">Bodenfeuchte</option>
+                                <option value="light">Licht (Zeitplan)</option>
+                                <option value="timer">Timer (immer EIN)</option>
+                                <option value="custom">Benutzerdefiniert</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style={styles.fieldLabel}>Wirkrichtung</label>
+                            <select style={styles.select}
+                                value={edit.controlDirection ?? ''}
+                                onChange={e => setEdit(prev => ({ ...prev, controlDirection: (e.target.value || undefined) as ControlDirection | undefined }))}>
+                                <option value="">– Auto (vom Typ abgeleitet) –</option>
+                                <option value="up">Erhöhen (up) – z.B. Heizung, Befeuchter</option>
+                                <option value="down">Senken (down) – z.B. Abluft, Entfeuchter</option>
+                                <option value="both">Beides</option>
+                            </select>
+                        </div>
                     </div>
-                    <div>
-                        <label style={styles.fieldLabel}>Wirkrichtung</label>
-                        <select style={styles.select}
-                            value={edit.controlDirection ?? ''}
-                            onChange={e => setEdit(prev => ({ ...prev, controlDirection: (e.target.value || undefined) as ControlDirection | undefined }))}>
-                            <option value="">– Auto (vom Typ abgeleitet) –</option>
-                            <option value="up">Erhöhen (up) – z.B. Heizung, Befeuchter</option>
-                            <option value="down">Senken (down) – z.B. Abluft, Entfeuchter</option>
-                            <option value="both">Beides</option>
-                        </select>
-                    </div>
-                </div>
+                )}
                 {(edit.type === 'exhaustFan' || edit.type === 'supplyFan') && (
                     <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '6px 0', cursor: 'pointer', fontSize: 13 }}>
                         <input type="checkbox"
@@ -829,8 +838,8 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                     </label>
                 )}
 
-                {/* Stufenregelung: nur für Aktoren die Klima beeinflussen (nicht Licht/Umluft/CO₂) */}
-                {!['light', 'circulationFan', 'co2Valve', 'irrigation', 'custom'].includes(edit.type) && (
+                {/* Stufenregelung: nur für Aktoren die Klima beeinflussen (nicht Licht/Umluft/CO₂/Zeitplan) */}
+                {!['light', 'circulationFan', 'co2Valve', 'irrigation', 'custom', 'timedActuator'].includes(edit.type) && (
                     <div style={{ background: '#f5f8ff', border: '1px solid #d0daf0', borderRadius: 8, padding: '12px 14px', marginTop: 14 }}>
                         <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
                             Stufenregelung
@@ -865,13 +874,6 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
 
                 {edit.type === 'circulationFan' && (
                     <CirculationFanSettings edit={edit} setEdit={setEdit} />
-                )}
-
-                {edit.type === 'timedActuator' && (
-                    <TimedActuatorScheduleEditor
-                        entries={edit.scheduleEntries ?? []}
-                        onChange={entries => setEdit(prev => ({ ...prev, scheduleEntries: entries }))}
-                    />
                 )}
 
                 <StateIdInput

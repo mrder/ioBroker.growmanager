@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.3.41",
+    "version": "0.3.42",
     "news": {
+      "0.3.42": {
+        "en": "v0.3.42: Fix schedule editor visibility for timedActuator — editor now appears directly below the type selector, Regelziel/Wirkrichtung and Stufenregelung sections hidden for timedActuator type.",
+        "de": "v0.3.42: Fix Zeitplan-Editor-Sichtbarkeit für zeitgesteuerte Aktoren — Editor erscheint jetzt direkt unterhalb der Typauswahl, Regelziel/Wirkrichtung und Stufenregelung werden für Typ 'Zeitgesteuert' ausgeblendet."
+      },
       "0.3.41": {
         "en": "v0.3.41: New actuator type 'Zeitgesteuert' (timedActuator) — configure multiple weekly schedules per actuator (days of week + time window), adapter switches actuator on/off automatically. Independent of climate control.",
         "de": "v0.3.41: Neuer Aktor-Typ 'Zeitgesteuert' (timedActuator) — mehrere Wochenpläne pro Aktor konfigurierbar (Wochentage + Zeitfenster), Adapter schaltet Aktor automatisch. Unabhängig von der Klimaregelung."
