@@ -81,6 +81,7 @@ export type ActuatorType =
     | 'irrigation'
     | 'co2Valve'
     | 'damper'
+    | 'timedActuator'
     | 'custom';
 
 export type ActuatorDataType = 'boolean' | 'number' | 'string';
@@ -158,6 +159,22 @@ export interface ActuatorConfig {
     energyStateId?: string;
     energyStateUnit?: 'W' | 'kWh';
     ratedPowerW?: number;
+    // Zeitgesteuerte Aktoren (type === 'timedActuator')
+    scheduleEntries?: ActuatorScheduleEntry[];
+}
+
+// ---- Aktor-Zeitplan ----------------------------------------
+
+export interface ActuatorScheduleEntry {
+    id: string;
+    name: string;
+    enabled: boolean;
+    /** Wochentage: 0=Mo, 1=Di, 2=Mi, 3=Do, 4=Fr, 5=Sa, 6=So. Leer = alle Tage. */
+    days: number[];
+    startHH: number;
+    startMM: number;
+    endHH: number;
+    endMM: number;
 }
 
 // ---- Umluft-Windsimulator ----------------------------------

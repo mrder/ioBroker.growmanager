@@ -292,6 +292,25 @@ class ActuatorService {
         return windows.some(w => (0, time_1.isInTimeWindow)(now, w.startHH, w.startMM, w.endHH, w.endMM));
     }
     /**
+     * Prüft ob ein Aktor-Zeitplan (timedActuator) gerade aktiv ist.
+     * 0=Mo, 1=Di, ..., 6=So. Leeres days-Array = alle Tage.
+     */
+    isActuatorScheduleActive(config, now) {
+        const entries = config.scheduleEntries;
+        if (!entries || entries.length === 0)
+            return false;
+        // JS getDay(): 0=So,1=Mo,...,6=Sa → umrechnen auf 0=Mo,...,6=So
+        const jsDay = now.getDay();
+        const day = jsDay === 0 ? 6 : jsDay - 1;
+        return entries.some(e => {
+            if (!e.enabled)
+                return false;
+            if (e.days.length > 0 && !e.days.includes(day))
+                return false;
+            return (0, time_1.isInTimeWindow)(now, e.startHH, e.startMM, e.endHH, e.endMM);
+        });
+    }
+    /**
      * Prüft abgelaufene Overrides.
      */
     tickOverrides() {

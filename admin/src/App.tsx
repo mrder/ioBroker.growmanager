@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { GrowManagerConfig, GroupConfig, ClimateProfile, ControlTarget, ControlDirection, OutdoorSensorConfig, SharedParticipant, NotificationChannel, NotificationConfig, NotificationChannelType, WindSimulatorConfig, CirculationScheduleWindow, CustomAlertRule, CustomAlertMetric, CustomAlertCondition, ActuatorAlertRule, ActuatorAlertCondition } from './types';
+import type { GrowManagerConfig, GroupConfig, ClimateProfile, ControlTarget, ControlDirection, OutdoorSensorConfig, SharedParticipant, NotificationChannel, NotificationConfig, NotificationChannelType, WindSimulatorConfig, CirculationScheduleWindow, CustomAlertRule, CustomAlertMetric, CustomAlertCondition, ActuatorAlertRule, ActuatorAlertCondition, ActuatorScheduleEntry } from './types';
 
 // ioBroker Admin-Globals (werden vom Admin-Framework bereitgestellt)
 declare const socket: {
@@ -669,6 +669,93 @@ const CirculationFanSettings: React.FC<{
     );
 };
 
+const WEEK_DAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+const newScheduleEntry = (): ActuatorScheduleEntry => ({
+    id: Math.random().toString(36).slice(2, 9),
+    name: 'Zeitplan',
+    enabled: true,
+    days: [],
+    startHH: 6, startMM: 0, endHH: 22, endMM: 0,
+});
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const parseHHMM = (hh: number, mm: number) => `${pad2(hh)}:${pad2(mm)}`;
+const splitHHMM = (s: string) => {
+    const [h, m] = s.split(':').map(Number);
+    return { hh: isNaN(h) ? 0 : h, mm: isNaN(m) ? 0 : m };
+};
+
+const TimedActuatorScheduleEditor: React.FC<{
+    entries: ActuatorScheduleEntry[];
+    onChange: (entries: ActuatorScheduleEntry[]) => void;
+}> = ({ entries, onChange }) => {
+    const update = (i: number, patch: Partial<ActuatorScheduleEntry>) =>
+        onChange(entries.map((e, idx) => idx === i ? { ...e, ...patch } : e));
+    const remove = (i: number) => onChange(entries.filter((_, idx) => idx !== i));
+    const inp: React.CSSProperties = { width: '100%', padding: '4px 6px', borderRadius: 4, border: '1px solid #444', background: '#1a1a2e', color: '#e0e0e0', fontSize: 12 };
+    const dayBtn = (active: boolean): React.CSSProperties => ({
+        padding: '2px 7px', borderRadius: 4, border: '1px solid ' + (active ? '#66bb6a' : '#444'),
+        background: active ? 'rgba(102,187,106,0.2)' : 'transparent',
+        color: active ? '#66bb6a' : '#888', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+    });
+    return (
+        <div style={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 6, padding: 10, marginTop: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#42a5f5' }}>🕐 Zeitpläne</div>
+                <button style={{ padding: '3px 10px', borderRadius: 4, border: '1px solid #42a5f5', background: 'transparent', color: '#42a5f5', cursor: 'pointer', fontSize: 11 }}
+                    onClick={() => onChange([...entries, newScheduleEntry()])}>+ Zeitplan</button>
+            </div>
+            {entries.length === 0 && (
+                <div style={{ fontSize: 11, color: '#666', textAlign: 'center', padding: '8px 0' }}>
+                    Noch kein Zeitplan — Aktor bleibt immer AUS bis ein Zeitplan aktiv ist.
+                </div>
+            )}
+            {entries.map((e, i) => (
+                <div key={e.id} style={{ background: '#111827', border: '1px solid #2a2a3e', borderRadius: 5, padding: 8, marginBottom: 6 }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                        <input style={{ ...inp, flex: 1 }} value={e.name}
+                            placeholder="Name" onChange={ev => update(i, { name: ev.target.value })} />
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#aaa', whiteSpace: 'nowrap' }}>
+                            <input type="checkbox" checked={e.enabled} onChange={ev => update(i, { enabled: ev.target.checked })} />
+                            Aktiv
+                        </label>
+                        <button style={{ padding: '2px 7px', borderRadius: 4, border: '1px solid #c62828', background: 'transparent', color: '#ef5350', cursor: 'pointer', fontSize: 11 }}
+                            onClick={() => remove(i)}>✕</button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 6, flexWrap: 'wrap' }}>
+                        {WEEK_DAYS.map((d, di) => (
+                            <button key={di} style={dayBtn(e.days.includes(di) || e.days.length === 0)}
+                                onClick={() => {
+                                    const all = e.days.length === 0;
+                                    const next = all
+                                        ? WEEK_DAYS.map((_, idx) => idx).filter(idx => idx !== di)
+                                        : e.days.includes(di) ? e.days.filter(x => x !== di) : [...e.days, di].sort();
+                                    update(i, { days: next.length === 7 ? [] : next });
+                                }}>{d}</button>
+                        ))}
+                        <span style={{ fontSize: 10, color: '#666', alignSelf: 'center', marginLeft: 4 }}>
+                            {e.days.length === 0 ? 'Alle Tage' : ''}
+                        </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                        <div>
+                            <label style={{ fontSize: 11, color: '#aaa', display: 'block', marginBottom: 2 }}>Von</label>
+                            <input style={inp} type="time" value={parseHHMM(e.startHH, e.startMM)}
+                                onChange={ev => { const { hh, mm } = splitHHMM(ev.target.value); update(i, { startHH: hh, startMM: mm }); }} />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: 11, color: '#aaa', display: 'block', marginBottom: 2 }}>Bis</label>
+                            <input style={inp} type="time" value={parseHHMM(e.endHH, e.endMM)}
+                                onChange={ev => { const { hh, mm } = splitHHMM(ev.target.value); update(i, { endHH: hh, endMM: mm }); }} />
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
+
 const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ownerGroupId, onSave, onClose }) => {
     const [edit, setEdit] = useState(actuator ?? defaultActuator());
 
@@ -699,6 +786,7 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                     <option value="irrigation">Bewässerung</option>
                     <option value="co2Valve">CO₂-Ventil</option>
                     <option value="damper">Klappe</option>
+                    <option value="timedActuator">Zeitgesteuert</option>
                     <option value="custom">Benutzerdefiniert</option>
                 </select>
 
@@ -777,6 +865,13 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
 
                 {edit.type === 'circulationFan' && (
                     <CirculationFanSettings edit={edit} setEdit={setEdit} />
+                )}
+
+                {edit.type === 'timedActuator' && (
+                    <TimedActuatorScheduleEditor
+                        entries={edit.scheduleEntries ?? []}
+                        onChange={entries => setEdit(prev => ({ ...prev, scheduleEntries: entries }))}
+                    />
                 )}
 
                 <StateIdInput

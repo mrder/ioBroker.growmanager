@@ -22,7 +22,7 @@ export interface SensorConfig {
 
 export type ActuatorType =
     | 'light' | 'circulationFan' | 'exhaustFan' | 'supplyFan' | 'heating'
-    | 'cooling' | 'humidifier' | 'dehumidifier' | 'irrigation' | 'co2Valve' | 'damper' | 'custom';
+    | 'cooling' | 'humidifier' | 'dehumidifier' | 'irrigation' | 'co2Valve' | 'damper' | 'timedActuator' | 'custom';
 
 export type ActuatorDataType = 'boolean' | 'number' | 'string';
 export type ActuatorSafeState = 'off' | 'on' | 'keep' | 'minLevel';
@@ -63,6 +63,19 @@ export interface ActuatorConfig {
     energyStateId?: string;
     energyStateUnit?: 'W' | 'kWh';
     ratedPowerW?: number;
+    scheduleEntries?: ActuatorScheduleEntry[];
+}
+
+export interface ActuatorScheduleEntry {
+    id: string;
+    name: string;
+    enabled: boolean;
+    /** 0=Mo, 1=Di, 2=Mi, 3=Do, 4=Fr, 5=Sa, 6=So. Leer = alle Tage. */
+    days: number[];
+    startHH: number;
+    startMM: number;
+    endHH: number;
+    endMM: number;
 }
 
 export interface WindSimulatorConfig {

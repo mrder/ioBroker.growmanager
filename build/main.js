@@ -1043,6 +1043,8 @@ class GrowManagerAdapter extends utils.Adapter {
         }
         // 6d) Umluft-Aktoren: Wind-Simulator / Zeitfenster / alwaysOn (unabhängig von Klimaregelung)
         await this.tickCirculationActuators(config);
+        // 6e) Zeitgesteuerte Aktoren (timedActuator)
+        await this.tickScheduleActuators(config);
         // 6b) Fähigkeiten der Gruppe bewerten (für Logging/Admin-UI)
         const leafTempVal = leafTempAgg.value;
         const soilAgg = this.sensorService.aggregate(config.sensors, 'soilMoisture', config.aggregationMethod, stab);
@@ -1346,6 +1348,34 @@ class GrowManagerAdapter extends utils.Adapter {
             }
         }
     }
+    async tickScheduleActuators(config) {
+        const now = new Date();
+        for (const act of config.actuators) {
+            if (act.type !== 'timedActuator' || !act.enabled)
+                continue;
+            if (act.shared)
+                continue;
+            const actState = this.actuatorService.getState(act.id);
+            if (!actState || actState.manualLock)
+                continue;
+            const wantsOn = this.actuatorService.isActuatorScheduleActive(act, now);
+            const canSwitch = this.actuatorService.canSwitch(act, wantsOn);
+            if (!canSwitch.allowed)
+                continue;
+            const changed = this.actuatorService.recordCommand(act, wantsOn);
+            if (changed) {
+                await this.setActuatorState(act.commandStateId, wantsOn ? act.onValue : act.offValue);
+                this.setActuatorStateWithVerify(act, config.id, wantsOn ? act.onValue : act.offValue);
+                this.log.info(`Zeitplan ${act.name}: → ${wantsOn ? 'EIN' : 'AUS'}`);
+                if ((act.energyStateUnit ?? 'W') !== 'kWh') {
+                    if (wantsOn)
+                        this.databaseService.trackActuatorOn(config.id, act.id, act.name, act.ratedPowerW ?? 0);
+                    else
+                        this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW ?? 0);
+                }
+            }
+        }
+    }
     async executeDecision(config, decision) {
         for (const action of decision.actions) {
             if (action.blocked)
@@ -1356,6 +1386,9 @@ class GrowManagerAdapter extends utils.Adapter {
             // Umluft-Aktoren mit eigenem Modus werden ausschließlich von tickCirculationActuators gesteuert
             if (actuatorConfig.type === 'circulationFan' &&
                 actuatorConfig.circulationMode && actuatorConfig.circulationMode !== 'alwaysOn')
+                continue;
+            // Zeitgesteuerte Aktoren werden ausschließlich von tickScheduleActuators gesteuert
+            if (actuatorConfig.type === 'timedActuator')
                 continue;
             // Gemeinsam genutzte Aktoren werden über SharedActorManager aufgelöst
             if (actuatorConfig.shared) {
