@@ -399,6 +399,8 @@
   .act-countdown { font-size: 10px; color: var(--orange); background: rgba(255,152,0,0.1); border: 1px solid rgba(255,152,0,0.35); border-radius: 3px; padding: 1px 6px; margin-left: 6px; font-variant-numeric: tabular-nums; cursor: help; }
   .act-power { font-size: 10px; color: var(--green-light); background: rgba(102,187,106,0.1); border: 1px solid rgba(102,187,106,0.35); border-radius: 3px; padding: 1px 6px; margin-left: 6px; font-variant-numeric: tabular-nums; }
   .act-power-rated { color: var(--text-dim); background: rgba(128,128,128,0.08); border-color: rgba(128,128,128,0.25); }
+  .group-power-chip { font-size: 11px; font-weight: 600; color: var(--green-light); background: rgba(102,187,106,0.08); border: 1px solid rgba(102,187,106,0.3); border-radius: 4px; padding: 3px 10px; font-variant-numeric: tabular-nums; }
+  .group-power-chip.estimated { color: var(--text-dim); background: rgba(128,128,128,0.07); border-color: rgba(128,128,128,0.2); }
   .act-manual-lock { font-size: 10px; color: var(--yellow); background: rgba(251,192,45,0.1); border: 1px solid rgba(251,192,45,0.35); border-radius: 3px; padding: 1px 6px; margin-left: 6px; }
   .act-toggle {
     background: none; border: 1px solid var(--border); border-radius: 4px;
@@ -1646,6 +1648,34 @@ function qualityBadgeHtml(g) {
   </span>`;
 }
 
+// ---- Gruppengesamt-Leistung ----
+function groupTotalPowerHtml(g) {
+  const ownActs = (g.actuators ?? []).filter(a => !a.sharedFromGroupId);
+  let totalW = 0;
+  let hasLive = false;
+  let hasAny = false;
+  for (const a of ownActs) {
+    const fb = a.feedback ?? a.effectiveState;
+    const hasFb = fb !== null && fb !== undefined;
+    const istOn = hasFb
+      ? (fb === true || (typeof fb === 'number' && fb > 0) || fb === 'true' || fb === 'on')
+      : (a.command === true || (typeof a.command === 'number' && a.command > 0));
+    if (!istOn) continue;
+    if (typeof a.power === 'number') {
+      totalW += a.power;
+      hasLive = true;
+      hasAny = true;
+    } else if (a.ratedPowerW) {
+      totalW += +a.ratedPowerW;
+      hasAny = true;
+    }
+  }
+  if (!hasAny || totalW === 0) return '';
+  const cls = hasLive ? 'group-power-chip' : 'group-power-chip estimated';
+  const label = hasLive ? `⚡ ${totalW.toFixed(0)} W` : `⚡ ~${Math.round(totalW)} W`;
+  return `<span class="${cls}">${label}</span>`;
+}
+
 // ---- Gruppenkarte ----
 function groupCardHtml(g) {
   const healthColor = HEALTH_COLORS[g.health] ?? 'var(--safe)';
@@ -1788,9 +1818,12 @@ function groupCardHtml(g) {
     ${alarmHtml}
     ${cameraHtml}
     <div data-ls-bar="${esc(g.id)}">${lsBarHtml(g.id)}</div>
-    <div style="padding:6px 12px 10px;display:flex;justify-content:flex-end;gap:6px">
-      <button class="db-btn" onclick="showLs('${gid}','${escAttr(g.name)}')">🗓 Kalender</button>
-      <button class="db-btn" onclick="showDb('${gid}','${escAttr(g.name)}')">📊 Verlaufsdaten</button>
+    <div style="padding:6px 12px 10px;display:flex;justify-content:space-between;align-items:center;gap:6px">
+      ${groupTotalPowerHtml(g)}
+      <div style="display:flex;gap:6px">
+        <button class="db-btn" onclick="showLs('${gid}','${escAttr(g.name)}')">🗓 Kalender</button>
+        <button class="db-btn" onclick="showDb('${gid}','${escAttr(g.name)}')">📊 Verlaufsdaten</button>
+      </div>
     </div>
   </div>`;
 }
