@@ -455,7 +455,7 @@ class GrowManagerAdapter extends utils.Adapter {
             // damit ratedWatts als Fallback für Perioden ohne W-State-Updates bekannt ist.
             {
                 let wStartValue = 0;
-                if (actuator.energyStateUnit === 'W' && actuator.energyStateId) {
+                if ((actuator.energyStateUnit ?? 'W') === 'W' && actuator.energyStateId) {
                     const wState = await this.getForeignStateAsync(actuator.energyStateId);
                     if (typeof wState?.val === 'number' && wState.val > 0) {
                         wStartValue = wState.val;
@@ -611,7 +611,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     }
                 }
                 // Energie-Tracking: W-State (Momentanleistung) → Wh per Sample akkumulieren
-                if (actuator.energyStateId === id && typeof state.val === 'number' && actuator.energyStateUnit === 'W') {
+                if (actuator.energyStateId === id && typeof state.val === 'number' && (actuator.energyStateUnit ?? 'W') === 'W') {
                     this.databaseService.updateLastKnownWatts(group.id, actuator.id, actuator.name, state.val);
                     this.databaseService.updateActuatorPowerSample(group.id, actuator.id, state.val);
                     const actSt = this.actuatorService.getState(actuator.id);

@@ -802,7 +802,7 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                         label="Energie-State (W oder kWh)"
                         tip="State der Watt oder kWh liefert (z.B. tasmota.0.ENERGY_Power). Ohne State wird die Nennleistung × Laufzeit gerechnet."
                         value={edit.energyStateId ?? ''}
-                        onChange={v => setEdit(prev => ({ ...prev, energyStateId: v || undefined }))}
+                        onChange={v => setEdit(prev => ({ ...prev, energyStateId: v || undefined, energyStateUnit: prev.energyStateUnit ?? (v ? 'W' : undefined) }))}
                         placeholder="z.B. shelly.0.device.Power (optional)"
                     />
                     {edit.energyStateId && (

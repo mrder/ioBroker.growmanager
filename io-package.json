@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.3.38",
+    "version": "0.3.39",
     "news": {
+      "0.3.39": {
+        "en": "v0.3.39: Fix energyStateUnit defaulting — when energyStateId is configured but unit was never explicitly saved, it now correctly defaults to W (was: silent no-op, causing 0 Wh and no group power chip). Admin also pre-sets W when energyStateId is first entered.",
+        "de": "v0.3.39: Fix energyStateUnit-Default — wenn energyStateId konfiguriert aber Einheit nie explizit gespeichert wurde, wird jetzt korrekt W angenommen (bisher: stiller No-Op, führte zu 0 Wh und fehlendem Gruppenleistungs-Chip). Admin setzt W jetzt automatisch beim ersten Eintragen der energyStateId."
+      },
       "0.3.38": {
         "en": "v0.3.38: Fix ActuatorState.power never being set from energyStateId (W unit) — both at startup and on live state changes. Group power chip now shows correct live watts for all actuators with an energy datapoint configured.",
         "de": "v0.3.38: Fix: ActuatorState.power wurde bei energyStateId (Einheit W) nie gesetzt — weder beim Start noch bei Live-Zustandsänderungen. Der Gruppenleistungs-Chip zeigt jetzt korrekte Live-Watt für alle Aktoren mit konfiguriertem Energiedatenpunkt."
