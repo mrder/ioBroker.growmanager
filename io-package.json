@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.3.42",
+    "version": "0.3.43",
     "news": {
+      "0.3.43": {
+        "en": "v0.3.43: Fix shared timedActuator voting — owner now votes based on schedule (not always OFF), participants abstain. Fixes dehumidifier/fan not switching on when configured as shared timedActuator. Schedule editor shows browser clock for time reference.",
+        "de": "v0.3.43: Fix geteilte zeitgesteuerte Aktoren — Eigentümer stimmt jetzt per Zeitplan (nicht immer AUS), Teilnehmer enthalten sich. Behebt Problem dass Entfeuchter/Lüfter als geteilter timedAktor nicht eingeschaltet wurden. Zeitplan-Editor zeigt Browser-Uhr zur Orientierung."
+      },
       "0.3.42": {
         "en": "v0.3.42: Fix schedule editor visibility for timedActuator — editor now appears directly below the type selector, Regelziel/Wirkrichtung and Stufenregelung sections hidden for timedActuator type.",
         "de": "v0.3.42: Fix Zeitplan-Editor-Sichtbarkeit für zeitgesteuerte Aktoren — Editor erscheint jetzt direkt unterhalb der Typauswahl, Regelziel/Wirkrichtung und Stufenregelung werden für Typ 'Zeitgesteuert' ausgeblendet."

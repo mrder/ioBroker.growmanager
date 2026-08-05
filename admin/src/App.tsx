@@ -690,6 +690,13 @@ const TimedActuatorScheduleEditor: React.FC<{
     entries: ActuatorScheduleEntry[];
     onChange: (entries: ActuatorScheduleEntry[]) => void;
 }> = ({ entries, onChange }) => {
+    const [serverTime, setServerTime] = React.useState<string>('…');
+    React.useEffect(() => {
+        const update = () => setServerTime(new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        update();
+        const t = setInterval(update, 1000);
+        return () => clearInterval(t);
+    }, []);
     const update = (i: number, patch: Partial<ActuatorScheduleEntry>) =>
         onChange(entries.map((e, idx) => idx === i ? { ...e, ...patch } : e));
     const remove = (i: number) => onChange(entries.filter((_, idx) => idx !== i));
@@ -702,7 +709,7 @@ const TimedActuatorScheduleEditor: React.FC<{
     return (
         <div style={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 6, padding: 10, marginTop: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#42a5f5' }}>🕐 Zeitpläne</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#42a5f5' }}>🕐 Zeitpläne <span style={{ fontWeight: 400, color: '#888', fontSize: 11 }} title="Browser-Zeit deines Geräts – kann von der Serverzeit abweichen">(Browser-Zeit: {serverTime})</span></div>
                 <button style={{ padding: '3px 10px', borderRadius: 4, border: '1px solid #42a5f5', background: 'transparent', color: '#42a5f5', cursor: 'pointer', fontSize: 11 }}
                     onClick={() => onChange([...entries, newScheduleEntry()])}>+ Zeitplan</button>
             </div>

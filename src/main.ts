@@ -830,9 +830,15 @@ class GrowManagerAdapter extends utils.Adapter {
                     const currentActState = this.actuatorService.getState(actuatorConfig.id);
                     const sharedCurrentlyOn = (currentActState?.requested ?? false) !== false
                         && (currentActState?.requested ?? false) !== 0;
-                    let ownerNeed = ownerGs
-                        ? this.computeParticipantNeed(actuatorConfig.type, ownerGs, 3, sharedCurrentlyOn, group.mode)
-                        : { wantsOn: false as const, urgency: 0, reason: 'Kein Gruppenstatus' };
+                    let ownerNeed: { wantsOn: boolean; urgency: number; reason: string };
+                    if (actuatorConfig.type === 'timedActuator') {
+                        const schedActive = this.actuatorService.isActuatorScheduleActive(actuatorConfig, new Date());
+                        ownerNeed = { wantsOn: schedActive, urgency: 0, reason: schedActive ? 'Zeitplan aktiv' : 'Kein Zeitplan aktiv' };
+                    } else {
+                        ownerNeed = ownerGs
+                            ? this.computeParticipantNeed(actuatorConfig.type, ownerGs, 3, sharedCurrentlyOn, group.mode)
+                            : { wantsOn: false, urgency: 0, reason: 'Kein Gruppenstatus' };
+                    }
 
                     // Outdoor-Guard für Lüfter: Außenluft nur einsetzen wenn innen wärmer als außen.
                     // Ausnahme: VPD zu hoch (innen zu trocken) + Außenluft feuchter → Feuchte-Zuluft erlauben.
@@ -1854,6 +1860,10 @@ class GrowManagerAdapter extends utils.Adapter {
                 // CO2 wird selten geteilt; kein Teilnehmer-Bedarf
                 return { wantsOn: false, urgency: 0, reason: 'CO2-Ventil: kein Teilnehmer-Bedarf' };
             }
+            case 'timedActuator':
+                // Zeitplan-Aktoren werden ausschließlich vom Eigentümer per Zeitplan gesteuert.
+                // Teilnehmer stimmen neutral (AUS) damit der Eigentümer-Zeitplan immer gewinnt.
+                return { wantsOn: false, urgency: 0, reason: 'Zeitgesteuerter Aktor – Zeitplan des Eigentümers gilt' };
             default:
                 return { wantsOn: false, urgency: 0, reason: 'Unbekannter Aktortyp' };
         }
