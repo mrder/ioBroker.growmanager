@@ -810,6 +810,13 @@ class GrowManagerAdapter extends utils.Adapter {
                             }
                         }
                     }
+                    // Blüte-Temp-Guard für Eigentümer-Stimme
+                    if (actuatorConfig.bloomTempGuardMaxC != null && ownerNeed.wantsOn) {
+                        const ownerTemp = ownerGs?.temperature ?? null;
+                        if (group.phase === 'bloom' && ownerTemp !== null && ownerTemp >= actuatorConfig.bloomTempGuardMaxC) {
+                            ownerNeed = { wantsOn: false, urgency: 1, reason: `Blüte-Temp-Schutz: ${ownerTemp.toFixed(1)}°C ≥ ${actuatorConfig.bloomTempGuardMaxC}°C` };
+                        }
+                    }
                     this.sharedActorManager.submitVote(actuatorConfig.id, {
                         groupId: group.id,
                         groupName: group.name,
@@ -856,6 +863,13 @@ class GrowManagerAdapter extends utils.Adapter {
                                         }
                                     }
                                 }
+                            }
+                        }
+                        // Blüte-Temp-Guard für Teilnehmer-Stimme
+                        if (actuatorConfig.bloomTempGuardMaxC != null && need.wantsOn && pGroup?.phase === 'bloom') {
+                            const pTemp = pState.temperature ?? null;
+                            if (pTemp !== null && pTemp >= actuatorConfig.bloomTempGuardMaxC) {
+                                need = { wantsOn: false, urgency: 1, reason: `Blüte-Temp-Schutz (Teilnehmer): ${pTemp.toFixed(1)}°C ≥ ${actuatorConfig.bloomTempGuardMaxC}°C` };
                             }
                         }
                         this.sharedActorManager.submitVote(actuatorConfig.id, {
@@ -998,6 +1012,11 @@ class GrowManagerAdapter extends utils.Adapter {
             state.condensationRisk = (0, calculations_1.condensationRisk)(state.temperature, state.humidity);
             if (leafTempAgg.value !== null) {
                 state.leafVpd = (0, calculations_1.calculateLeafVPD)(state.temperature, leafTempAgg.value, state.humidity);
+            }
+            else {
+                // Keine Blatttemperatur-Messung: schätzen mit konfiguriertem Offset (Standard 2°C)
+                const offset = config.leafTempOffsetC ?? 2.0;
+                state.leafVpd = (0, calculations_1.calculateLeafVPD)(state.temperature, state.temperature - offset, state.humidity);
             }
         }
         else {
@@ -1411,6 +1430,14 @@ class GrowManagerAdapter extends utils.Adapter {
                 // in runCycle() gesteuert. recordCommand() darf NICHT hier aufgerufen werden,
                 // weil sonst die Voting-Loop changed=false sieht und setActuatorState nie sendet.
                 continue;
+            }
+            // Blüte-Temperatur-Schutz: Aktor sperren wenn Gruppe in Blüte und Temp ≥ Schwelle
+            if (actuatorConfig.bloomTempGuardMaxC != null && action.requested) {
+                const gs = this.groupStates.get(config.id);
+                if (config.phase === 'bloom' && gs?.temperature != null && gs.temperature >= actuatorConfig.bloomTempGuardMaxC) {
+                    this.log.info(`${actuatorConfig.name}: Blüte-Temp-Schutz – ${gs.temperature.toFixed(1)}°C ≥ ${actuatorConfig.bloomTempGuardMaxC}°C → gesperrt`);
+                    continue;
+                }
             }
             // Aktuellen Reglerwunsch für Dashboard-Anzeige speichern (unabhängig von canSwitch)
             this.directDesires.set(actuatorConfig.id, action.requested);
@@ -2020,6 +2047,8 @@ class GrowManagerAdapter extends utils.Adapter {
                 temperature: state?.temperature ?? null,
                 humidity: state?.humidity ?? null,
                 vpd: state?.vpd ?? null,
+                leafVpd: state?.leafVpd ?? null,
+                leafVpdEstimated: state?.leafVpd !== null && leafTempAggDb.value === null,
                 soilMoisture: soilAggDb.value,
                 soilSensors,
                 co2: state?.co2 ?? null,

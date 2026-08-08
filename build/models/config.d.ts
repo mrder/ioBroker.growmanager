@@ -85,6 +85,7 @@ export interface ActuatorConfig {
     energyStateUnit?: 'W' | 'kWh';
     ratedPowerW?: number;
     scheduleEntries?: ActuatorScheduleEntry[];
+    bloomTempGuardMaxC?: number;
 }
 export interface ActuatorScheduleEntry {
     id: string;
@@ -283,6 +284,8 @@ export interface GroupConfig {
     stabilityTimeSeconds: number;
     sensorDisagreementThreshold: number;
     outdoorSensor?: OutdoorSensorConfig;
+    /** Geschätzter Unterschied Blatttemperatur zu Lufttemperatur in °C (Standard: 2°C). Wird für Leaf-VPD Schätzung genutzt wenn kein Blattsensor vorhanden. */
+    leafTempOffsetC?: number;
 }
 export type NotificationChannelType = 'telegram' | 'whatsapp' | 'discord' | 'signal' | 'pushover';
 export interface NotificationChannel {

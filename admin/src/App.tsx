@@ -899,6 +899,23 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                     placeholder="z.B. zigbee.0.device.state_l"
                 />
 
+                {/* Blüte-Temperatur-Schutz */}
+                {['heating', 'dehumidifier', 'humidifier', 'co2Valve', 'custom'].includes(edit.type) && (
+                    <div style={{ background: '#1a0010', border: '1px solid #c62828', borderRadius: 6, padding: 10, marginTop: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: '#ef9a9a' }}>🌸 Blüte-Temperatur-Schutz (optional)</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input style={{ ...styles.input, width: 80 }} type="number" min={20} max={40} step={0.5}
+                                placeholder="z.B. 28"
+                                value={edit.bloomTempGuardMaxC ?? ''}
+                                onChange={e => setEdit(prev => ({ ...prev, bloomTempGuardMaxC: e.target.value ? +e.target.value : undefined }))} />
+                            <span style={{ fontSize: 12 }}>°C Max</span>
+                        </div>
+                        <span style={{ fontSize: 11, color: '#aaa', display: 'block', marginTop: 4 }}>
+                            Sperrt diesen Aktor wenn die Gruppe (oder geteilte Blüte-Gruppe) in der Blüte-Phase ist und die Temperatur diesen Wert erreicht oder überschreitet. Leer = deaktiviert.
+                        </span>
+                    </div>
+                )}
+
                 {/* Energie-Tracking */}
                 <div style={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 6, padding: 10, marginTop: 8 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: '#f0b429' }}>⚡ Energie-Tracking (optional)</div>
@@ -1401,6 +1418,13 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                             <label style={styles.fieldLabel}>Sensor-Abweichungsalarm (°C)</label>
                             <input style={styles.input} type="number" min={1} value={edit.sensorDisagreementThreshold ?? 5}
                                 onChange={e => setEdit(prev => ({ ...prev, sensorDisagreementThreshold: +e.target.value }))} />
+                        </div>
+                        <div>
+                            <label style={styles.fieldLabel}>Blatttemp.-Offset für Leaf-VPD (°C)</label>
+                            <input style={styles.input} type="number" min={0} max={5} step={0.5}
+                                value={edit.leafTempOffsetC ?? 2}
+                                onChange={e => setEdit(prev => ({ ...prev, leafTempOffsetC: +e.target.value }))} />
+                            <span style={{ fontSize: 11, color: '#888' }}>Blatt ist X °C kühler als Luft (Standard: 2 °C). Wird genutzt wenn kein Blattsensor vorhanden.</span>
                         </div>
                     </div>
 

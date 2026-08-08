@@ -64,6 +64,7 @@ export interface ActuatorConfig {
     energyStateUnit?: 'W' | 'kWh';
     ratedPowerW?: number;
     scheduleEntries?: ActuatorScheduleEntry[];
+    bloomTempGuardMaxC?: number;
 }
 
 export interface ActuatorScheduleEntry {
@@ -161,6 +162,7 @@ export interface GroupConfig {
     fallbackChain: GroupMode[]; stabilityTimeSeconds: number;
     sensorDisagreementThreshold: number;
     outdoorSensor?: OutdoorSensorConfig;
+    leafTempOffsetC?: number;
 }
 
 export type NotificationChannelType = 'telegram' | 'whatsapp' | 'discord' | 'signal' | 'pushover';

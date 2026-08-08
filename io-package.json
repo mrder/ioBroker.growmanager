@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.3.43",
+    "version": "0.3.44",
     "news": {
+      "0.3.44": {
+        "en": "v0.3.44: Bloom temp guard per actuator (heating/dehumidifier blocked when bloom group exceeds max temp). Leaf-VPD now always computed — estimated via configurable offset (default 2°C) when no leaf sensor, shown in dashboard below air-VPD.",
+        "de": "v0.3.44: Blüte-Temperatur-Schutz je Aktor (Heizung/Entfeuchter wird gesperrt wenn Blüte-Gruppe Max-Temperatur überschreitet). Leaf-VPD wird jetzt immer berechnet — geschätzt über konfigurierbaren Offset (Standard 2°C) wenn kein Blattsensor, im Dashboard unter Luft-VPD angezeigt."
+      },
       "0.3.43": {
         "en": "v0.3.43: Fix shared timedActuator voting — owner now votes based on schedule (not always OFF), participants abstain. Fixes dehumidifier/fan not switching on when configured as shared timedActuator. Schedule editor shows browser clock for time reference.",
         "de": "v0.3.43: Fix geteilte zeitgesteuerte Aktoren — Eigentümer stimmt jetzt per Zeitplan (nicht immer AUS), Teilnehmer enthalten sich. Behebt Problem dass Entfeuchter/Lüfter als geteilter timedAktor nicht eingeschaltet wurden. Zeitplan-Editor zeigt Browser-Uhr zur Orientierung."

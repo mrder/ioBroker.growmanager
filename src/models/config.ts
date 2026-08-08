@@ -161,6 +161,8 @@ export interface ActuatorConfig {
     ratedPowerW?: number;
     // Zeitgesteuerte Aktoren (type === 'timedActuator')
     scheduleEntries?: ActuatorScheduleEntry[];
+    // Blüte-Temperatur-Schutz: sperrt diesen Aktor wenn Gruppe in Blüte und Temp ≥ Schwelle
+    bloomTempGuardMaxC?: number;
 }
 
 // ---- Aktor-Zeitplan ----------------------------------------
@@ -451,6 +453,8 @@ export interface GroupConfig {
     stabilityTimeSeconds: number;
     sensorDisagreementThreshold: number;
     outdoorSensor?: OutdoorSensorConfig;
+    /** Geschätzter Unterschied Blatttemperatur zu Lufttemperatur in °C (Standard: 2°C). Wird für Leaf-VPD Schätzung genutzt wenn kein Blattsensor vorhanden. */
+    leafTempOffsetC?: number;
 }
 
 // ---- Push-Benachrichtigungen -------------------------------

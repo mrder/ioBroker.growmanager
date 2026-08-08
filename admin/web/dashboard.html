@@ -1709,7 +1709,10 @@ function groupCardHtml(g) {
   const humMin = g.setpointHumidity != null && g.setpointHumidityTolerance != null ? g.setpointHumidity - g.setpointHumidityTolerance : (g.setpointHumidityMin ?? null);
   const humMax = g.setpointHumidity != null && g.setpointHumidityTolerance != null ? g.setpointHumidity + g.setpointHumidityTolerance : (g.setpointHumidityMax ?? null);
   const humHtml  = `<div onclick="showTrend('${gid}','humidity','Luftfeuchte','%',${humMin},${humMax})" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.humidity, '%', 'Luftfeuchte', isCtrlHum, g.setpointHumidity ? g.setpointHumidity - 5 : null, g.setpointHumidity ? g.setpointHumidity + 5 : null, null, 0)}</div>`;
-  const vpdHtml  = `<div onclick="showTrend('${gid}','vpd','VPD','kPa',${g.setpointVpdMin ?? null},${g.setpointVpdMax ?? null})" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.vpd, ' kPa', 'VPD', isCtrlVpd, g.setpointVpdMin, g.setpointVpdMax, null, 2)}</div>`;
+  const leafVpdNote = g.leafVpd != null
+    ? `<div style="font-size:10px;color:var(--text-dim);margin-top:1px;text-align:center">Blatt: ${g.leafVpd.toFixed(2)} kPa${g.leafVpdEstimated ? ' ~' : ''}</div>`
+    : '';
+  const vpdHtml  = `<div onclick="showTrend('${gid}','vpd','VPD','kPa',${g.setpointVpdMin ?? null},${g.setpointVpdMax ?? null})" style="cursor:pointer" title="Luft-VPD (Reglerwert). Blatt-VPD: ${g.leafVpd != null ? g.leafVpd.toFixed(2)+' kPa'+(g.leafVpdEstimated?' (geschätzt)':' (gemessen)') : 'n/a'} – Trend anzeigen">${climateValHtml(g.vpd, ' kPa', 'VPD', isCtrlVpd, g.setpointVpdMin, g.setpointVpdMax, null, 2)}${leafVpdNote}</div>`;
   const isCtrlSoil = controlled.includes('soil');
   const isCtrlCo2  = controlled.includes('co2');
 
