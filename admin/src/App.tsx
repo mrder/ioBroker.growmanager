@@ -900,7 +900,7 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                 />
 
                 {/* Blüte-Temperatur-Schutz */}
-                {['heating', 'dehumidifier', 'humidifier', 'co2Valve', 'custom'].includes(edit.type) && (
+                {['heating', 'dehumidifier', 'humidifier', 'co2Valve', 'timedActuator', 'custom'].includes(edit.type) && (
                     <div style={{ background: '#1a0010', border: '1px solid #c62828', borderRadius: 6, padding: 10, marginTop: 8 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: '#ef9a9a' }}>🌸 Blüte-Temperatur-Schutz (optional)</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

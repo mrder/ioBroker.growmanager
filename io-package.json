@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.3.45",
+    "version": "0.3.46",
     "news": {
+      "0.3.46": {
+        "en": "v0.3.46: Bloom temp guard now also applies to timedActuator — non-shared schedule actuators check the guard in tickScheduleActuators; UI shows the field for timedActuator type.",
+        "de": "v0.3.46: Blüte-Temp-Schutz gilt jetzt auch für zeitgesteuerte Aktoren — nicht-geteilte timedActuator prüfen den Guard in tickScheduleActuators; Admin-UI zeigt das Feld auch für Typ 'Zeitgesteuert'."
+      },
       "0.3.45": {
         "en": "v0.3.45: Bloom temp guard hysteresis — activates at max temp, stays locked until 2°C below max. Releases automatically when actuator is no longer needed (humidity already fine).",
         "de": "v0.3.45: Blüte-Temp-Schutz mit 2°C Hysterese — aktiviert bei Max-Temperatur, bleibt gesperrt bis 2°C darunter. Gibt automatisch frei wenn Aktor ohnehin nicht mehr gebraucht wird (Feuchte bereits im Sollbereich)."

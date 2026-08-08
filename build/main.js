@@ -1396,7 +1396,21 @@ class GrowManagerAdapter extends utils.Adapter {
             const actState = this.actuatorService.getState(act.id);
             if (!actState || actState.manualLock)
                 continue;
-            const wantsOn = this.actuatorService.isActuatorScheduleActive(act, now);
+            let wantsOn = this.actuatorService.isActuatorScheduleActive(act, now);
+            // Blüte-Temp-Guard (Hysterese 2°C): sperrt timedActuator wenn Blüte zu warm
+            if (wantsOn && act.bloomTempGuardMaxC != null && config.phase === 'bloom') {
+                const gs = this.groupStates.get(config.id);
+                const temp = gs?.temperature ?? null;
+                if (temp !== null) {
+                    const hyst = 2.0;
+                    const curOn = (actState.requested ?? false) !== false && (actState.requested ?? false) !== 0;
+                    const guardThreshold = curOn ? act.bloomTempGuardMaxC : act.bloomTempGuardMaxC - hyst;
+                    if (temp >= guardThreshold) {
+                        this.log.info(`Zeitplan ${act.name}: Blüte-Temp-Schutz – ${temp.toFixed(1)}°C ≥ ${guardThreshold.toFixed(1)}°C → gesperrt`);
+                        wantsOn = false;
+                    }
+                }
+            }
             const canSwitch = this.actuatorService.canSwitch(act, wantsOn);
             if (!canSwitch.allowed)
                 continue;
