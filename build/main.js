@@ -810,11 +810,17 @@ class GrowManagerAdapter extends utils.Adapter {
                             }
                         }
                     }
-                    // Blüte-Temp-Guard für Eigentümer-Stimme
+                    // Blüte-Temp-Guard für Eigentümer-Stimme (mit Hysterese: aktiv bei ≥ max, bleibt bis < max-1.5)
                     if (actuatorConfig.bloomTempGuardMaxC != null && ownerNeed.wantsOn) {
                         const ownerTemp = ownerGs?.temperature ?? null;
-                        if (group.phase === 'bloom' && ownerTemp !== null && ownerTemp >= actuatorConfig.bloomTempGuardMaxC) {
-                            ownerNeed = { wantsOn: false, urgency: 1, reason: `Blüte-Temp-Schutz: ${ownerTemp.toFixed(1)}°C ≥ ${actuatorConfig.bloomTempGuardMaxC}°C` };
+                        if (group.phase === 'bloom' && ownerTemp !== null) {
+                            const hyst = 2.0;
+                            const guardThreshold = sharedCurrentlyOn
+                                ? actuatorConfig.bloomTempGuardMaxC
+                                : actuatorConfig.bloomTempGuardMaxC - hyst;
+                            if (ownerTemp >= guardThreshold) {
+                                ownerNeed = { wantsOn: false, urgency: 1, reason: `Blüte-Temp-Schutz: ${ownerTemp.toFixed(1)}°C ≥ ${guardThreshold.toFixed(1)}°C (Max ${actuatorConfig.bloomTempGuardMaxC}°C)` };
+                            }
                         }
                     }
                     this.sharedActorManager.submitVote(actuatorConfig.id, {
@@ -865,11 +871,17 @@ class GrowManagerAdapter extends utils.Adapter {
                                 }
                             }
                         }
-                        // Blüte-Temp-Guard für Teilnehmer-Stimme
+                        // Blüte-Temp-Guard für Teilnehmer-Stimme (mit Hysterese: aktiv bei ≥ max, bleibt bis < max-1.5)
                         if (actuatorConfig.bloomTempGuardMaxC != null && need.wantsOn && pGroup?.phase === 'bloom') {
                             const pTemp = pState.temperature ?? null;
-                            if (pTemp !== null && pTemp >= actuatorConfig.bloomTempGuardMaxC) {
-                                need = { wantsOn: false, urgency: 1, reason: `Blüte-Temp-Schutz (Teilnehmer): ${pTemp.toFixed(1)}°C ≥ ${actuatorConfig.bloomTempGuardMaxC}°C` };
+                            if (pTemp !== null) {
+                                const hyst = 2.0;
+                                const guardThreshold = sharedCurrentlyOn
+                                    ? actuatorConfig.bloomTempGuardMaxC
+                                    : actuatorConfig.bloomTempGuardMaxC - hyst;
+                                if (pTemp >= guardThreshold) {
+                                    need = { wantsOn: false, urgency: 1, reason: `Blüte-Temp-Schutz (Teilnehmer): ${pTemp.toFixed(1)}°C ≥ ${guardThreshold.toFixed(1)}°C (Max ${actuatorConfig.bloomTempGuardMaxC}°C)` };
+                                }
                             }
                         }
                         this.sharedActorManager.submitVote(actuatorConfig.id, {
@@ -1431,12 +1443,20 @@ class GrowManagerAdapter extends utils.Adapter {
                 // weil sonst die Voting-Loop changed=false sieht und setActuatorState nie sendet.
                 continue;
             }
-            // Blüte-Temperatur-Schutz: Aktor sperren wenn Gruppe in Blüte und Temp ≥ Schwelle
+            // Blüte-Temperatur-Schutz: Aktor sperren wenn Gruppe in Blüte und Temp ≥ Schwelle (Hysterese 1.5°C)
             if (actuatorConfig.bloomTempGuardMaxC != null && action.requested) {
                 const gs = this.groupStates.get(config.id);
-                if (config.phase === 'bloom' && gs?.temperature != null && gs.temperature >= actuatorConfig.bloomTempGuardMaxC) {
-                    this.log.info(`${actuatorConfig.name}: Blüte-Temp-Schutz – ${gs.temperature.toFixed(1)}°C ≥ ${actuatorConfig.bloomTempGuardMaxC}°C → gesperrt`);
-                    continue;
+                if (config.phase === 'bloom' && gs?.temperature != null) {
+                    const hyst = 2.0;
+                    const actSt = this.actuatorService.getState(actuatorConfig.id);
+                    const curOn = (actSt?.requested ?? false) !== false && (actSt?.requested ?? false) !== 0;
+                    const guardThreshold = curOn
+                        ? actuatorConfig.bloomTempGuardMaxC
+                        : actuatorConfig.bloomTempGuardMaxC - hyst;
+                    if (gs.temperature >= guardThreshold) {
+                        this.log.info(`${actuatorConfig.name}: Blüte-Temp-Schutz – ${gs.temperature.toFixed(1)}°C ≥ ${guardThreshold.toFixed(1)}°C → gesperrt`);
+                        continue;
+                    }
                 }
             }
             // Aktuellen Reglerwunsch für Dashboard-Anzeige speichern (unabhängig von canSwitch)
