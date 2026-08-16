@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.3.46",
+    "version": "0.3.47",
     "news": {
+      "0.3.47": {
+        "en": "v0.3.47: StuckOn retry before alarm — when an actuator is detected as stuck-on, the OFF command is resent once; alarm only fires if still stuck after 90 seconds.",
+        "de": "v0.3.47: StuckOn-Retry vor Alarm — wenn ein Aktor als klebendes Relais erkannt wird, wird der AUS-Befehl einmal wiederholt; Alarm wird erst ausgelöst wenn nach 90 Sekunden immer noch EIN."
+      },
       "0.3.46": {
         "en": "v0.3.46: Bloom temp guard now also applies to timedActuator — non-shared schedule actuators check the guard in tickScheduleActuators; UI shows the field for timedActuator type.",
         "de": "v0.3.46: Blüte-Temp-Schutz gilt jetzt auch für zeitgesteuerte Aktoren — nicht-geteilte timedActuator prüfen den Guard in tickScheduleActuators; Admin-UI zeigt das Feld auch für Typ 'Zeitgesteuert'."

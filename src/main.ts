@@ -69,6 +69,7 @@ class GrowManagerAdapter extends utils.Adapter {
     private readonly votingResults = new Map<string, boolean | number>(); // letzte Voting-Entscheidung je Aktor-ID
     private readonly directDesires = new Map<string, boolean | number>(); // aktueller Reglerwunsch für direkte Aktoren
     private readonly switchBlocks = new Map<string, { reason: string; until: number }>(); // canSwitch-Sperren für Dashboard
+    private readonly stuckOnRetryTs = new Map<string, number>(); // Zeitstempel des letzten AUS-Retry bei stuckOn
     private readonly lightChangeTimes = new Map<string, number>();
     private readonly lightTransitionFromNight = new Map<string, boolean>(); // true = Morgen-Übergang (Nacht→Tag)
     private readonly subscribedStateIds = new Set<string>();
@@ -1300,8 +1301,29 @@ class GrowManagerAdapter extends utils.Adapter {
         // 7) Diagnose & Alarm
         for (const actuatorConfig of config.actuators) {
             const actState = this.actuatorService.getState(actuatorConfig.id);
-            if (actState) {
-                state.actuators.set(actuatorConfig.id, actState);
+            if (!actState) continue;
+            state.actuators.set(actuatorConfig.id, actState);
+
+            if (actState.health === 'stuckOn') {
+                const retryTs = this.stuckOnRetryTs.get(actuatorConfig.id);
+                const now = Date.now();
+                const retryGraceMs = 90_000; // 90s Wartezeit nach Retry
+
+                if (retryTs === undefined) {
+                    // Erster stuckOn-Treffer: AUS-Befehl nochmal senden, noch kein Alarm
+                    this.log.warn(`${actuatorConfig.name}: stuckOn erkannt – sende nochmals AUS-Befehl (Retry)`);
+                    await this.setActuatorState(actuatorConfig.commandStateId, actuatorConfig.offValue);
+                    this.stuckOnRetryTs.set(actuatorConfig.id, now);
+                    // Alarm noch nicht feuern – erst nach Grace-Period prüfen
+                } else if (now - retryTs < retryGraceMs) {
+                    // Innerhalb der Grace-Period: Alarm unterdrücken, warten
+                } else {
+                    // Grace-Period abgelaufen und immer noch stuckOn → Alarm feuern
+                    this.diagnosticsEngine.checkActuatorFeedback(config.id, actuatorConfig, actState);
+                }
+            } else {
+                // Nicht (mehr) stuckOn: Retry-Timestamp löschen + normale Diagnose
+                this.stuckOnRetryTs.delete(actuatorConfig.id);
                 this.diagnosticsEngine.checkActuatorFeedback(config.id, actuatorConfig, actState);
             }
         }
