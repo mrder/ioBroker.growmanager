@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.3.47",
+    "version": "0.3.48",
     "news": {
+      "0.3.48": {
+        "en": "v0.3.48: Unreachable alarm grace period (60s) + alarm history in dashboard — sporadic WiFi dropouts no longer trigger immediate alarms; all alarms (active + resolved) now visible in the dashboard via the Alarme chip.",
+        "de": "v0.3.48: Grace-Period (60s) für Verbindungsverlust-Alarme + Alarmverlauf im Dashboard — kurze WLAN-Aussetzer lösen keinen sofortigen Alarm mehr aus; alle Alarme (aktiv + gelöscht) sind im Dashboard über den Alarme-Chip sichtbar."
+      },
       "0.3.47": {
         "en": "v0.3.47: StuckOn retry before alarm — when an actuator is detected as stuck-on, the OFF command is resent once; alarm only fires if still stuck after 90 seconds.",
         "de": "v0.3.47: StuckOn-Retry vor Alarm — wenn ein Aktor als klebendes Relais erkannt wird, wird der AUS-Befehl einmal wiederholt; Alarm wird erst ausgelöst wenn nach 90 Sekunden immer noch EIN."

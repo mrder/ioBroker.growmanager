@@ -70,6 +70,7 @@ class GrowManagerAdapter extends utils.Adapter {
     private readonly directDesires = new Map<string, boolean | number>(); // aktueller Reglerwunsch für direkte Aktoren
     private readonly switchBlocks = new Map<string, { reason: string; until: number }>(); // canSwitch-Sperren für Dashboard
     private readonly stuckOnRetryTs = new Map<string, number>(); // Zeitstempel des letzten AUS-Retry bei stuckOn
+    private readonly unreachableFirstTs = new Map<string, number>(); // Zeitstempel erstes Erkennen von "nicht erreichbar"
     private readonly lightChangeTimes = new Map<string, number>();
     private readonly lightTransitionFromNight = new Map<string, boolean>(); // true = Morgen-Übergang (Nacht→Tag)
     private readonly subscribedStateIds = new Set<string>();
@@ -706,14 +707,12 @@ class GrowManagerAdapter extends utils.Adapter {
                     this.actuatorService.setReachable(actuator.id, healthy);
                     if (!healthy) {
                         this.log.warn(`Aktor ${actuator.name} nicht erreichbar (${stateId} = ${val})`);
-                        this.alarmService.raise(
-                            ALARM_CODES.ACTUATOR_UNREACHABLE,
-                            group.id,
-                            actuator.id,
-                            'fault',
-                            `Aktor "${actuator.name}" nicht erreichbar`
-                        );
+                        // Alarm erst nach Grace-Period (60s) in processGroup feuern, um Kurzausfälle zu ignorieren
+                        if (!this.unreachableFirstTs.has(actuator.id)) {
+                            this.unreachableFirstTs.set(actuator.id, Date.now());
+                        }
                     } else {
+                        this.unreachableFirstTs.delete(actuator.id);
                         this.alarmService.clear(ALARM_CODES.ACTUATOR_UNREACHABLE, group.id, actuator.id);
                     }
                 }
@@ -1325,6 +1324,20 @@ class GrowManagerAdapter extends utils.Adapter {
                 // Nicht (mehr) stuckOn: Retry-Timestamp löschen + normale Diagnose
                 this.stuckOnRetryTs.delete(actuatorConfig.id);
                 this.diagnosticsEngine.checkActuatorFeedback(config.id, actuatorConfig, actState);
+            }
+
+            // Unreachable-Alarm mit 60s Grace-Period (verhindert Alarm bei kurzen WiFi-Aussetzern)
+            if (actState.health === 'unreachable') {
+                const firstTs = this.unreachableFirstTs.get(actuatorConfig.id);
+                if (firstTs !== undefined && Date.now() - firstTs >= 60_000) {
+                    this.alarmService.raise(
+                        ALARM_CODES.ACTUATOR_UNREACHABLE,
+                        config.id,
+                        actuatorConfig.id,
+                        'fault',
+                        `Aktor "${actuatorConfig.name}" nicht erreichbar`
+                    );
+                }
             }
         }
 
@@ -2267,11 +2280,27 @@ class GrowManagerAdapter extends utils.Adapter {
                 };
             });
 
+        const alarmHistory = this.alarmService.getAllAlarms()
+            .sort((a, b) => b.lastUpdate - a.lastUpdate)
+            .slice(0, 50)
+            .map(a => ({
+                id: a.id,
+                code: a.code,
+                groupId: a.groupId,
+                severity: a.severity,
+                message: a.message,
+                active: a.active,
+                since: a.since,
+                clearedAt: a.clearedAt,
+                repeatCount: a.repeatCount,
+            }));
+
         return {
             ts: Date.now(),
             adapterVersion: this.version ?? '0.1.0',
             health: 'running',
             activeAlarms: activeAlarms.length,
+            alarmHistory,
             groups,
         };
     }
