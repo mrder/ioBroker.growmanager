@@ -1358,6 +1358,103 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                         <option value="custom">Benutzerdefiniert</option>
                     </select>
 
+                    {/* Trocknungs-Einstellungen */}
+                    {edit.phase === 'drying' && (
+                        <div style={{ background: 'rgba(120,180,255,0.08)', border: '1px solid rgba(120,180,255,0.3)', borderRadius: 6, padding: 12, marginBottom: 4 }}>
+                            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: '#7ab8ff' }}>Trocknungseinstellungen</div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                <input type="checkbox"
+                                    checked={edit.dryingLightOff ?? true}
+                                    onChange={e => setEdit(prev => ({ ...prev, dryingLightOff: e.target.checked }))} />
+                                <span style={{ fontSize: 13 }}>Licht-Aktoren dauerhaft AUS (empfohlen)</span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                <input type="checkbox"
+                                    checked={edit.dryingRamp?.enabled ?? false}
+                                    onChange={e => setEdit(prev => ({
+                                        ...prev,
+                                        dryingRamp: {
+                                            enabled: e.target.checked,
+                                            startDate: prev.dryingRamp?.startDate ?? Date.now(),
+                                            durationDays: prev.dryingRamp?.durationDays ?? 14,
+                                            startTemp: prev.dryingRamp?.startTemp ?? 18,
+                                            endTemp: prev.dryingRamp?.endTemp ?? 16,
+                                            startHumidity: prev.dryingRamp?.startHumidity ?? 60,
+                                            endHumidity: prev.dryingRamp?.endHumidity ?? 50,
+                                        }
+                                    }))} />
+                                <span style={{ fontSize: 13 }}>Sollwert-Rampe aktivieren (proportionale Interpolation)</span>
+                            </div>
+
+                            {edit.dryingRamp?.enabled && (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={styles.fieldLabel}>Erntedatum (Startpunkt der Rampe)</label>
+                                        <input style={styles.input} type="date"
+                                            value={new Date(edit.dryingRamp.startDate).toISOString().slice(0, 10)}
+                                            onChange={e => setEdit(prev => ({
+                                                ...prev,
+                                                dryingRamp: { ...prev.dryingRamp!, startDate: new Date(e.target.value).getTime() }
+                                            }))} />
+                                    </div>
+                                    <div>
+                                        <label style={styles.fieldLabel}>Dauer (Tage)</label>
+                                        <input style={styles.input} type="number" min={1} max={60}
+                                            value={edit.dryingRamp.durationDays}
+                                            onChange={e => setEdit(prev => ({
+                                                ...prev,
+                                                dryingRamp: { ...prev.dryingRamp!, durationDays: +e.target.value }
+                                            }))} />
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 8, marginTop: 2, fontSize: 12, color: '#7ab8ff' }}>
+                                        Temperatur-Sollwert (Start → End)
+                                    </div>
+                                    <div>
+                                        <label style={styles.fieldLabel}>Start-Temp (°C)</label>
+                                        <input style={styles.input} type="number" min={10} max={35} step={0.5}
+                                            value={edit.dryingRamp.startTemp}
+                                            onChange={e => setEdit(prev => ({
+                                                ...prev,
+                                                dryingRamp: { ...prev.dryingRamp!, startTemp: +e.target.value }
+                                            }))} />
+                                    </div>
+                                    <div>
+                                        <label style={styles.fieldLabel}>End-Temp (°C)</label>
+                                        <input style={styles.input} type="number" min={10} max={35} step={0.5}
+                                            value={edit.dryingRamp.endTemp}
+                                            onChange={e => setEdit(prev => ({
+                                                ...prev,
+                                                dryingRamp: { ...prev.dryingRamp!, endTemp: +e.target.value }
+                                            }))} />
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 8, marginTop: 2, fontSize: 12, color: '#7ab8ff' }}>
+                                        Feuchte-Sollwert (Start → End)
+                                    </div>
+                                    <div>
+                                        <label style={styles.fieldLabel}>Start-Feuchte (%)</label>
+                                        <input style={styles.input} type="number" min={30} max={90}
+                                            value={edit.dryingRamp.startHumidity}
+                                            onChange={e => setEdit(prev => ({
+                                                ...prev,
+                                                dryingRamp: { ...prev.dryingRamp!, startHumidity: +e.target.value }
+                                            }))} />
+                                    </div>
+                                    <div>
+                                        <label style={styles.fieldLabel}>End-Feuchte (%)</label>
+                                        <input style={styles.input} type="number" min={30} max={90}
+                                            value={edit.dryingRamp.endHumidity}
+                                            onChange={e => setEdit(prev => ({
+                                                ...prev,
+                                                dryingRamp: { ...prev.dryingRamp!, endHumidity: +e.target.value }
+                                            }))} />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     <label style={styles.fieldLabel}>Betriebsart</label>
                     <select style={styles.select} {...field('mode')}>
                         <option value="off">Aus</option>

@@ -152,6 +152,16 @@ export interface CameraConfig {
     cpuLimitPercent: number;
 }
 
+export interface DryingRampConfig {
+    enabled: boolean;
+    startDate: number;
+    durationDays: number;
+    startTemp: number;
+    endTemp: number;
+    startHumidity: number;
+    endHumidity: number;
+}
+
 export interface GroupConfig {
     id: string; name: string; description: string; color: string; enabled: boolean;
     phase: PlantPhase; mode: GroupMode; schedule: DaySchedule;
@@ -163,6 +173,8 @@ export interface GroupConfig {
     sensorDisagreementThreshold: number;
     outdoorSensor?: OutdoorSensorConfig;
     leafTempOffsetC?: number;
+    dryingRamp?: DryingRampConfig;
+    dryingLightOff?: boolean;
 }
 
 export type NotificationChannelType = 'telegram' | 'whatsapp' | 'discord' | 'signal' | 'pushover';

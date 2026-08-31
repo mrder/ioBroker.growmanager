@@ -427,6 +427,24 @@ export interface AlarmChannel {
     retentionDays: number;
 }
 
+// ---- Trocknung ---------------------------------------------
+
+export interface DryingRampConfig {
+    enabled: boolean;
+    /** Erntedatum als Unix-Timestamp (ms) – Startpunkt der Rampe */
+    startDate: number;
+    /** Gesamtdauer der Trocknung in Tagen */
+    durationDays: number;
+    /** Starttemperatur zu Beginn der Trocknung (°C) */
+    startTemp: number;
+    /** Zieltemperatur am Ende der Trocknung (°C) */
+    endTemp: number;
+    /** Start-Luftfeuchte zu Beginn der Trocknung (%) */
+    startHumidity: number;
+    /** Ziel-Luftfeuchte am Ende der Trocknung (%) */
+    endHumidity: number;
+}
+
 // ---- Gruppe ------------------------------------------------
 
 export interface GroupConfig {
@@ -455,6 +473,10 @@ export interface GroupConfig {
     outdoorSensor?: OutdoorSensorConfig;
     /** Geschätzter Unterschied Blatttemperatur zu Lufttemperatur in °C (Standard: 2°C). Wird für Leaf-VPD Schätzung genutzt wenn kein Blattsensor vorhanden. */
     leafTempOffsetC?: number;
+    /** Trocknungsrampe: proportionale Interpolation von Sollwerten über die Trockendauer */
+    dryingRamp?: DryingRampConfig;
+    /** Licht-Aktoren im Trocknungsmodus automatisch sperren (Standard: true) */
+    dryingLightOff?: boolean;
 }
 
 // ---- Push-Benachrichtigungen -------------------------------
@@ -612,6 +634,15 @@ export interface ActuatorState {
     lastSwitchTs: number;
 }
 
+export interface DryingProgress {
+    day: number;           // Aktueller Tag (1-basiert), z.B. 5
+    total: number;         // Gesamtdauer in Tagen, z.B. 14
+    progress: number;      // 0–1, linearer Fortschritt
+    tempTarget: number;    // Aktueller interpolierter Temperatursollwert
+    humidityTarget: number; // Aktueller interpolierter Feuchte-Sollwert
+    done: boolean;         // true wenn Dauer abgelaufen
+}
+
 export interface GroupState {
     id: string;
     mode: GroupMode;
@@ -634,6 +665,7 @@ export interface GroupState {
     nextScheduleChange?: number;
     alarmActive: boolean;
     highestAlarmSeverity?: string;
+    dryingProgress?: DryingProgress | null;
 }
 
 export interface ControlAction {

@@ -417,6 +417,17 @@
   .card-alarm { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
   .sev-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 
+  /* ---- Trocknung ---- */
+  .drying-badge { margin: 0 16px 8px; background: rgba(100,180,255,0.12);
+    border: 1px solid rgba(100,180,255,0.4); border-radius: 6px;
+    padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .drying-badge-title { font-size: 12px; font-weight: 600; color: #7ab8ff; }
+  .drying-badge-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .drying-progress-track { flex: 1; height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .drying-progress-fill { height: 100%; border-radius: 3px; background: #7ab8ff; transition: width 0.5s; }
+  .drying-badge-targets { display: flex; gap: 12px; font-size: 12px; color: var(--text-dim); }
+  .drying-badge-done { color: var(--green-light); font-weight: 600; }
+
   /* ---- Alarm-History-Modal ---- */
   .alarm-modal { display:none; position:fixed; inset:0; z-index:9100; background:rgba(0,0,0,0.78);
     align-items:flex-start; justify-content:center; overflow-y:auto; padding:16px 0; }
@@ -1726,6 +1737,33 @@ function groupTotalPowerHtml(g) {
   return `<span class="${cls}">${label}</span>`;
 }
 
+// ---- Trocknung-Badge ----
+function dryingBadgeHtml(g) {
+  if (g.phase !== 'drying') return '';
+  const dp = g.dryingProgress;
+  if (!dp) {
+    return `<div class="drying-badge"><div class="drying-badge-title">🌿 Trocknung (manuell)</div></div>`;
+  }
+  const pct = Math.round(dp.progress * 100);
+  if (dp.done) {
+    return `<div class="drying-badge">
+      <div class="drying-badge-title">🌿 Trocknung abgeschlossen</div>
+      <div class="drying-badge-row"><span class="drying-badge-done">✓ ${dp.total} Tage erreicht</span></div>
+    </div>`;
+  }
+  return `<div class="drying-badge">
+    <div class="drying-badge-title">🌿 Trocknung · Tag ${dp.day} / ${dp.total}</div>
+    <div class="drying-badge-row">
+      <div class="drying-progress-track"><div class="drying-progress-fill" style="width:${pct}%"></div></div>
+      <span style="color:var(--text-dim);white-space:nowrap">${pct}%</span>
+    </div>
+    <div class="drying-badge-targets">
+      <span>Soll-Temp: <b>${dp.tempTarget.toFixed(1)}°C</b></span>
+      <span>Soll-Feuchte: <b>${dp.humidityTarget.toFixed(0)}%</b></span>
+    </div>
+  </div>`;
+}
+
 // ---- Gruppenkarte ----
 function groupCardHtml(g) {
   const healthColor = HEALTH_COLORS[g.health] ?? 'var(--safe)';
@@ -1866,6 +1904,7 @@ function groupCardHtml(g) {
       ${monitorTag}
       ${qualityBadgeHtml(g)}
     </div>
+    ${dryingBadgeHtml(g)}
     ${irrigBadge}
     ${actHtml}
     ${alarmHtml}

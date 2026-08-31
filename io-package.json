@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.3.48",
+    "version": "0.3.49",
     "news": {
+      "0.3.49": {
+        "en": "v0.3.49: Drying phase — new plant phase 'drying' with optional proportional ramp (configurable start/end temp and humidity over N days), light actuator lockout, and dashboard drying badge showing day X/Y progress.",
+        "de": "v0.3.49: Trocknung – neue Pflanzenphase 'Trocknung' mit optionaler proportionaler Rampe (Temp- und Feuchte-Sollwerte über N Tage interpoliert), automatische Licht-Sperre und Dashboard-Abzeichen mit Tag-X/Y-Fortschritt."
+      },
       "0.3.48": {
         "en": "v0.3.48: Unreachable alarm grace period (60s) + alarm history in dashboard — sporadic WiFi dropouts no longer trigger immediate alarms; all alarms (active + resolved) now visible in the dashboard via the Alarme chip.",
         "de": "v0.3.48: Grace-Period (60s) für Verbindungsverlust-Alarme + Alarmverlauf im Dashboard — kurze WLAN-Aussetzer lösen keinen sofortigen Alarm mehr aus; alle Alarme (aktiv + gelöscht) sind im Dashboard über den Alarme-Chip sichtbar."

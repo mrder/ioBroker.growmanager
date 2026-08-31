@@ -110,6 +110,23 @@ class ScheduleService {
         }
     }
     /**
+     * Berechnet den aktuellen Fortschritt der Trocknungsrampe.
+     * Gibt null zurück wenn die Rampe nicht aktiviert ist.
+     */
+    getDryingProgress(ramp) {
+        if (!ramp.enabled || ramp.durationDays <= 0)
+            return null;
+        const now = Date.now();
+        const elapsed = now - ramp.startDate;
+        const totalMs = ramp.durationDays * 24 * 3600 * 1000;
+        const progress = Math.max(0, Math.min(1, elapsed / totalMs));
+        const day = Math.max(1, Math.min(ramp.durationDays, Math.floor(elapsed / (24 * 3600 * 1000)) + 1));
+        const done = elapsed >= totalMs;
+        const tempTarget = ramp.startTemp + (ramp.endTemp - ramp.startTemp) * progress;
+        const humidityTarget = ramp.startHumidity + (ramp.endHumidity - ramp.startHumidity) * progress;
+        return { day, total: ramp.durationDays, progress, tempTarget, humidityTarget, done };
+    }
+    /**
      * Liefert lesbaren Text über nächsten Wechsel.
      */
     nextChangeText(now, schedule) {

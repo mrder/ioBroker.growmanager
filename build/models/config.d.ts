@@ -260,6 +260,21 @@ export interface AlarmChannel {
     quietHours?: TimeWindow;
     retentionDays: number;
 }
+export interface DryingRampConfig {
+    enabled: boolean;
+    /** Erntedatum als Unix-Timestamp (ms) – Startpunkt der Rampe */
+    startDate: number;
+    /** Gesamtdauer der Trocknung in Tagen */
+    durationDays: number;
+    /** Starttemperatur zu Beginn der Trocknung (°C) */
+    startTemp: number;
+    /** Zieltemperatur am Ende der Trocknung (°C) */
+    endTemp: number;
+    /** Start-Luftfeuchte zu Beginn der Trocknung (%) */
+    startHumidity: number;
+    /** Ziel-Luftfeuchte am Ende der Trocknung (%) */
+    endHumidity: number;
+}
 export interface GroupConfig {
     id: string;
     name: string;
@@ -286,6 +301,10 @@ export interface GroupConfig {
     outdoorSensor?: OutdoorSensorConfig;
     /** Geschätzter Unterschied Blatttemperatur zu Lufttemperatur in °C (Standard: 2°C). Wird für Leaf-VPD Schätzung genutzt wenn kein Blattsensor vorhanden. */
     leafTempOffsetC?: number;
+    /** Trocknungsrampe: proportionale Interpolation von Sollwerten über die Trockendauer */
+    dryingRamp?: DryingRampConfig;
+    /** Licht-Aktoren im Trocknungsmodus automatisch sperren (Standard: true) */
+    dryingLightOff?: boolean;
 }
 export type NotificationChannelType = 'telegram' | 'whatsapp' | 'discord' | 'signal' | 'pushover';
 export interface NotificationChannel {
@@ -395,6 +414,14 @@ export interface ActuatorState {
     switchCount: number;
     lastSwitchTs: number;
 }
+export interface DryingProgress {
+    day: number;
+    total: number;
+    progress: number;
+    tempTarget: number;
+    humidityTarget: number;
+    done: boolean;
+}
 export interface GroupState {
     id: string;
     mode: GroupMode;
@@ -417,6 +444,7 @@ export interface GroupState {
     nextScheduleChange?: number;
     alarmActive: boolean;
     highestAlarmSeverity?: string;
+    dryingProgress?: DryingProgress | null;
 }
 export interface ControlAction {
     actuatorId: string;

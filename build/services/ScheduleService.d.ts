@@ -1,4 +1,4 @@
-import type { DaySchedule, DayNight, ClimateProfile, ClimateSetpoint } from '../models/config';
+import type { DaySchedule, DayNight, ClimateProfile, ClimateSetpoint, DryingRampConfig, DryingProgress } from '../models/config';
 export declare class ScheduleService {
     /**
      * Ermittelt ob aktuell Tag, Nacht oder Übergang ist.
@@ -18,6 +18,11 @@ export declare class ScheduleService {
      * Während Transition: 60s (sekündliche Re-Evaluierung für glatte Interpolation).
      */
     msUntilNextChange(now: Date, schedule: DaySchedule): number;
+    /**
+     * Berechnet den aktuellen Fortschritt der Trocknungsrampe.
+     * Gibt null zurück wenn die Rampe nicht aktiviert ist.
+     */
+    getDryingProgress(ramp: DryingRampConfig): DryingProgress | null;
     /**
      * Liefert lesbaren Text über nächsten Wechsel.
      */

@@ -994,7 +994,10 @@ class GrowManagerAdapter extends utils.Adapter {
             return;
         const now = new Date();
         // 1) Tag/Nacht bestimmen
-        const dayNight = this.scheduleService.getDayNight(now, config.schedule);
+        // Im Trocknungsmodus: dauerhaft Nacht (kein Lichtzyklus)
+        let dayNight = this.scheduleService.getDayNight(now, config.schedule);
+        if (config.phase === 'drying')
+            dayNight = 'night';
         const prevDayNight = this.lastDayNight.get(config.id);
         if (dayNight !== prevDayNight) {
             this.lightChangeTimes.set(config.id, Date.now());
@@ -1009,7 +1012,16 @@ class GrowManagerAdapter extends utils.Adapter {
             this.log.info(`Gruppe ${config.name}: Wechsel zu ${dayNight}`);
         }
         state.dayNight = dayNight;
-        state.nextScheduleChange = this.scheduleService.msUntilNextChange(now, config.schedule) + Date.now();
+        state.nextScheduleChange = config.phase === 'drying'
+            ? undefined
+            : this.scheduleService.msUntilNextChange(now, config.schedule) + Date.now();
+        // 1b) Trocknungsrampe berechnen (wenn phase === 'drying')
+        if (config.phase === 'drying' && config.dryingRamp) {
+            state.dryingProgress = this.scheduleService.getDryingProgress(config.dryingRamp);
+        }
+        else {
+            state.dryingProgress = null;
+        }
         // 2) Aggregierte Klimawerte berechnen
         const stab = config.stabilityTimeSeconds;
         const tempAgg = this.sensorService.aggregate(config.sensors, 'temperature', config.aggregationMethod, stab);
@@ -1060,9 +1072,17 @@ class GrowManagerAdapter extends utils.Adapter {
         const profile = this.growConfig.climateProfiles.find(p => p.id === config.profileId);
         const lightChangeTs = this.lightChangeTimes.get(config.id) ?? Date.now();
         const transitionFromNight = this.lightTransitionFromNight.get(config.id) ?? false;
-        const setpoint = profile
+        let setpoint = profile
             ? this.scheduleService.getActiveSetpoint(profile, dayNight, lightChangeTs, transitionFromNight)
             : null;
+        // Trocknungsrampe überschreibt Temp+Feuchte-Sollwerte (alle anderen Grenzwerte bleiben aus dem Profil)
+        if (config.phase === 'drying' && state.dryingProgress && setpoint) {
+            setpoint = {
+                ...setpoint,
+                temperature: state.dryingProgress.tempTarget,
+                humidity: state.dryingProgress.humidityTarget,
+            };
+        }
         state.activeProfile = profile;
         // 5) Regelentscheidung
         let decision = null;
@@ -1491,6 +1511,16 @@ class GrowManagerAdapter extends utils.Adapter {
                 // Aktoren mit sharedParticipants werden ausschließlich durch die Voting-Loop
                 // in runCycle() gesteuert. recordCommand() darf NICHT hier aufgerufen werden,
                 // weil sonst die Voting-Loop changed=false sieht und setActuatorState nie sendet.
+                continue;
+            }
+            // Trocknungs-Licht-Sperre: Licht-Aktoren im Trocknungsmodus dauerhaft AUS halten
+            if (config.phase === 'drying' && (config.dryingLightOff ?? true) && actuatorConfig.type === 'light') {
+                if (action.requested !== false && action.requested !== 0) {
+                    this.directDesires.set(actuatorConfig.id, false);
+                    const changed = this.actuatorService.recordCommand(actuatorConfig, false);
+                    if (changed)
+                        await this.setActuatorState(actuatorConfig.commandStateId, actuatorConfig.offValue);
+                }
                 continue;
             }
             // Blüte-Temperatur-Schutz: Aktor sperren wenn Gruppe in Blüte und Temp ≥ Schwelle (Hysterese 1.5°C)
@@ -2151,6 +2181,8 @@ class GrowManagerAdapter extends utils.Adapter {
                 outdoorHumidity: g.outdoorSensor?.enabled && g.outdoorSensor.humidityStateId
                     ? (this.outdoorValues.get(g.outdoorSensor.humidityStateId) ?? null)
                     : null,
+                dryingProgress: state?.dryingProgress ?? null,
+                dryingLightOff: g.dryingLightOff ?? true,
             };
         });
         const alarmHistory = this.alarmService.getAllAlarms()
