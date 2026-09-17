@@ -4,11 +4,27 @@ All notable changes to the GrowManager ioBroker adapter are documented here.
 
 ## [0.4.0] - 2026-09-17
 
-Erster Major-Release nach der 0.3.x-Entwicklungsphase. Fasst alle Neuerungen und Korrekturen aus 0.3.10–0.3.49 zusammen.
+Vollständige Zusammenfassung aller Neuerungen gegenüber **v0.3.0**. Umfasst 49 Patch-Versionen (v0.3.1–v0.3.49).
 
 ### Neue Features
 
+#### CO₂-Regelung — v0.3.2
+- Neue Aktor-Typen `co2Valve` und `exhaustFan` mit Zweipunkt-Hysterese-Regelung.
+- Konfigurierbare Sollwerte: `co2Target`, `co2Tolerance`, `co2Max`, `co2Critical` im ClimateSetpoint.
+- Alarme: `CO2_HIGH` und `CO2_LOW` mit Deduplizierung bei mehreren CO₂-Aktoren.
+
+#### VPD-Hysterese richtungsbasiert (Laufen bis Mitte) — v0.3.7–0.3.8
+- Aktoren laufen jetzt bis zur **Mitte des Sollbereichs** bevor sie abschalten — längere, stabilere EIN/AUS-Zyklen statt Bang-Bang.
+- Gilt für Einzel- und geteilte Aktoren; im `majority`-Modus proportionale Abstimmung.
+
+#### RH-Hysterese & VPD-Guard — v0.3.21–0.3.28
+- Entfeuchter/Befeuchter regeln primär nach RH-Sollwert; VPD dient nur noch als harter Überbereich-Guard.
+- Manueller Override läuft nicht ab solange die Gruppe im MANUELL-Modus bleibt.
+
 #### Zeitgesteuerter Aktor-Typ (`timedActuator`) — v0.3.41–0.3.43
+- Neuer Aktor-Typ „Zeitgesteuert" (timedActuator): pro Aktor können mehrere Wochenpläne konfiguriert werden (Wochentage + Zeitfenster). Der Adapter schaltet automatisch, unabhängig von der Klimaregelung.
+- Geteilte timedActuator-Aktoren funktionieren korrekt: Eigentümer stimmt per Zeitplan, Teilnehmer enthalten sich.
+- Admin-UI blendet bei Typ timedActuator klimaspezifische Felder (Regelziel, Wirkrichtung, Stufenregelung) aus und zeigt Zeitplan-Editor direkt am Aktor.
 - Neuer Aktor-Typ „Zeitgesteuert" (timedActuator): pro Aktor können mehrere Wochenpläne konfiguriert werden (Wochentage + Zeitfenster). Der Adapter schaltet automatisch, unabhängig von der Klimaregelung.
 - Geteilte timedActuator-Aktoren funktionieren korrekt: Eigentümer stimmt per Zeitplan, Teilnehmer enthalten sich.
 - Admin-UI blendet bei Typ timedActuator klimaspezifische Felder (Regelziel, Wirkrichtung, Stufenregelung) aus und zeigt Zeitplan-Editor direkt am Aktor.
@@ -34,6 +50,12 @@ Erster Major-Release nach der 0.3.x-Entwicklungsphase. Fasst alle Neuerungen und
 - **Grace-Period für Verbindungsverlust**: `ACTUATOR_UNREACHABLE`-Alarm erst nach 60 s kontinuierlichem Ausfall — kurze WLAN-Aussetzer lösen keinen Alarm mehr aus.
 - **Alarmverlauf im Dashboard**: Klick auf den „Alarme"-Chip öffnet ein Modal mit allen Alarmen (aktiv + gelöscht), sortiert nach Zeitstempel.
 
+#### Energie-Tracking & Dashboard-Karten — v0.3.4–0.3.6
+- Energie-Tracking für dauerlaufende Aktoren (kein abgeschlossener EIN→AUS-Zyklus): `ratedWatts` als Fallback für Wh-Berechnung.
+- Korrektur: Aktoren ohne `ratedPowerW` wurden nicht korrekt als AUS getracked → Laufzeit lief durch.
+- Energie-Verlaufstabelle und Tages-Statistiken auf Card-Layout pro Aktor/Sensor umgestellt.
+- Wochen-Navigation (◀/▶) für Statistik und Energieverlauf (7 Tage/Seite, 30 Tage gespeichert).
+
 ### Leistungsüberwachung (Power Monitoring) — v0.3.33–0.3.40
 - Automatisch erlernter Peak-Watt-Wert (auto-learned) als Vergleichsbasis.
 - Live-Leistungsbadge pro Aktor-Zeile (nur bei eingeschaltetem Aktor sichtbar).
@@ -57,9 +79,9 @@ Erster Major-Release nach der 0.3.x-Entwicklungsphase. Fasst alle Neuerungen und
 - Push-Benachrichtigungen verbessert (v0.3.31–0.3.32).
 - Trocknungsphase-Badge, Alarmverlauf-Modal (v0.3.48–0.3.49).
 
-### Stabilitätskorrekturen (0.3.10–0.3.29, Rundenpässe)
-- 19 dedizierte Bug-Fix-Pässe (v0.3.10–v0.3.28) mit Korrekturen in: ClimateController, IrrigationService, AirSystemService, ActuatorService, SensorService, ScheduleService, DatabaseService, WebDashboardService, NotificationService, DiagnosticsEngine, main.ts und dashboard.html.
-- Schwerpunkte: XSS-Fixes im Dashboard, Energie-Tracking-Korrekturen, SSRF-Guards, Hysterese-Fehler bei geteilten Aktoren, Kondensationsverriegelung, Pumpen-Sofortstopp, Race-Conditions, Async-Exception-Handling.
+### Stabilitätskorrekturen (v0.3.1–v0.3.49, Rundenpässe)
+- Über 25 dedizierte Bug-Fix-Pässe mit Korrekturen in: ClimateController, IrrigationService, AirSystemService, ActuatorService, SensorService, ScheduleService, DatabaseService, WebDashboardService, NotificationService, DiagnosticsEngine, main.ts und dashboard.html.
+- Schwerpunkte: XSS-Fixes im Dashboard (14+ Stellen), Energie-Tracking-Korrekturen, SSRF-Guards, Hysterese-Fehler bei geteilten Aktoren, Kondensationsverriegelung, Pumpen-Sofortstopp, Race-Conditions, Async-Exception-Handling, NaN-Guards in ScheduleService.
 
 ---
 
