@@ -2,6 +2,67 @@
 
 All notable changes to the GrowManager ioBroker adapter are documented here.
 
+## [0.4.0] - 2026-09-17
+
+Erster Major-Release nach der 0.3.x-Entwicklungsphase. Fasst alle Neuerungen und Korrekturen aus 0.3.10–0.3.49 zusammen.
+
+### Neue Features
+
+#### Zeitgesteuerter Aktor-Typ (`timedActuator`) — v0.3.41–0.3.43
+- Neuer Aktor-Typ „Zeitgesteuert" (timedActuator): pro Aktor können mehrere Wochenpläne konfiguriert werden (Wochentage + Zeitfenster). Der Adapter schaltet automatisch, unabhängig von der Klimaregelung.
+- Geteilte timedActuator-Aktoren funktionieren korrekt: Eigentümer stimmt per Zeitplan, Teilnehmer enthalten sich.
+- Admin-UI blendet bei Typ timedActuator klimaspezifische Felder (Regelziel, Wirkrichtung, Stufenregelung) aus und zeigt Zeitplan-Editor direkt am Aktor.
+
+#### Blüte-Temperatur-Schutz (`bloomTempGuard`) — v0.3.44–0.3.46
+- Heizung und Entfeuchter werden automatisch gesperrt, wenn eine Blüte-Gruppe die konfigurierte Maximaltemperatur überschreitet.
+- 2 °C Hysterese: Guard bleibt aktiv bis 2 °C unter der Maximaltemperatur — verhindert Flatterbetrieb.
+- Guard gilt auch für zeitgesteuerte Aktoren (`timedActuator`).
+
+#### Leaf-VPD-Schätzung — v0.3.44
+- Blatt-VPD wird jetzt auch ohne physischen Blatttemperatursensor berechnet — Schätzung über konfigurierbaren Offset (Standard: 2 °C kühler als Lufttemperatur).
+- Anzeige im Dashboard unterhalb des Luft-VPD.
+
+#### Trocknungsphase (`drying`) — v0.3.49
+- Neue Pflanzenphase „Trocknung" neben Wuchs und Blüte.
+- Dauerhafter Licht-Lockout: Licht-Aktoren werden in der Trocknungsphase automatisch gesperrt (optional deaktivierbar).
+- Optionale proportionale Rampe: Soll-Temperatur und Soll-Feuchte werden linear über einen konfigurierbaren Zeitraum interpoliert (Startdatum, Dauer in Tagen, Start-/Endwerte).
+- Dashboard zeigt Fortschritts-Badge (Tag X / Y) mit Fortschrittsbalken und aktuellen Sollwerten.
+- Admin-UI mit eigenem Konfigurationspanel für Rampe und Licht-Lockout.
+
+#### Alarm-Verbesserungen — v0.3.47–0.3.48
+- **StuckOn-Retry**: Wenn ein Aktor als klebendes Relais erkannt wird, wird der AUS-Befehl einmal wiederholt. Alarm erst nach weiteren 90 Sekunden.
+- **Grace-Period für Verbindungsverlust**: `ACTUATOR_UNREACHABLE`-Alarm erst nach 60 s kontinuierlichem Ausfall — kurze WLAN-Aussetzer lösen keinen Alarm mehr aus.
+- **Alarmverlauf im Dashboard**: Klick auf den „Alarme"-Chip öffnet ein Modal mit allen Alarmen (aktiv + gelöscht), sortiert nach Zeitstempel.
+
+### Leistungsüberwachung (Power Monitoring) — v0.3.33–0.3.40
+- Automatisch erlernter Peak-Watt-Wert (auto-learned) als Vergleichsbasis.
+- Live-Leistungsbadge pro Aktor-Zeile (nur bei eingeschaltetem Aktor sichtbar).
+- Energie-Tracking für W-Sensor-Aktoren korrigiert: korrekter Wh-Wert auch wenn ioBroker keine State-Change-Events für unveränderte Leistungswerte sendet.
+- `energyStateUnit`-Default-Handling korrigiert (fehlende explizite Einheit führte zu 0 Wh).
+- Energie-Tracking für Umluft-, Luft- und Bewässerungs-Aktoren ergänzt.
+- Energie-Verlaufstabelle auf Card-Layout pro Aktor umgestellt.
+
+### Klima-Regelung — v0.3.7–0.3.28
+- **VPD-Hysterese richtungsbasiert** (v0.3.7): Aktoren laufen bis zur Mitte des Sollbereichs statt sofort abzuschalten — längere, stabilere EIN/AUS-Zyklen.
+- **Geteilte Aktoren** (v0.3.8): Gleiches Laufen-bis-Mitte-Prinzip für shared actors; proportionale Abstimmung im majority-Modus.
+- **RH-Hysterese** (v0.3.21–0.3.28): Entfeuchter/Befeuchter regeln primär nach RH-Sollwert; VPD fungiert als harter Überbereich-Guard.
+- CO₂-Regelung (v0.3.2): co2Valve/exhaustFan mit Zweipunkt-Hysterese, CO₂_HIGH- und CO₂_LOW-Alarme.
+- Blatt-VPD, Taupunkt und Kondensationsrisiko durchgehend verfügbar.
+
+### Dashboard & UI — v0.3.6–v0.3.49
+- Tages-Statistiken als Sensor-Cards (v0.3.6).
+- Wochen-Navigation für Statistik und Energie (7 Tage/Seite, ◀/▶, 30 Tage gespeichert) (v0.3.7).
+- Aktor-Alert-Regeln im Admin konfigurierbar (v0.3.33+).
+- Live-Admin-Vorschau-Fix (v0.3.30).
+- Push-Benachrichtigungen verbessert (v0.3.31–0.3.32).
+- Trocknungsphase-Badge, Alarmverlauf-Modal (v0.3.48–0.3.49).
+
+### Stabilitätskorrekturen (0.3.10–0.3.29, Rundenpässe)
+- 19 dedizierte Bug-Fix-Pässe (v0.3.10–v0.3.28) mit Korrekturen in: ClimateController, IrrigationService, AirSystemService, ActuatorService, SensorService, ScheduleService, DatabaseService, WebDashboardService, NotificationService, DiagnosticsEngine, main.ts und dashboard.html.
+- Schwerpunkte: XSS-Fixes im Dashboard, Energie-Tracking-Korrekturen, SSRF-Guards, Hysterese-Fehler bei geteilten Aktoren, Kondensationsverriegelung, Pumpen-Sofortstopp, Race-Conditions, Async-Exception-Handling.
+
+---
+
 ## [0.3.9] - 2026-07-20
 
 Siehe Commit-Message `v0.3.9` — 7-Runden Bug-Fix-Pass (Energie-Tracking, SafeState, Dashboard, ConfigImport, VPD-Hysterese, Datum-Off-by-One, Promise-Rejection-Handling).

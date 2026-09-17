@@ -12,7 +12,7 @@ Ein modularer ioBroker-Adapter zur Überwachung, Regelung und Diagnose mehrerer 
 ### Kernfunktionen
 - Mehrere unabhängige **Gruppen** (Growzelte, -räume, Growboxen)
 - Temperatur- und Luftfeuchte-Sensoren mit konfigurierbarer **Aggregation** (Median, Mittelwert, gewichteter Mittelwert, Min, Max)
-- Berechnung von **VPD**, Blatt-VPD, Taupunkt, absoluter Feuchte und Kondensationsrisiko
+- Berechnung von **VPD**, **Blatt-VPD** (mit optionalem Temperatur-Sensor oder geschätztem Offset), Taupunkt, absoluter Feuchte und Kondensationsrisiko
 - **PID-Regler** (P, PI, PID) mit Anti-Windup (Clamping / Back-Calculation), bumpless Transfer, Derivative Filter
 - **Hysterese-Zweipunktregelung** mit Mindestlauf- und Mindestauszeiten
 - **7-stufige Prioritätslogik**: Notfall → VPD → Temperatur → Feuchte → Zeitplan → Überwachung → Aus
@@ -23,8 +23,9 @@ Ein modularer ioBroker-Adapter zur Überwachung, Regelung und Diagnose mehrerer 
 - Sensor-Glättung: Gleitender Mittelwert, Median, Exponentiell
 - Sensor-Stabilitätszeit: Wiederhergestellte Sensoren werden erst nach konfigurierbarer Wartezeit für die Regelung verwendet
 - Aktoren: Licht, Abluft, Zuluft, Umluft, Heizung, Kühlung, Befeuchter, Entfeuchter, Bewässerung, CO₂-Ventil, Klappe
+- **Zeitgesteuerter Aktor** (`timedActuator`): beliebige Wochenpläne pro Aktor (Wochentage + Zeitfenster), unabhängig von der Klimaregelung
 - **Geteilte Aktoren**: Ein Aktor kann mehreren Gruppen dienen; Konflikte werden nach Priorität aufgelöst
-- **Energie-Tracking**: Laufzeit- und Schaltstatistik für jeden Aktor (Stunden, Schaltvorgänge, Durchschnittsleistung)
+- **Energie-Tracking**: Laufzeit- und Schaltstatistik für jeden Aktor (Stunden, Schaltvorgänge, Durchschnittsleistung, Live-Leistungsbadge)
 
 ### Regelungsarten
 | Modus | Anforderungen |
@@ -49,6 +50,13 @@ Ein modularer ioBroker-Adapter zur Überwachung, Regelung und Diagnose mehrerer 
 - Leckage-Alarm (konfigurierbare Alarmschwelle)
 - Manuelle Auslösung via `sendTo()`
 
+### Pflanzenphasen
+| Phase | Beschreibung |
+|---|---|
+| Wuchs | Wachstumsphase mit konfiguriertem Tag/Nacht-Lichtplan |
+| Blüte | Blütephase; optionaler **Blüte-Temperaturgard** (Heizung/Entfeuchter gesperrt bei Überhitzung, 2 °C Hysterese) |
+| Trocknung | Dauerhafter Licht-Lockout; optionale **proportionale Rampe** für Temperatur und Feuchte über konfigurierbare Tage (Start-/Endwerte, Dashboard zeigt Tag X/Y-Fortschritt) |
+
 ### Diagnose & Alarme
 - **4-Ebenen-Diagnose**: Erreichbarkeit → Feedback → Leistungsaufnahme → Prozesswirkung
 - Trend-Auswertung (steigend, fallend, stabil, schwankend)
@@ -57,6 +65,9 @@ Ein modularer ioBroker-Adapter zur Überwachung, Regelung und Diagnose mehrerer 
 - Alarm-Schweregrade: critical / fault / warning / info
 - Alarm-Weiterleitung (Pushover, Email, Telegram, …) via sendTo-Adapter
 - Ruhezeitenfilter für Alarmversand
+- **Grace-Period** für Verbindungsverlust-Alarme (60 s): kurze WLAN-Aussetzer lösen keinen Alarm aus
+- **StuckOn-Retry**: AUS-Befehl wird einmal wiederholt; Alarm erst nach weiteren 90 s
+- **Alarmverlauf im Dashboard**: alle Alarme (aktiv + gelöscht) per Klick auf den „Alarme"-Chip abrufbar
 
 ### Fähigkeitsbasierte Degradierung
 Der Adapter erkennt zur Laufzeit, welche Sensoren und Aktoren verfügbar sind, und wählt automatisch den bestmöglichen Betriebsmodus:
@@ -107,7 +118,7 @@ Features:
 ### Admin-Oberfläche (ioBroker Admin)
 - Dashboard-Tab mit Gruppen-Live-Karten
 - Gruppen-Editor mit Tabs:
-  - **Grundeinstellungen**: Name, Phase, Modus, Zeitplan, Profil
+  - **Grundeinstellungen**: Name, Phase (Wuchs/Blüte/Trocknung), Modus, Zeitplan, Profil; Trocknungsphase: Licht-Lockout und Rampen-Konfiguration
   - **Sensoren**: Vollständiger Sensor-Editor (Typ, Rolle, State-ID, Offset, Glättung, …)
   - **Aktoren**: Aktor-Editor (Typ, State-IDs, Sperrzeiten, Feedback, Energie-Tracking, …)
   - **Bewässerung**: Zonen-Editor mit Feuchte-Schwellen und Pumpenzuordnung

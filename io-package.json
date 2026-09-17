@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "growmanager",
-    "version": "0.3.49",
+    "version": "0.4.0",
     "news": {
+      "0.4.0": {
+        "en": "v0.4.0: Major release — timedActuator type, bloom temp guard with hysteresis, leaf-VPD estimation, power monitoring improvements, drying phase with proportional ramp, stuckOn retry, unreachable alarm grace period, alarm history dashboard, and dozens of stability fixes across 0.3.x.",
+        "de": "v0.4.0: Major Release — zeitgesteuerter Aktor-Typ, Blüte-Temperaturgard mit Hysterese, Leaf-VPD-Schätzung, Leistungsüberwachung verbessert, Trocknungsphase mit proportionaler Rampe, StuckOn-Retry, Grace-Period für Verbindungsverlust-Alarme, Alarmverlauf im Dashboard und zahlreiche Stabilitätskorrekturen aus den 0.3.x-Patches."
+      },
       "0.3.49": {
         "en": "v0.3.49: Drying phase — new plant phase 'drying' with optional proportional ramp (configurable start/end temp and humidity over N days), light actuator lockout, and dashboard drying badge showing day X/Y progress.",
         "de": "v0.3.49: Trocknung – neue Pflanzenphase 'Trocknung' mit optionaler proportionaler Rampe (Temp- und Feuchte-Sollwerte über N Tage interpoliert), automatische Licht-Sperre und Dashboard-Abzeichen mit Tag-X/Y-Fortschritt."
