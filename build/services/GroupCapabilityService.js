@@ -105,7 +105,7 @@ class GroupCapabilityService {
         reasons['temperature'] = caps.hasTemperature
             ? (caps.hasHeating || caps.hasCooling || caps.hasExhaustFan)
                 ? '✓ Temperatursensor + Regelaktor vorhanden'
-                : '✗ Kein Heizungs-/Kühlungs-/Ablufaktor konfiguriert'
+                : '✗ Kein Heizungs-/Kühlungs-/Abluftaktor konfiguriert'
             : '✗ Kein gültiger Temperatursensor';
         reasons['humidity'] = caps.hasHumidity
             ? (caps.hasHumidifier || caps.hasDehumidifier || caps.hasExhaustFan)
@@ -161,7 +161,7 @@ class GroupCapabilityService {
         return 'monitorOnly';
     }
     buildFallbackChain(config, available) {
-        const preferenceOrder = ['vpd', 'combined', 'temperature', 'humidity', 'schedule', 'monitorOnly', 'safe'];
+        const preferenceOrder = ['vpd', 'combined', 'temperature', 'humidity', 'schedule', 'monitorOnly'];
         return preferenceOrder.filter(m => available.includes(m));
     }
     hasSensorType(config, states, type) {

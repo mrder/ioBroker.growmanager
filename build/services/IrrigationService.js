@@ -31,6 +31,7 @@ class IrrigationService {
             lastEndTs: 0,
             pauseUntil: 0,
             currentMoisture: null,
+            startMoisture: null,
             flowRate: null,
             lastFlowTs: 0,
             totalFlowLiters: 0,
@@ -49,6 +50,10 @@ class IrrigationService {
         const state = this.zoneStates.get(zone.id);
         // Zone deaktiviert
         if (!zone.enabled) {
+            if (state.running) {
+                this.log.info(`Zone ${zone.name}: deaktiviert während Lauf → Pumpe AUS`);
+                this.stopZone(zone, state, 'Zone deaktiviert', groupId, state.startMoisture);
+            }
             return { zoneId: zone.id, command: false, reason: 'Zone deaktiviert', blocked: false };
         }
         // Fehlersperre
@@ -59,6 +64,7 @@ class IrrigationService {
         if (zone.allowedWindow && !(0, time_1.isInTimeWindow)(now, zone.allowedWindow.startHH, zone.allowedWindow.startMM, zone.allowedWindow.endHH, zone.allowedWindow.endMM)) {
             if (state.running) {
                 this.log.info(`Zone ${zone.name}: Zeitfenster endet → Pumpe AUS`);
+                this.stopZone(zone, state, 'Außerhalb Zeitfenster', groupId, state.startMoisture);
                 return { zoneId: zone.id, command: false, reason: 'Außerhalb Zeitfenster', blocked: false };
             }
             return { zoneId: zone.id, command: false, reason: 'Außerhalb erlaubtem Zeitfenster', blocked: false };
@@ -80,27 +86,33 @@ class IrrigationService {
     }
     handleRunning(zone, state, groupId) {
         const elapsed = (Date.now() - state.startTs) / 1000;
+        const maxRun = state.maxRunSeconds ?? zone.maxRunSeconds;
         // Maximale Laufzeit
-        if (elapsed > zone.maxRunSeconds) {
-            this.stopZone(zone, state, 'Maximale Laufzeit erreicht', groupId);
-            if (zone.dryRunProtection && zone.flowStateId && (state.flowRate === null || state.flowRate < 0.1)) {
+        if (elapsed > maxRun) {
+            const isDryRun = zone.dryRunProtection && zone.flowStateId &&
+                state.lastFlowTs > state.startTs && // only if sensor has reported since cycle start
+                (state.flowRate === null || state.flowRate < 0.1);
+            const stopReason = isDryRun ? 'Trockenläufer-Schutz' : 'Maximale Laufzeit erreicht';
+            this.stopZone(zone, state, stopReason, groupId, state.startMoisture);
+            if (isDryRun) {
                 this.alarmService.raise(AlarmService_1.ALARM_CODES.IRRIGATION_DRY_RUN, groupId, `zone:${zone.id}`, 'fault', `Zone ${zone.name}: Kein Durchfluss erkannt (Trockenläuferschutz)`);
                 state.blocked = true;
                 state.blockedReason = 'Trockenläufer-Schutz aktiv';
                 state.health = 'dryRun';
+                return { zoneId: zone.id, command: false, reason: 'Trockenläufer-Schutz', blocked: true };
             }
             return { zoneId: zone.id, command: false, reason: 'Timeout', blocked: false };
         }
         // Sollfeuchte erreicht (wenn Sensor vorhanden)
         if (state.currentMoisture !== null && state.currentMoisture >= zone.targetMoisture) {
-            this.stopZone(zone, state, `Zielfeuchte erreicht (${state.currentMoisture.toFixed(0)}%)`, groupId);
+            this.stopZone(zone, state, `Zielfeuchte erreicht (${state.currentMoisture.toFixed(0)}%)`, groupId, state.startMoisture);
             return { zoneId: zone.id, command: false, reason: `Zielfeuchte ${zone.targetMoisture}% erreicht`, blocked: false };
         }
         // Leckage prüfen (wenn Flow-Sensor vorhanden UND Pumpe schon lange läuft)
         if (zone.leakageAlarmSeconds > 0 && elapsed > zone.leakageAlarmSeconds) {
             if (state.flowRate !== null && state.flowRate > 5.0) {
                 this.alarmService.raise(AlarmService_1.ALARM_CODES.IRRIGATION_LEAK, groupId, `zone:${zone.id}`, 'critical', `Zone ${zone.name}: Verdacht auf Leckage (${state.flowRate.toFixed(1)} L/min nach ${elapsed.toFixed(0)}s)`);
-                this.stopZone(zone, state, 'Leckage-Schutz', groupId);
+                this.stopZone(zone, state, 'Leckage-Schutz', groupId, state.startMoisture);
                 state.blocked = true;
                 state.blockedReason = 'Leckage erkannt – manuelle Prüfung erforderlich';
                 state.health = 'leak';
@@ -125,12 +137,14 @@ class IrrigationService {
     /**
      * Manuelle/Zeitplan-gesteuerte Bewässerung auslösen.
      */
-    triggerManual(zone, durationSeconds) {
+    triggerManual(zone, durationSeconds, now = new Date()) {
         this.initZone(zone);
         const state = this.zoneStates.get(zone.id);
         if (state.running || state.blocked)
             return false;
         if (Date.now() < state.pauseUntil)
+            return false;
+        if (zone.allowedWindow && !(0, time_1.isInTimeWindow)(now, zone.allowedWindow.startHH, zone.allowedWindow.startMM, zone.allowedWindow.endHH, zone.allowedWindow.endMM))
             return false;
         const runSecs = durationSeconds ?? zone.maxRunSeconds;
         this.startZone({ ...zone, maxRunSeconds: runSecs }, state);
@@ -145,8 +159,8 @@ class IrrigationService {
             return;
         const now = Date.now();
         if (flowLpm !== null && state.running && state.startTs > 0 && state.lastFlowTs > 0) {
-            const dt = (now - state.lastFlowTs) / 3600000; // Delta seit letztem Update in Stunden
-            state.totalFlowLiters += flowLpm * dt;
+            const dt = (now - state.lastFlowTs) / 60000; // Delta seit letztem Update in Minuten
+            state.totalFlowLiters += flowLpm * dt; // L/min × min = Liter
         }
         state.lastFlowTs = now;
         state.flowRate = flowLpm;
@@ -158,9 +172,9 @@ class IrrigationService {
         const state = this.zoneStates.get(zoneId);
         const zone = this.zoneConfigs.get(zoneId);
         if (state && zone)
-            this.stopZone(zone, state, reason, groupId);
+            this.stopZone(zone, state, reason, groupId, state.startMoisture);
         else if (state)
-            this.stopZone({ minPauseMinutes: 0 }, state, reason, groupId);
+            this.stopZone({ minPauseMinutes: 0 }, state, reason, groupId, state.startMoisture);
     }
     /**
      * Sperre aufheben (nach manuellem Eingriff).
@@ -186,6 +200,10 @@ class IrrigationService {
     startZone(zone, state) {
         state.running = true;
         state.startTs = Date.now();
+        state.totalFlowLiters = 0; // Zähler für aktuellen Zyklus zurücksetzen
+        state.lastFlowTs = 0; // Phantom-Pause zwischen Zyklen verhindern
+        state.startMoisture = state.currentMoisture; // Feuchte zum Startpunkt merken
+        state.maxRunSeconds = zone.maxRunSeconds; // Laufzeit-Override aus triggerManual()
         state.health = 'ok';
         state.cycleCount++;
         this.log.info(`Zone ${zone.id}: Bewässerung gestartet (Zyklus ${state.cycleCount})`);
@@ -195,6 +213,7 @@ class IrrigationService {
         state.running = false;
         state.lastEndTs = Date.now();
         state.startTs = 0;
+        state.maxRunSeconds = undefined;
         state.pauseUntil = Date.now() + zone.minPauseMinutes * 60000;
         this.log.info(`Zone ${state.zoneId}: Bewässerung gestoppt (${reason})`);
         if (this.onStopCallback && groupId) {

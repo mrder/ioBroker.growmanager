@@ -24,6 +24,9 @@ export declare const ALARM_CODES: {
     readonly SENSOR_DEGRADED: "SENSOR_DEGRADED";
     readonly EMERGENCY_STOP: "EMERGENCY_STOP";
     readonly CUSTOM_ALERT: "CUSTOM_ALERT";
+    readonly ACTUATOR_ALERT: "ACTUATOR_ALERT";
+    readonly CO2_HIGH: "CO2_HIGH";
+    readonly CO2_LOW: "CO2_LOW";
 };
 export type AlarmCode = typeof ALARM_CODES[keyof typeof ALARM_CODES];
 export interface AlarmRaisedEvent {
@@ -39,6 +42,7 @@ export declare class AlarmService {
     constructor(log: ILogger);
     setRetentionDays(days: number): void;
     addListener(fn: AlarmListener): void;
+    removeListener(fn: AlarmListener): void;
     /**
      * Erzeugt oder aktualisiert einen Alarm.
      */

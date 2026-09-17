@@ -131,7 +131,7 @@ function linearTrend(points) {
         num += (xs[i] - meanX) * (ys[i] - meanY);
         den += (xs[i] - meanX) ** 2;
     }
-    return den === 0 ? 0 : num / den;
+    return den === 0 ? null : num / den; // null = undefiniert (identische Timestamps)
 }
 exports.linearTrend = linearTrend;
 /**

@@ -352,7 +352,7 @@
   .actuators { padding: 10px 16px; }
   .act-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
   .actuator-row {
-    display: flex; align-items: center; gap: 8px; padding: 5px 0;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 5px 0;
     font-size: 13px; border-bottom: 1px solid var(--border);
   }
   .actuator-row:last-child { border-bottom: none; }
@@ -399,6 +399,8 @@
   .act-countdown { font-size: 10px; color: var(--orange); background: rgba(255,152,0,0.1); border: 1px solid rgba(255,152,0,0.35); border-radius: 3px; padding: 1px 6px; margin-left: 6px; font-variant-numeric: tabular-nums; cursor: help; }
   .act-power { font-size: 10px; color: var(--green-light); background: rgba(102,187,106,0.1); border: 1px solid rgba(102,187,106,0.35); border-radius: 3px; padding: 1px 6px; margin-left: 6px; font-variant-numeric: tabular-nums; }
   .act-power-rated { color: var(--text-dim); background: rgba(128,128,128,0.08); border-color: rgba(128,128,128,0.25); }
+  .group-power-chip { font-size: 11px; font-weight: 600; color: var(--green-light); background: rgba(102,187,106,0.08); border: 1px solid rgba(102,187,106,0.3); border-radius: 4px; padding: 3px 10px; font-variant-numeric: tabular-nums; }
+  .group-power-chip.estimated { color: var(--text-dim); background: rgba(128,128,128,0.07); border-color: rgba(128,128,128,0.2); }
   .act-manual-lock { font-size: 10px; color: var(--yellow); background: rgba(251,192,45,0.1); border: 1px solid rgba(251,192,45,0.35); border-radius: 3px; padding: 1px 6px; margin-left: 6px; }
   .act-toggle {
     background: none; border: 1px solid var(--border); border-radius: 4px;
@@ -414,6 +416,37 @@
   .card-alarms { padding: 8px 16px; }
   .card-alarm { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
   .sev-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ---- Trocknung ---- */
+  .drying-badge { margin: 0 16px 8px; background: rgba(100,180,255,0.12);
+    border: 1px solid rgba(100,180,255,0.4); border-radius: 6px;
+    padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .drying-badge-title { font-size: 12px; font-weight: 600; color: #7ab8ff; }
+  .drying-badge-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .drying-progress-track { flex: 1; height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .drying-progress-fill { height: 100%; border-radius: 3px; background: #7ab8ff; transition: width 0.5s; }
+  .drying-badge-targets { display: flex; gap: 12px; font-size: 12px; color: var(--text-dim); }
+  .drying-badge-done { color: var(--green-light); font-weight: 600; }
+
+  /* ---- Alarm-History-Modal ---- */
+  .alarm-modal { display:none; position:fixed; inset:0; z-index:9100; background:rgba(0,0,0,0.78);
+    align-items:flex-start; justify-content:center; overflow-y:auto; padding:16px 0; }
+  .alarm-modal.open { display:flex; }
+  .alarm-modal-box { background:var(--bg-card,var(--surface)); border-radius:10px; padding:16px;
+    width:min(800px,96vw); margin:auto; display:flex; flex-direction:column; gap:10px; }
+  .alarm-modal-title { font-size:15px; font-weight:600; margin:0; }
+  .alarm-modal-close { margin-left:auto; background:none; border:1px solid var(--border);
+    border-radius:5px; padding:4px 12px; cursor:pointer; color:var(--text); font-size:13px; }
+  .alarm-modal-close:hover { background:var(--surface2); }
+  .alarm-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .alarm-table th { text-align:left; padding:6px 8px; border-bottom:1px solid var(--border);
+    color:var(--text-dim); font-weight:500; position:sticky; top:0; background:var(--bg-card,var(--surface)); }
+  .alarm-table td { padding:6px 8px; border-bottom:1px solid var(--border); vertical-align:top; }
+  .alarm-table tr:last-child td { border-bottom:none; }
+  .alarm-row-active td { background:rgba(255,68,68,0.06); }
+  .alarm-row-cleared td { opacity:0.6; }
+  .alarm-stat-chip { cursor:pointer; }
+  .alarm-stat-chip:hover .value { text-decoration:underline; }
 
   /* ---- Bewässerung ---- */
   .irrig-badge {
@@ -751,10 +784,48 @@
   </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- ALARM-HISTORY MODAL                                          -->
+<!-- ============================================================ -->
+<div class="alarm-modal" id="alarmModal" onclick="if(event.target===this)alarmModalClose()">
+  <div class="alarm-modal-box">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="alarm-modal-title">🔔 Alarmverlauf</span>
+      <button class="alarm-modal-close" onclick="alarmModalClose()">✕ Schließen</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="alarm-table">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Schwere</th>
+            <th>Meldung</th>
+            <th>Gruppe</th>
+            <th>Seit</th>
+            <th>Gelöscht</th>
+            <th>Whd.</th>
+          </tr>
+        </thead>
+        <tbody id="alarmHistoryBody"></tbody>
+      </table>
+    </div>
+    <div id="alarmHistoryEmpty" style="display:none;text-align:center;color:var(--text-dim);padding:24px">Keine Alarme vorhanden</div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // GrowManager Live Dashboard
 // ============================================================
+
+// HTML-Escaping für Textnodes und Attribute
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+// JS-String-Escaping für onclick-Attribute (Werte in einfachen Anführungszeichen)
+function escAttr(s) {
+  return String(s ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"');
+}
 
 const HEALTH_COLORS = {
   FULL: 'var(--full)', LIMITED: 'var(--limited)', FALLBACK: 'var(--fallback)',
@@ -775,12 +846,14 @@ const ACT_TYPE = {
   irrigation:     { icon: '🚿', label: 'Pumpe',        cls: 'irrigation' },
   co2Valve:       { icon: '💨', label: 'CO₂',          cls: '' },
   damper:         { icon: '🎚️', label: 'Klappe',       cls: '' },
+  timedActuator:  { icon: '🕐', label: 'Zeitplan',     cls: '' },
   custom:         { icon: '⚙️', label: 'Gerät',        cls: '' },
 };
 
 const PHASE_LABELS = { seedling:'Keimling', growth:'Wachstum', bloom:'Blüte', drying:'Trocknung', custom:'Individuell' };
-const camUrls = {};   // groupId -> snapshotUrl, populated during render
-const camCache = {};  // groupId -> last-good objectURL (blob:// from cam-proxy)
+const camUrls = {};      // groupId -> snapshotUrl, populated during render
+const camCache = {};     // groupId -> last-good objectURL (blob:// from cam-proxy)
+const camInFlight = {};  // groupId -> true wenn ein Refresh gerade läuft (Race-Condition-Schutz)
 const MODE_LABELS = {
   monitorOnly:'Nur Überwachung', temperature:'Temperatur', humidity:'Feuchte',
   vpd:'VPD', combined:'Kombiniert', schedule:'Zeitplan', manual:'Manuell',
@@ -831,7 +904,7 @@ async function sendMode(groupId, mode, groupName) {
   let pin = '';
   if (window._pinRequired) {
     pin = await showPinDialog(`${groupName} → ${mode === 'manual' ? 'MANUELL' : 'AUTO'}`);
-    if (pin === null) return;
+    if (pin === null) { _sendInFlight = false; return; }
   }
   try {
     const r = await fetch('/api/mode', {
@@ -841,12 +914,15 @@ async function sendMode(groupId, mode, groupName) {
     if (r.status === 403) {
       window._pinRequired = true;
       pin = await showPinDialog(`${groupName} → ${mode === 'manual' ? 'MANUELL' : 'AUTO'}`);
-      if (pin === null) return;
+      if (pin === null) { _sendInFlight = false; return; }
       const r2 = await fetch('/api/mode', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupId, mode, pin }),
       });
       if (r2.status === 403) { pinError.textContent = 'Falsche PIN'; pinModal.classList.add('visible'); }
+      else if (!r2.ok) console.error('Mode-Fehler:', r2.status);
+    } else if (!r.ok) {
+      console.error('Mode-Fehler:', r.status);
     }
   } catch(e) { console.error('Mode-Fehler:', e); } finally { _sendInFlight = false; }
 }
@@ -854,26 +930,12 @@ async function sendMode(groupId, mode, groupName) {
 async function sendControl(groupId, actuatorId, command, label) {
   if (_sendInFlight) return;
   _sendInFlight = true;
-  let pin = '';
-  if (window._pinRequired) {
-    pin = await showPinDialog(label);
-    if (pin === null) { _sendInFlight = false; return; }
-  }
   try {
     const r = await fetch('/api/control', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ groupId, actuatorId, command, durationMinutes: 60, pin }),
+      body: JSON.stringify({ groupId, actuatorId, command, durationMinutes: 60 }),
     });
-    if (r.status === 403) {
-      window._pinRequired = true;
-      pin = await showPinDialog(label);
-      if (pin === null) { _sendInFlight = false; return; }
-      const r2 = await fetch('/api/control', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId, actuatorId, command, durationMinutes: 60, pin }),
-      });
-      if (r2.status === 403) { pinError.textContent = 'Falsche PIN'; pinModal.classList.add('visible'); }
-    }
+    if (!r.ok) console.error('Control-Fehler:', r.status);
   } catch(e) { console.error('Control-Fehler:', e); } finally { _sendInFlight = false; }
 }
 
@@ -888,13 +950,14 @@ async function showTrend(groupId, variable, label, unit, setMin, setMax) {
   popup.classList.add('visible');
   try {
     const res = await fetch(`/api/trends/${groupId}/${variable}`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const payload = await res.json();
     // API liefert {points, hint?} oder (legacy) ein Array
     const points = Array.isArray(payload) ? payload : (payload.points ?? []);
     const hint = Array.isArray(payload) ? null : (payload.hint ?? null);
     if (hint) {
       document.getElementById('trendChart').innerHTML =
-        `<div class="trend-hint">ℹ️ ${hint.replace(/\n/g, '<br>')}</div>`;
+        `<div class="trend-hint">ℹ️ ${hint.split('\n').map(esc).join('<br>')}</div>`;
     } else {
       renderTrendChart(points, unit, setMin, setMax);
     }
@@ -985,6 +1048,7 @@ async function showLs(groupId, groupName) {
   ['lsVegDays','lsFlowerDays'].forEach(id => document.getElementById(id).value = '');
   try {
     const res = await fetch(`/api/lifestyle/${groupId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const d = await res.json();
     if (d.vegStart)    document.getElementById('lsVegStart').value    = d.vegStart;
     if (d.vegDays)     document.getElementById('lsVegDays').value     = d.vegDays;
@@ -1006,11 +1070,12 @@ async function saveLs() {
     flowerDays:  parseInt(document.getElementById('lsFlowerDays').value) || null,
   };
   try {
-    await fetch(`/api/lifestyle/${lsCurrentGroup}`, {
+    const resp = await fetch(`/api/lifestyle/${lsCurrentGroup}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
     lsCache[lsCurrentGroup] = data;
     closeLs();
     renderLsBars();
@@ -1038,7 +1103,7 @@ function lsBarHtml(groupId) {
     lines.push(`<div class="ls-phase">
       <span class="ls-phase-label">🌱 Wuchs</span>
       <div class="ls-progress-track"><div class="ls-progress-fill" style="width:${pct}%;background:${color}"></div></div>
-      <span class="ls-phase-info">Tag ${Math.max(0,vegDay)} / ${d.vegDays}</span>
+      <span class="ls-phase-info">Tag ${Math.max(0,vegDay)} / ${+d.vegDays}</span>
     </div>`);
   } else if (d.vegStart) {
     lines.push(`<div class="ls-phase"><span class="ls-phase-label">🌱 Wuchs</span><span class="ls-phase-info">Tag ${Math.max(0,vegDay)}</span></div>`);
@@ -1051,7 +1116,7 @@ function lsBarHtml(groupId) {
     lines.push(`<div class="ls-phase">
       <span class="ls-phase-label">🌸 Blüte</span>
       <div class="ls-progress-track"><div class="ls-progress-fill" style="width:${pct}%;background:${color}"></div></div>
-      <span class="ls-phase-info">Tag ${Math.max(0,florDay)} / ${d.flowerDays}</span>
+      <span class="ls-phase-info">Tag ${Math.max(0,florDay)} / ${+d.flowerDays}</span>
     </div>`);
   } else if (d.flowerStart) {
     lines.push(`<div class="ls-phase"><span class="ls-phase-label">🌸 Blüte</span><span class="ls-phase-info">Tag ${Math.max(0,florDay)}</span></div>`);
@@ -1078,6 +1143,7 @@ async function loadAllLifestyle(groups) {
     if (lsCache[g.id] !== undefined) return;
     try {
       const res = await fetch(`/api/lifestyle/${g.id}`);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       lsCache[g.id] = await res.json();
     } catch { lsCache[g.id] = {}; }
   }));
@@ -1093,6 +1159,8 @@ function renderLsBars() {
 let dbCurrentGroup = null;
 let dbCurrentTab = 'stats';
 let dbCurrentData = [];
+let dbWeekOffset = 0;
+let dbSwitchInFlight = false;
 
 async function showDb(groupId, groupName, tab = 'stats') {
   dbCurrentGroup = groupId;
@@ -1106,7 +1174,7 @@ function closeDb() {
 }
 
 async function dbSwitchTab(tab) {
-  if (!dbCurrentGroup) return;
+  if (!dbCurrentGroup || dbSwitchInFlight) return;
   dbCurrentTab = tab;
   document.getElementById('dbTabStats')?.classList.toggle('active', tab === 'stats');
   document.getElementById('dbTabEnergy')?.classList.toggle('active', tab === 'energy');
@@ -1114,42 +1182,89 @@ async function dbSwitchTab(tab) {
 
   const body = document.getElementById('dbBody');
   body.innerHTML = '<p style="color:var(--text-dim);padding:20px">Lade…</p>';
+  dbSwitchInFlight = true;
   try {
     const res = await fetch(`/api/database/${dbCurrentGroup}/${tab}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     dbCurrentData = await res.json();
-    body.innerHTML = tab === 'stats'      ? renderStatsTable(dbCurrentData)
-                   : tab === 'energy'     ? renderEnergyTable(dbCurrentData)
-                   :                        renderIrrigationTable(dbCurrentData);
+    dbWeekOffset = 0;
+    dbReRender();
   } catch(e) {
     body.innerHTML = '<p style="color:var(--warn);padding:20px">Fehler beim Laden</p>';
+  } finally {
+    dbSwitchInFlight = false;
   }
+}
+
+function dbWeekSlice(data) {
+  return data.slice(dbWeekOffset * 7, (dbWeekOffset + 1) * 7);
+}
+
+function renderWeekNav(data) {
+  const totalPages = Math.ceil(data.length / 7);
+  if (totalPages <= 1) return '';
+  const slice = dbWeekSlice(data);
+  const canOlder = dbWeekOffset < totalPages - 1;
+  const canNewer = dbWeekOffset > 0;
+  const first = esc((slice[0]?.date ?? '').split(' ')[0]);
+  const last  = esc((slice[slice.length - 1]?.date ?? '').split(' ')[0]);
+  const label = dbWeekOffset === 0
+    ? `Aktuelle Woche (${last} – ${first})`
+    : `Woche ${dbWeekOffset + 1} (${last} – ${first})`;
+  const btn = 'padding:4px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg-card,rgba(255,255,255,.06));color:var(--text);cursor:pointer;font-size:13px';
+  const dim = 'opacity:.3;cursor:default;pointer-events:none';
+  return `<div style="display:flex;align-items:center;gap:10px;padding:0 0 14px;user-select:none">
+    <button style="${btn}${canOlder?'':';'+dim}" onclick="dbWeekOffset++;dbReRender()">◀ Älter</button>
+    <span style="flex:1;text-align:center;font-size:13px;color:var(--text-dim)">${label}</span>
+    <button style="${btn}${canNewer?'':';'+dim}" ${canNewer?'':'disabled'} onclick="dbWeekOffset--;dbReRender()">Neuer ▶</button>
+  </div>`;
+}
+
+function dbReRender() {
+  const body = document.getElementById('dbBody');
+  if (!body) return;
+  const isDayBased = dbCurrentTab === 'stats' || dbCurrentTab === 'energy';
+  const slice = isDayBased ? dbWeekSlice(dbCurrentData) : dbCurrentData;
+  const nav   = isDayBased && dbCurrentData.length > 7 ? renderWeekNav(dbCurrentData) : '';
+  body.innerHTML = nav + (
+    dbCurrentTab === 'stats'   ? renderStatsTable(slice)
+  : dbCurrentTab === 'energy'  ? renderEnergyTable(slice)
+  : renderIrrigationTable(dbCurrentData)
+  );
 }
 
 function renderStatsTable(data) {
   if (!data || data.length === 0) return '<p style="color:var(--text-dim);padding:20px">Noch keine Tagesdaten vorhanden.</p>';
-  // Alle Sensor-IDs sammeln
   const sensorIds = [...new Set(data.flatMap(d => Object.keys(d.sensors ?? {})))];
-  // Anzeigename: erst aus dem name-Feld des neuesten Eintrags, dann Fallbacks
-  const sensorLabels = { temperature:'Temp °C', humidity:'Feuchte %', vpd:'VPD kPa' };
-  const cols = sensorIds.map(id => {
+  const sensorLabels = { temperature: 'Temperatur °C', humidity: 'Feuchte %', vpd: 'VPD kPa', co2: 'CO₂ ppm' };
+  const getName = id => {
     if (sensorLabels[id]) return sensorLabels[id];
     for (const row of data) {
       const s = row.sensors?.[id];
-      if (s && s.name && s.name !== id) return s.name;
+      if (s?.name && s.name !== id) return s.name;
     }
     return id;
-  });
-  let html = `<table class="db-table"><thead><tr><th>Datum</th>${cols.map(c=>`<th>${c} Min</th><th>${c} Avg</th><th>${c} Max</th>`).join('')}</tr></thead><tbody>`;
-  for (const row of data) {
-    html += `<tr><td>${row.date}</td>`;
-    for (const id of sensorIds) {
+  };
+  let html = '<div style="display:flex;flex-wrap:wrap;gap:16px;padding:4px 0">';
+  for (const id of sensorIds) {
+    html += `<div style="flex:1 1 260px;min-width:220px;border:1px solid var(--border);border-radius:8px;overflow:hidden">`;
+    html += `<div style="padding:10px 14px;background:var(--bg-card,rgba(255,255,255,.04));border-bottom:1px solid var(--border);font-weight:600">${esc(getName(id))}</div>`;
+    html += `<table class="db-table" style="margin:0;border:none"><thead>`;
+    html += `<tr><th>Datum</th><th style="text-align:right;color:#5bbddd">Min</th><th style="text-align:right">Avg</th><th style="text-align:right;color:#e87060">Max</th></tr>`;
+    html += `</thead><tbody>`;
+    for (const row of data) {
       const s = row.sensors?.[id];
-      if (s) html += `<td>${s.min != null ? s.min.toFixed(1) : '–'}</td><td style="font-weight:600">${s.avg != null ? s.avg.toFixed(1) : '–'}</td><td>${s.max != null ? s.max.toFixed(1) : '–'}</td>`;
-      else   html += `<td colspan="3" style="color:var(--text-dim)">–</td>`;
+      if (!s) continue;
+      html += `<tr>`;
+      html += `<td>${esc(row.date)}</td>`;
+      html += `<td style="text-align:right;color:#5bbddd">${s.min != null ? s.min.toFixed(1) : '–'}</td>`;
+      html += `<td style="text-align:right;font-weight:600">${s.avg != null ? s.avg.toFixed(1) : '–'}</td>`;
+      html += `<td style="text-align:right;color:#e87060">${s.max != null ? s.max.toFixed(1) : '–'}</td>`;
+      html += `</tr>`;
     }
-    html += '</tr>';
+    html += `</tbody></table></div>`;
   }
-  return html + '</tbody></table>';
+  return html + '</div>';
 }
 
 function renderEnergyTable(data) {
@@ -1158,7 +1273,6 @@ function renderEnergyTable(data) {
   const names = {};
   data.forEach(d => Object.entries(d.actuators ?? {}).forEach(([id,a]) => { names[id] = a.name; }));
 
-  // Gesamtsummen pro Aktor berechnen
   const totals = {};
   actIds.forEach(id => { totals[id] = { wh: 0, runtimeMin: 0 }; });
   data.forEach(d => actIds.forEach(id => {
@@ -1167,41 +1281,51 @@ function renderEnergyTable(data) {
   }));
 
   const fmtRuntime = min => {
-    const h = Math.floor(min/60), m = Math.round(min%60);
+    const h = Math.floor(min / 60), m = Math.round(min % 60);
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   };
-  const fmtAvgW = (wh, runtimeMin) => runtimeMin > 0 ? (wh / (runtimeMin/60)).toFixed(0) + ' W' : '–';
+  const fmtAvgW = (wh, runtimeMin, fallbackW) => {
+    if (runtimeMin > 0 && wh > 0) return (wh / (runtimeMin / 60)).toFixed(0) + ' W';
+    if (fallbackW > 0) return '~' + fallbackW + ' W';
+    return '-';
+  };
+  const fmtWh = wh => wh >= 1000 ? (wh / 1000).toFixed(2) + ' kWh' : wh.toFixed(0) + ' Wh';
 
-  let html = `<table class="db-table"><thead><tr><th>Datum</th>`;
-  actIds.forEach(id => {
-    html += `<th>${names[id]??id}<br><small style="color:var(--text-dim);font-weight:400">Wh / kWh</small></th>`;
-    html += `<th><small style="color:var(--text-dim);font-weight:400">Laufzeit / Ø W</small></th>`;
-  });
-  html += '</tr></thead><tbody>';
+  // Spitzenwert pro Aktor aus heutigem Eintrag lesen (wird vom Adapter geliefert)
+  const peakByAct = {};
+  data.forEach(d => actIds.forEach(id => {
+    const a = d.actuators?.[id];
+    if (a?.peakW > 0 && (peakByAct[id] == null || a.peakW > peakByAct[id])) peakByAct[id] = a.peakW;
+  }));
 
-  for (const row of data) {
-    html += `<tr><td>${row.date}</td>`;
-    for (const id of actIds) {
+  let html = '<div style="display:flex;flex-wrap:wrap;gap:16px;padding:4px 0">';
+  for (const id of actIds) {
+    const tot = totals[id];
+    const peak = peakByAct[id];
+    const peakHint = peak ? `<span style="font-size:11px;font-weight:400;color:var(--text-dim);margin-left:8px">Spitzenwert: ${peak} W</span>` : '';
+    html += `<div style="flex:1 1 280px;min-width:260px;border:1px solid var(--border);border-radius:8px;overflow:hidden">`;
+    html += `<div style="padding:10px 14px;background:var(--bg-card, rgba(255,255,255,.04));border-bottom:1px solid var(--border);font-weight:600">${esc(names[id] ?? id)}${peakHint}</div>`;
+    html += `<table class="db-table" style="margin:0;border:none">`;
+    html += `<thead><tr><th>Datum</th><th style="text-align:right">Energie</th><th style="text-align:right">Laufzeit</th><th style="text-align:right">Ø W</th></tr></thead><tbody>`;
+    for (const row of data) {
       const a = row.actuators?.[id];
-      if (a) {
-        const kwh = (a.wh / 1000).toFixed(3);
-        html += `<td>${a.wh.toFixed(0)} Wh<br><small style="color:var(--text-dim)">${kwh} kWh</small></td>`;
-        html += `<td>${fmtRuntime(a.runtimeMin)}<br><small style="color:var(--text-dim)">${fmtAvgW(a.wh, a.runtimeMin)}</small></td>`;
-      } else html += `<td colspan="2" style="color:var(--text-dim)">–</td>`;
+      if (!a) continue;
+      html += `<tr>`;
+      html += `<td>${esc(row.date)}</td>`;
+      html += `<td style="text-align:right">${fmtWh(a.wh)}</td>`;
+      html += `<td style="text-align:right">${fmtRuntime(a.runtimeMin)}</td>`;
+      html += `<td style="text-align:right;color:var(--text-dim)">${fmtAvgW(a.wh, a.runtimeMin, peak)}</td>`;
+      html += `</tr>`;
     }
-    html += '</tr>';
+    html += `<tr style="font-weight:600;border-top:2px solid var(--border)">`;
+    html += `<td>Gesamt</td>`;
+    html += `<td style="text-align:right;color:var(--accent)">${fmtWh(tot.wh)}</td>`;
+    html += `<td style="text-align:right">${fmtRuntime(tot.runtimeMin)}</td>`;
+    html += `<td style="text-align:right;color:var(--text-dim)">${fmtAvgW(tot.wh, tot.runtimeMin, peak)}</td>`;
+    html += `</tr>`;
+    html += `</tbody></table></div>`;
   }
-
-  // Summenzeile
-  html += `<tr style="font-weight:600;border-top:2px solid var(--border)"><td>Gesamt (${data.length} Tage)</td>`;
-  actIds.forEach(id => {
-    const t = totals[id];
-    html += `<td>${t.wh.toFixed(0)} Wh<br><small style="color:var(--accent)">${(t.wh/1000).toFixed(3)} kWh</small></td>`;
-    html += `<td>${fmtRuntime(t.runtimeMin)}<br><small style="color:var(--text-dim)">${fmtAvgW(t.wh, t.runtimeMin)}</small></td>`;
-  });
-  html += '</tr>';
-
-  return html + '</tbody></table>';
+  return html + '</div>';
 }
 
 function renderIrrigationTable(data) {
@@ -1210,10 +1334,11 @@ function renderIrrigationTable(data) {
   for (const ev of data) {
     const d = new Date(ev.ts);
     const ts = `${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}`;
-    const dur = ev.durationSec >= 60 ? `${Math.floor(ev.durationSec/60)}m ${ev.durationSec%60}s` : `${ev.durationSec}s`;
+    const sec = +ev.durationSec;
+    const dur = sec >= 60 ? `${Math.floor(sec/60)}m ${sec%60}s` : `${sec}s`;
     const sm = ev.startMoisture != null ? ev.startMoisture.toFixed(0)+'%' : '–';
     const em = ev.endMoisture   != null ? ev.endMoisture.toFixed(0)+'%'   : '–';
-    html += `<tr><td>${ts}</td><td>${ev.zoneName}</td><td>${dur}</td><td>${sm}</td><td>${em}</td><td>${ev.trigger}</td><td>${ev.flowLiters>0?ev.flowLiters.toFixed(1):'–'}</td></tr>`;
+    html += `<tr><td>${ts}</td><td>${esc(ev.zoneName)}</td><td>${dur}</td><td>${sm}</td><td>${em}</td><td>${esc(ev.trigger)}</td><td>${ev.flowLiters>0?ev.flowLiters.toFixed(1):'–'}</td></tr>`;
   }
   return html + '</tbody></table>';
 }
@@ -1261,10 +1386,10 @@ function actIconsHtml(actuators, groupId, manualOverrides) {
     const unreachable = a.health === 'unreachable';
     const errBadge = unreachable ? '<span class="act-chip-err">!</span>' : '';
     const sharedMark = a.shared && a.sharedParticipants && a.sharedParticipants.length ? '⇄' : '';
-    const tipShared = sharedMark ? ` · geteilt (${a.sharedVotingMode ?? 'any'}, ${a.sharedParticipants.length} Gruppe(n))` : '';
+    const tipShared = sharedMark ? ` · geteilt (${esc(a.sharedVotingMode ?? 'any')}, ${a.sharedParticipants.length} Gruppe(n))` : '';
     return `<span class="act-icon-chip ${isOn ? 'on ' + t.cls : 'off'}${unreachable ? ' chip-unreachable' : ''}">
       ${t.icon}${sharedMark}${errBadge}${pulse}
-      <span class="act-icon-tip">${a.name}${ovNote}${tipShared} · ${unreachable ? '⚠ Nicht erreichbar' : (isOn ? 'EIN' : 'AUS')}</span>
+      <span class="act-icon-tip">${esc(a.name)}${ovNote}${tipShared} · ${unreachable ? '⚠ Nicht erreichbar' : (isOn ? 'EIN' : 'AUS')}</span>
     </span>`;
   }).join('');
   return `<div class="act-icons-row">${chips}</div>`;
@@ -1307,13 +1432,13 @@ function climateValHtml(value, unit, label, isControlled, setMin, setMax, setTar
 
   return `<div class="climate-val${isControlled ? ' controlled' : ''}">
     ${numHtml}
-    <div class="climate-label">${label}</div>
+    <div class="climate-label">${esc(label)}</div>
     ${setpointHtml}
   </div>`;
 }
 
 // ---- Aktor Detail-Zeile ----
-function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
+function actuatorHtml(a, groupId, groupName, manualOverrides, isManualMode) {
   // Externer geteilter Aktor (nur Teilnehmer, kein Eigentümer dieser Gruppe)
   if (a.sharedFromGroupId) {
     const fb = a.feedback ?? a.effectiveState;
@@ -1324,14 +1449,14 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
       : sollOn;
     const ledClass = istOn ? 'on' : 'off';
     const t = ACT_TYPE[a.type] ?? ACT_TYPE.custom;
-    const influence = a.influenceFactor != null ? ` · ${a.influenceFactor}% Einfluss` : '';
+    const influence = a.influenceFactor != null ? ` · ${+a.influenceFactor}% Einfluss` : '';
     const istHtml = hasFb
       ? ` <span class="act-label-dim">Ist:</span> <span class="act-state ${istOn?'on':'off'}">${istOn?'EIN':'AUS'}</span>`
       : '';
     return `<div class="actuator-row act-shared-extern">
       <div class="act-dot ${ledClass}"></div>
-      <span class="act-name">${t.icon} ${a.name}</span>
-      <span class="act-shared-from-badge" title="Eigentümer: ${a.sharedFromGroupName}${influence}">⇄ ${a.sharedFromGroupName}</span>
+      <span class="act-name">${t.icon} ${esc(a.name)}</span>
+      <span class="act-shared-from-badge" title="Eigentümer: ${esc(a.sharedFromGroupName ?? '')}${influence}">⇄ ${esc(a.sharedFromGroupName ?? '')}</span>
       <span style="margin-left:auto;display:flex;align-items:center;gap:4px">
         <span class="act-label-dim">Soll:</span>
         <span class="act-state ${sollOn?'on':'off'}">${sollOn?'EIN':'AUS'}</span>${istHtml}
@@ -1354,17 +1479,16 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   const ledClass = istOn ? 'on' : 'off';
 
   // Per-Aktor AUTO/MANUELL-Badge: klickbar zum Zurücksetzen auf AUTO
-  const esc = (s) => s.replace(/'/g, "\\'");
   const modeBadge = ov
     ? `<span class="act-override-badge clickable" title="Auf AUTO zurücksetzen – setzt alle Aktoren der Gruppe auf AUTO"
-         onclick="sendMode('${esc(groupId)}','auto','${esc(groupId)}')">MANUELL ↩</span>`
+         onclick="sendMode('${escAttr(groupId)}','auto','${escAttr(groupName)}')">MANUELL ↩</span>`
     : `<span class="act-mode-badge">AUTO</span>`;
 
   // Soll-Wert
   const votes = (a.votes && a.votes.length > 0) ? a.votes : null;
   let votingTooltipHtml = '';
   if (votes) {
-    const modeLabel = { any: 'ANY', majority: 'Mehrheit', primary: 'Eigentümer' }[a.sharedVotingMode ?? 'any'] ?? a.sharedVotingMode;
+    const modeLabel = { any: 'ANY', majority: 'Mehrheit', primary: 'Eigentümer' }[a.sharedVotingMode ?? 'any'] ?? esc(a.sharedVotingMode ?? '');
     const rows = votes.map(v => {
       const dotColor = v.wantsOn ? 'var(--green-light)' : 'var(--red)';
       const label = v.wantsOn ? 'EIN' : 'AUS';
@@ -1413,15 +1537,15 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
     const mins = Math.floor(a.blockSecondsLeft / 60);
     const secs = a.blockSecondsLeft % 60;
     const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-    const untilAttr = a.blockUntil ? ` data-until="${a.blockUntil}"` : '';
-    countdownHtml = `<span class="act-countdown blk-cd" id="blk-cd-${a.id}"${untilAttr} title="${esc(a.blockReason ?? 'Sperrzeit läuft')}">⏱ ${timeStr}</span>`;
+    const untilAttr = a.blockUntil ? ` data-until="${+a.blockUntil}"` : '';
+    countdownHtml = `<span class="act-countdown blk-cd" id="blk-cd-${esc(a.id)}"${untilAttr} title="${esc(a.blockReason ?? 'Sperrzeit läuft')}">⏱ ${timeStr}</span>`;
   } else if (a.windSimNextChangeAt !== undefined) {
     const wsOn = a.windSimIsOn;
     const wsColor = wsOn ? 'var(--accent)' : 'var(--muted)';
     const wsRemInit = Math.max(0, Math.round((a.windSimNextChangeAt - Date.now()) / 1000));
     const wsMi = Math.floor(wsRemInit / 60), wsSi = wsRemInit % 60;
     const wsInitStr = wsMi > 0 ? `${wsMi}m ${wsSi.toString().padStart(2,'0')}s` : `${wsSi}s`;
-    countdownHtml = `<span class="act-countdown ws-cd" id="ws-cd-${a.id}" data-until="${a.windSimNextChangeAt}" data-on="${wsOn}" style="color:${wsColor}">🌀 ${wsOn?'EIN':'AUS'} noch ${wsInitStr}</span>`;
+    countdownHtml = `<span class="act-countdown ws-cd" id="ws-cd-${esc(a.id)}" data-until="${+a.windSimNextChangeAt}" data-on="${wsOn ? 'true' : 'false'}" style="color:${wsColor}">🌀 ${wsOn?'EIN':'AUS'} noch ${wsInitStr}</span>`;
   } else if (a.manualLock) {
     countdownHtml = `<span class="act-manual-lock" title="Manuell gesperrt – Auto-Zyklus pausiert">🔒 MANUELL</span>`;
   }
@@ -1433,30 +1557,30 @@ function actuatorHtml(a, groupId, manualOverrides, isManualMode) {
   }
 
   const ctrlBtns = isManualMode || ov
-    ? `<button class="act-toggle on-btn"  onclick="sendControl('${groupId}','${a.id}',true,'${esc(a.name)} einschalten')">EIN</button>
-       <button class="act-toggle off-btn" onclick="sendControl('${groupId}','${a.id}',false,'${esc(a.name)} ausschalten')">AUS</button>`
+    ? `<button class="act-toggle on-btn"  onclick="sendControl('${escAttr(groupId)}','${escAttr(a.id)}',true,'${escAttr(a.name)} einschalten')">EIN</button>
+       <button class="act-toggle off-btn" onclick="sendControl('${escAttr(groupId)}','${escAttr(a.id)}',false,'${escAttr(a.name)} ausschalten')">AUS</button>`
     : '';
 
   const unreachable = a.health === 'unreachable';
   const healthIcon = unreachable
     ? `<span class="act-health-err" title="Gerät nicht erreichbar">📵</span>`
     : (a.health !== 'ok' && a.health !== 'unknown'
-        ? `<span class="act-health-warn" title="Gerätestatus: ${a.health}">⚠</span>`
+        ? `<span class="act-health-warn" title="Gerätestatus: ${esc(a.health)}">⚠</span>`
         : '');
 
   const sharedBadge = a.shared && a.sharedParticipants && a.sharedParticipants.length
-    ? `<span class="act-shared-badge" title="Geteilt mit ${a.sharedParticipants.length} Gruppe(n) · ${a.sharedVotingMode ?? 'any'}">⇄ ${a.sharedParticipants.length}</span>`
+    ? `<span class="act-shared-badge" title="Geteilt mit ${a.sharedParticipants.length} Gruppe(n) · ${esc(a.sharedVotingMode ?? 'any')}">⇄ ${a.sharedParticipants.length}</span>`
     : '';
 
-  const powerHtml = (a.power !== null && a.power !== undefined)
+  const powerHtml = (istOn && typeof a.power === 'number')
     ? `<span class="act-power" title="Live-Leistung">⚡${a.power.toFixed(0)} W</span>`
     : (a.ratedPowerW && istOn)
-      ? `<span class="act-power act-power-rated" title="Nennleistung (geschätzt)">~${a.ratedPowerW} W</span>`
+      ? `<span class="act-power act-power-rated" title="Nennleistung (geschätzt)">~${+a.ratedPowerW} W</span>`
       : '';
 
   return `<div class="actuator-row${unreachable ? ' act-unreachable' : ''}">
     <div class="act-dot ${ledClass}"></div>
-    <span class="act-name">${t.icon} ${a.name}</span>
+    <span class="act-name">${t.icon} ${esc(a.name)}</span>
     ${sharedBadge}${healthIcon}${modeBadge}${sollHtml}${istHtml}${countdownHtml}${powerHtml}
     ${ctrlBtns}
   </div>`;
@@ -1472,7 +1596,7 @@ function diagHintHtml(g) {
 
   // Hilfsfunktionen
   const actOfType = (...types) => (g.actuators ?? []).filter(a => types.includes(a.type));
-  const actNames  = (...types) => actOfType(...types).map(a => a.name).join(', ');
+  const actNames  = (...types) => actOfType(...types).map(a => esc(a.name)).join(', ');
   const hasAct    = (...types) => actOfType(...types).length > 0;
 
   // VPD-Analyse (physikalisch: VPD = f(Temp↑, Feuchte↓))
@@ -1514,7 +1638,7 @@ function diagHintHtml(g) {
     const tol = 2; // ±2°C Toleranzband (grob, kein setpointTempTol im Stream)
     if (g.temperature > g.setpointTemp + tol) {
       const delta = (g.temperature - g.setpointTemp).toFixed(1);
-      let tip = `Temperatur zu hoch (+${delta}°C über Soll ${g.setpointTemp}°C).`;
+      let tip = `Temperatur zu hoch (+${delta}°C über Soll ${g.setpointTemp.toFixed(1)}°C).`;
       const fixes = [];
       if (hasAct('cooling'))    fixes.push(actNames('cooling'));
       if (hasAct('exhaustFan')) fixes.push(`Abluft (${actNames('exhaustFan')})`);
@@ -1524,7 +1648,7 @@ function diagHintHtml(g) {
       hints.push({ lvl: 'warn', text: tip });
     } else if (g.temperature < g.setpointTemp - tol) {
       const delta = (g.setpointTemp - g.temperature).toFixed(1);
-      let tip = `Temperatur zu niedrig (−${delta}°C unter Soll ${g.setpointTemp}°C).`;
+      let tip = `Temperatur zu niedrig (−${delta}°C unter Soll ${g.setpointTemp.toFixed(1)}°C).`;
       if (hasAct('heating')) tip += ` Heizung: ${actNames('heating')}.`;
       hints.push({ lvl: 'warn', text: tip });
     }
@@ -1533,11 +1657,11 @@ function diagHintHtml(g) {
   // Luftfeuchte-Analyse (nur wenn nicht VPD-gesteuert)
   if (isCtrlHum && !isCtrlVpd && g.humidity !== null && g.setpointHumidity !== null) {
     if (g.humidity > g.setpointHumidity + 5) {
-      let tip = `Luftfeuchte zu hoch (${g.humidity.toFixed(0)}%, Soll ~${g.setpointHumidity}%).`;
+      let tip = `Luftfeuchte zu hoch (${g.humidity.toFixed(0)}%, Soll ~${g.setpointHumidity.toFixed(0)}%).`;
       if (hasAct('dehumidifier')) tip += ` Entfeuchter: ${actNames('dehumidifier')}.`;
       hints.push({ lvl: 'warn', text: tip });
     } else if (g.humidity < g.setpointHumidity - 5) {
-      let tip = `Luftfeuchte zu niedrig (${g.humidity.toFixed(0)}%, Soll ~${g.setpointHumidity}%).`;
+      let tip = `Luftfeuchte zu niedrig (${g.humidity.toFixed(0)}%, Soll ~${g.setpointHumidity.toFixed(0)}%).`;
       if (hasAct('humidifier')) tip += ` Befeuchter: ${actNames('humidifier')}.`;
       hints.push({ lvl: 'warn', text: tip });
     }
@@ -1569,12 +1693,12 @@ function qualityBadgeHtml(g) {
   };
   const rows = sensors.map(s => {
     const dotColor = !s.valid ? 'var(--red)' : s.quality < 60 ? 'var(--orange)' : s.quality < 90 ? 'var(--yellow)' : 'var(--green-light)';
-    const label = SENSOR_TYPE_LABELS[s.type] ?? s.type;
-    const errRow = (s.error && !s.valid) ? `<div style="font-size:10px;color:var(--orange);padding-left:16px;margin-top:-2px">${s.error}</div>` : '';
+    const label = SENSOR_TYPE_LABELS[s.type] ?? esc(s.type);
+    const errRow = (s.error && !s.valid) ? `<div style="font-size:10px;color:var(--orange);padding-left:16px;margin-top:-2px">${esc(s.error)}</div>` : '';
     return `<div class="q-sensor-row">
       <div class="q-sensor-dot" style="background:${dotColor}"></div>
-      <span class="q-sensor-name">${s.name} <span style="font-size:10px;opacity:0.6">(${label})</span></span>
-      <span class="q-sensor-val" style="color:${dotColor}">${s.quality}%</span>
+      <span class="q-sensor-name">${esc(s.name)} <span style="font-size:10px;opacity:0.6">(${label})</span></span>
+      <span class="q-sensor-val" style="color:${dotColor}">${+s.quality}%</span>
     </div>${errRow}`;
   }).join('');
   return `<span class="quality-badge meta-tag" style="color:${color}">Q: ${q}%
@@ -1583,6 +1707,61 @@ function qualityBadgeHtml(g) {
       ${rows}
     </div>
   </span>`;
+}
+
+// ---- Gruppengesamt-Leistung ----
+function groupTotalPowerHtml(g) {
+  const ownActs = (g.actuators ?? []).filter(a => !a.sharedFromGroupId);
+  let totalW = 0;
+  let hasLive = false;
+  let hasAny = false;
+  for (const a of ownActs) {
+    const fb = a.feedback ?? a.effectiveState;
+    const hasFb = fb !== null && fb !== undefined;
+    const istOn = hasFb
+      ? (fb === true || (typeof fb === 'number' && fb > 0) || fb === 'true' || fb === 'on')
+      : (a.command === true || (typeof a.command === 'number' && a.command > 0));
+    if (!istOn) continue;
+    if (typeof a.power === 'number') {
+      totalW += a.power;
+      hasLive = true;
+      hasAny = true;
+    } else if (a.ratedPowerW) {
+      totalW += +a.ratedPowerW;
+      hasAny = true;
+    }
+  }
+  if (!hasAny || totalW === 0) return '';
+  const cls = hasLive ? 'group-power-chip' : 'group-power-chip estimated';
+  const label = hasLive ? `⚡ ${totalW.toFixed(0)} W` : `⚡ ~${Math.round(totalW)} W`;
+  return `<span class="${cls}">${label}</span>`;
+}
+
+// ---- Trocknung-Badge ----
+function dryingBadgeHtml(g) {
+  if (g.phase !== 'drying') return '';
+  const dp = g.dryingProgress;
+  if (!dp) {
+    return `<div class="drying-badge"><div class="drying-badge-title">🌿 Trocknung (manuell)</div></div>`;
+  }
+  const pct = Math.round(dp.progress * 100);
+  if (dp.done) {
+    return `<div class="drying-badge">
+      <div class="drying-badge-title">🌿 Trocknung abgeschlossen</div>
+      <div class="drying-badge-row"><span class="drying-badge-done">✓ ${dp.total} Tage erreicht</span></div>
+    </div>`;
+  }
+  return `<div class="drying-badge">
+    <div class="drying-badge-title">🌿 Trocknung · Tag ${dp.day} / ${dp.total}</div>
+    <div class="drying-badge-row">
+      <div class="drying-progress-track"><div class="drying-progress-fill" style="width:${pct}%"></div></div>
+      <span style="color:var(--text-dim);white-space:nowrap">${pct}%</span>
+    </div>
+    <div class="drying-badge-targets">
+      <span>Soll-Temp: <b>${dp.tempTarget.toFixed(1)}°C</b></span>
+      <span>Soll-Feuchte: <b>${dp.humidityTarget.toFixed(0)}%</b></span>
+    </div>
+  </div>`;
 }
 
 // ---- Gruppenkarte ----
@@ -1602,7 +1781,7 @@ function groupCardHtml(g) {
 
   let monitorTag = '';
   if (g.monitorSensors && g.monitorSensors.length > 0) {
-    const names = g.monitorSensors.join('<br>');
+    const names = g.monitorSensors.map(n => esc(n)).join('<br>');
     monitorTag = `<span class="monitor-info">ℹ Monitor (${g.monitorSensors.length})
       <div class="monitor-tooltip"><strong>Nur-Überwachung:</strong><br>${names}</div>
     </span>`;
@@ -1610,14 +1789,17 @@ function groupCardHtml(g) {
 
   // Klima-Zeile: Sollwert-Bar nur wenn der Modus diesen Wert regelt
   // Werte sind klickbar für Trend-Popup
-  const gid = g.id.replace(/'/g, "\\'");
+  const gid = escAttr(g.id);
   const tempMin = g.setpointTemp != null && g.setpointTempTolerance != null ? g.setpointTemp - g.setpointTempTolerance : (g.setpointTempMin ?? null);
   const tempMax = g.setpointTemp != null && g.setpointTempTolerance != null ? g.setpointTemp + g.setpointTempTolerance : (g.setpointTempMax ?? null);
   const tempHtml = `<div onclick="showTrend('${gid}','temperature','Temperatur','°C',${tempMin},${tempMax})" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.temperature, '°', 'Temperatur', isCtrlTemp, null, null, g.setpointTemp, 1)}</div>`;
   const humMin = g.setpointHumidity != null && g.setpointHumidityTolerance != null ? g.setpointHumidity - g.setpointHumidityTolerance : (g.setpointHumidityMin ?? null);
   const humMax = g.setpointHumidity != null && g.setpointHumidityTolerance != null ? g.setpointHumidity + g.setpointHumidityTolerance : (g.setpointHumidityMax ?? null);
   const humHtml  = `<div onclick="showTrend('${gid}','humidity','Luftfeuchte','%',${humMin},${humMax})" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.humidity, '%', 'Luftfeuchte', isCtrlHum, g.setpointHumidity ? g.setpointHumidity - 5 : null, g.setpointHumidity ? g.setpointHumidity + 5 : null, null, 0)}</div>`;
-  const vpdHtml  = `<div onclick="showTrend('${gid}','vpd','VPD','kPa',${g.setpointVpdMin ?? null},${g.setpointVpdMax ?? null})" style="cursor:pointer" title="Trend anzeigen">${climateValHtml(g.vpd, ' kPa', 'VPD', isCtrlVpd, g.setpointVpdMin, g.setpointVpdMax, null, 2)}</div>`;
+  const leafVpdNote = g.leafVpd != null
+    ? `<div style="font-size:10px;color:var(--text-dim);margin-top:1px;text-align:center">Blatt: ${g.leafVpd.toFixed(2)} kPa${g.leafVpdEstimated ? ' ~' : ''}</div>`
+    : '';
+  const vpdHtml  = `<div onclick="showTrend('${gid}','vpd','VPD','kPa',${g.setpointVpdMin ?? null},${g.setpointVpdMax ?? null})" style="cursor:pointer" title="Luft-VPD (Reglerwert). Blatt-VPD: ${g.leafVpd != null ? g.leafVpd.toFixed(2)+' kPa'+(g.leafVpdEstimated?' (geschätzt)':' (gemessen)') : 'n/a'} – Trend anzeigen">${climateValHtml(g.vpd, ' kPa', 'VPD', isCtrlVpd, g.setpointVpdMin, g.setpointVpdMax, null, 2)}${leafVpdNote}</div>`;
   const isCtrlSoil = controlled.includes('soil');
   const isCtrlCo2  = controlled.includes('co2');
 
@@ -1627,8 +1809,7 @@ function groupCardHtml(g) {
   if (g.soilSensors && g.soilSensors.length > 1) {
     // Mehrere Bodenfeuchtesensoren → jeden einzeln anzeigen
     soilHtml = g.soilSensors.map(s => {
-      const esc = s.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      return `<div onclick="showTrend('${gid}','soilMoisture','${esc}','%',${soilMin},${soilMax})" style="cursor:pointer" title="Trend anzeigen">${
+      return `<div onclick="showTrend('${gid}','soilMoisture','${escAttr(s.name)}','%',${soilMin},${soilMax})" style="cursor:pointer" title="Trend anzeigen">${
         climateValHtml(s.value, '%', s.name, isCtrlSoil, soilMin, soilMax, null, 0)}</div>`;
     }).join('');
   } else if (g.soilMoisture !== null && g.soilMoisture !== undefined) {
@@ -1664,27 +1845,27 @@ function groupCardHtml(g) {
 
   const actHtml = g.actuators && g.actuators.length > 0
     ? `<div class="actuators"><div class="act-title">Aktoren</div>
-       ${g.actuators.map(a => actuatorHtml(a, g.id, g.manualOverrides, isManual)).join('')}</div>`
+       ${g.actuators.map(a => actuatorHtml(a, g.id, g.name, g.manualOverrides, isManual)).join('')}</div>`
     : '';
 
   const alarmHtml = g.alarms && g.alarms.length > 0
     ? `<div class="card-alarms">${g.alarms.map(a => {
         const c = SEV_COLORS[a.severity] ?? 'var(--text-dim)';
         return `<div class="card-alarm"><div class="sev-dot" style="background:${c}"></div>
-          <span style="color:${c}">[${a.severity.toUpperCase()}]</span> ${a.code}: ${a.message}</div>`;
+          <span style="color:${c}">[${esc((a.severity ?? 'unknown').toUpperCase())}]</span> ${esc(a.code)}: ${esc(a.message)}</div>`;
       }).join('')}</div>`
     : '';
 
   const camSrc = camCache[g.id] || '';
   const cameraHtml = g.cameraUrl
     ? `<div class="card-camera">
-        <div class="cam-thumb-wrap" onclick="openAnalysisModal('${g.id}','${g.cameraUrl.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">
-          <img class="cam-thumb" id="cam-thumb-${g.id}"
+        <div class="cam-thumb-wrap" onclick="openAnalysisModal('${gid}','${escAttr(g.cameraUrl)}')">
+          <img class="cam-thumb" id="cam-thumb-${esc(g.id)}"
             src="${camSrc}" alt="📷"
             style="${camSrc ? '' : 'opacity:0.3'}" />
           <div class="cam-thumb-overlay">📷 Klicken zum Analysieren</div>
         </div>
-        <div id="plant-result-${g.id}" class="plant-result" style="display:none"></div>
+        <div id="plant-result-${esc(g.id)}" class="plant-result" style="display:none"></div>
       </div>`
     : '';
   // Register camera for auto-refresh
@@ -1696,20 +1877,20 @@ function groupCardHtml(g) {
 
   const modeToggle = `<div class="mode-toggle">
       <button class="mode-btn ${!isManual ? 'active-auto' : ''}"
-        onclick="sendMode('${g.id}','auto','${g.name.replace(/'/g,"\\'")}')">AUTO</button>
+        onclick="sendMode('${escAttr(g.id)}','auto','${escAttr(g.name)}')">AUTO</button>
       <button class="mode-btn ${isManual ? 'active-manual' : ''}"
-        onclick="sendMode('${g.id}','manual','${g.name.replace(/'/g,"\\'")}')">MANUELL</button>
+        onclick="sendMode('${escAttr(g.id)}','manual','${escAttr(g.name)}')">MANUELL</button>
     </div>`;
 
-  return `<div class="group-card" id="card-${g.id}">
+  return `<div class="group-card" id="card-${esc(g.id)}">
     <div class="card-header">
       <div class="card-name">
-        <div class="color-dot" style="background:${g.color}"></div>
-        ${g.name}
+        <div class="color-dot" style="background:${esc(g.color)}"></div>
+        ${esc(g.name)}
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         ${modeToggle}
-        <span class="health-badge" style="background:${healthColor}22;color:${healthColor};border:1px solid ${healthColor}">${g.health}</span>
+        <span class="health-badge" style="background:${healthColor}22;color:${healthColor};border:1px solid ${healthColor}">${esc(g.health)}</span>
       </div>
     </div>
     ${actIconsHtml(g.actuators, g.id, g.manualOverrides)}
@@ -1717,20 +1898,24 @@ function groupCardHtml(g) {
     ${diagHintHtml(g)}
     ${outdoorHtml}
     <div class="meta-row">
-      <span class="meta-tag phase">${PHASE_LABELS[g.phase] ?? g.phase}</span>
-      <span class="meta-tag mode">${MODE_LABELS[g.mode] ?? g.mode}</span>
+      <span class="meta-tag phase">${PHASE_LABELS[g.phase] ?? esc(g.phase)}</span>
+      <span class="meta-tag mode">${MODE_LABELS[g.mode] ?? esc(g.mode)}</span>
       ${dayNightTag}
       ${monitorTag}
       ${qualityBadgeHtml(g)}
     </div>
+    ${dryingBadgeHtml(g)}
     ${irrigBadge}
     ${actHtml}
     ${alarmHtml}
     ${cameraHtml}
-    <div data-ls-bar="${g.id}">${lsBarHtml(g.id)}</div>
-    <div style="padding:6px 12px 10px;display:flex;justify-content:flex-end;gap:6px">
-      <button class="db-btn" onclick="showLs('${gid}','${g.name.replace(/'/g,"\\'")}')">🗓 Kalender</button>
-      <button class="db-btn" onclick="showDb('${gid}','${g.name.replace(/'/g,"\\'")}')">📊 Verlaufsdaten</button>
+    <div data-ls-bar="${esc(g.id)}">${lsBarHtml(g.id)}</div>
+    <div style="padding:6px 12px 10px;display:flex;align-items:center;gap:6px">
+      ${groupTotalPowerHtml(g)}
+      <div style="display:flex;gap:6px;margin-left:auto">
+        <button class="db-btn" onclick="showLs('${gid}','${escAttr(g.name)}')">🗓 Kalender</button>
+        <button class="db-btn" onclick="showDb('${gid}','${escAttr(g.name)}')">📊 Verlaufsdaten</button>
+      </div>
     </div>
   </div>`;
 }
@@ -1739,13 +1924,55 @@ function groupCardHtml(g) {
 function renderStats(state) {
   document.getElementById('statsBar').innerHTML = `
     <div class="stat-chip"><span class="label">Adapter</span>
-      <span class="value" style="color:${state.health==='running'?'var(--green-light)':'var(--orange)'}">${state.health}</span></div>
+      <span class="value" style="color:${state.health==='running'?'var(--green-light)':'var(--orange)'}">${esc(state.health)}</span></div>
     <div class="stat-chip"><span class="label">Gruppen</span><span class="value">${state.groups.length}</span></div>
-    <div class="stat-chip"><span class="label">Alarme</span>
-      <span class="value" style="color:${state.activeAlarms>0?'var(--red)':'var(--green-light)'}">${state.activeAlarms}</span></div>
+    <div class="stat-chip alarm-stat-chip" onclick="alarmModalOpen()" title="Alarmverlauf anzeigen">
+      <span class="label">Alarme</span>
+      <span class="value" style="color:${state.activeAlarms>0?'var(--red)':'var(--green-light)'}">${+state.activeAlarms}</span></div>
     <div class="stat-chip"><span class="label">Version</span>
-      <span class="value" style="color:var(--text-dim)">${state.adapterVersion}</span></div>
+      <span class="value" style="color:var(--text-dim)">${esc(state.adapterVersion)}</span></div>
     <button class="wiki-btn" onclick="wikiOpen()">📖 Sortenwiki</button>`;
+}
+
+// ---- Alarm-History Modal ----
+let alarmHistoryData = [];
+
+function alarmModalOpen() {
+  renderAlarmHistory();
+  document.getElementById('alarmModal').classList.add('open');
+}
+
+function alarmModalClose() {
+  document.getElementById('alarmModal').classList.remove('open');
+}
+
+function renderAlarmHistory() {
+  const tbody = document.getElementById('alarmHistoryBody');
+  const empty = document.getElementById('alarmHistoryEmpty');
+  if (!alarmHistoryData || alarmHistoryData.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.innerHTML = alarmHistoryData.map(a => {
+    const sevColor = SEV_COLORS[a.severity] ?? 'var(--text-dim)';
+    const rowCls = a.active ? 'alarm-row-active' : 'alarm-row-cleared';
+    const statusHtml = a.active
+      ? `<span style="color:var(--red);font-weight:600">● Aktiv</span>`
+      : `<span style="color:var(--text-dim)">○ Gelöscht</span>`;
+    const since = a.since ? new Date(a.since).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '–';
+    const cleared = a.clearedAt ? new Date(a.clearedAt).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '–';
+    return `<tr class="${rowCls}">
+      <td>${statusHtml}</td>
+      <td><span style="color:${sevColor}">${esc(a.severity)}</span></td>
+      <td style="max-width:260px">${esc(a.message)}</td>
+      <td style="color:var(--text-dim);font-size:11px">${esc(a.groupId)}</td>
+      <td style="white-space:nowrap;font-size:11px">${since}</td>
+      <td style="white-space:nowrap;font-size:11px">${cleared}</td>
+      <td style="text-align:center">${a.repeatCount > 1 ? a.repeatCount : ''}</td>
+    </tr>`;
+  }).join('');
 }
 
 function renderAlarmBanner(state) {
@@ -1758,6 +1985,7 @@ function renderAlarmBanner(state) {
 }
 
 function render(state) {
+  if (state.alarmHistory) alarmHistoryData = state.alarmHistory;
   renderStats(state);
   renderAlarmBanner(state);
   const grid = document.getElementById('groupsGrid');
@@ -1766,9 +1994,14 @@ function render(state) {
       <p>Lege Gruppen in der ioBroker Admin-Oberfläche an.</p></div>`;
     return;
   }
-  // Lifestyle-Daten laden (nur beim ersten Mal pro Gruppe), dann rendern
+  // Lifestyle-Daten laden (nur beim ersten Mal pro Gruppe), dann rendern.
+  // Generation-Counter verhindert Race Condition: wenn SSE schnell feuert und mehrere
+  // loadAllLifestyle-Promises in-flight sind, rendert nur das zuletzt gestartete.
   window._dashState = state;
+  if (!window._renderGen) window._renderGen = 0;
+  const myGen = ++window._renderGen;
   loadAllLifestyle(state.groups).then(() => {
+    if (window._renderGen !== myGen) return; // neueres render() ist bereits in-flight
     // Reset camUrls before re-render so stale groups are removed
     for (const k of Object.keys(camUrls)) delete camUrls[k];
     grid.innerHTML = state.groups.map(groupCardHtml).join('');
@@ -1797,7 +2030,8 @@ function connect() {
     catch(e) { console.error('Parse error', e); }
   };
   eventSource.onerror = () => {
-    setConnected(false); eventSource.close(); eventSource = null;
+    setConnected(false);
+    if (eventSource) { eventSource.close(); eventSource = null; }
     clearTimeout(reconnectTimer);
     reconnectTimer = setTimeout(connect, 3000);
   };
@@ -1808,10 +2042,6 @@ function connect() {
 // ============================================================
 let wikiStrains = [];
 let wikiSelected = null; // id der aktuell angezeigten Sorte
-
-function esc(s) {
-  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
 
 async function wikiOpen() {
   const overlay = document.getElementById('wikiOverlay');
@@ -1855,7 +2085,8 @@ function wikiRenderEmpty() {
 
 function wikiTypeBadge(s) {
   const map = { sativa:'Sativa', indica:'Indica', hybrid:'Hybrid' };
-  return `<span class="wiki-badge ${s.type}">${map[s.type] ?? s.type}</span>`;
+  const safeType = esc(s.type ?? '');
+  return `<span class="wiki-badge ${safeType}">${map[s.type] ?? safeType}</span>`;
 }
 function wikiDiffBadge(s) {
   const map = { einfach:['easy','Einfach'], mittel:['medium','Mittel'], schwer:['hard','Schwer'] };
@@ -1897,7 +2128,7 @@ function wikiShowDetail(id) {
        </div>
        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-top:2px"><span>Sativa ${+sativaPercent}%</span><span>Indica ${100-sativaPercent}%</span></div>`
     : '';
-  const safeId = esc(id);
+  const safeId = escAttr(id);
 
   document.getElementById('wikiDetail').innerHTML = `
     <div class="wiki-detail-header">
@@ -1916,30 +2147,30 @@ function wikiShowDetail(id) {
     <div class="wiki-sections">
       <div class="wiki-section">
         <div class="wiki-section-title">⏱ Zeiten</div>
-        <div class="wiki-row"><span class="wiki-row-label">Wachstum</span><span class="wiki-row-val">${s.growWeeks ?? '–'} Wochen</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">Blüte</span><span class="wiki-row-val">${s.bloomWeeks ?? '–'} Wochen</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">Gesamt</span><span class="wiki-row-val">${(s.growWeeks||0)+(s.bloomWeeks||0)} Wochen</span></div>
-        ${s.yieldGramsPerM2 != null ? `<div class="wiki-row"><span class="wiki-row-label">Ertrag</span><span class="wiki-row-val">${s.yieldGramsPerM2} g/m²</span></div>` : ''}
+        <div class="wiki-row"><span class="wiki-row-label">Wachstum</span><span class="wiki-row-val">${s.growWeeks != null ? +s.growWeeks : '–'} Wochen</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Blüte</span><span class="wiki-row-val">${s.bloomWeeks != null ? +s.bloomWeeks : '–'} Wochen</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Gesamt</span><span class="wiki-row-val">${(+s.growWeeks||0)+(+s.bloomWeeks||0)} Wochen</span></div>
+        ${s.yieldGramsPerM2 != null ? `<div class="wiki-row"><span class="wiki-row-label">Ertrag</span><span class="wiki-row-val">${+s.yieldGramsPerM2} g/m²</span></div>` : ''}
         <div class="wiki-row"><span class="wiki-row-label">Wuchshöhe</span><span class="wiki-row-val">${esc(s.height || '–')}</span></div>
       </div>
 
       <div class="wiki-section">
         <div class="wiki-section-title">🌡 Temperatur</div>
-        <div class="wiki-row"><span class="wiki-row-label">Tag (Min–Max)</span><span class="wiki-row-val">${s.tempDayMin ?? '–'}–${s.tempDayMax ?? '–'} °C</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">Nacht (Min–Max)</span><span class="wiki-row-val">${s.tempNightMin ?? '–'}–${s.tempNightMax ?? '–'} °C</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Tag (Min–Max)</span><span class="wiki-row-val">${s.tempDayMin != null ? (+s.tempDayMin).toFixed(1) : '–'}–${s.tempDayMax != null ? (+s.tempDayMax).toFixed(1) : '–'} °C</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Nacht (Min–Max)</span><span class="wiki-row-val">${s.tempNightMin != null ? (+s.tempNightMin).toFixed(1) : '–'}–${s.tempNightMax != null ? (+s.tempNightMax).toFixed(1) : '–'} °C</span></div>
       </div>
 
       <div class="wiki-section">
         <div class="wiki-section-title">💧 Feuchte & VPD</div>
-        <div class="wiki-row"><span class="wiki-row-label">Feuchte Wachstum</span><span class="wiki-row-val">${s.humidityVeg ?? '–'} %</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">Feuchte Blüte</span><span class="wiki-row-val">${s.humidityBloom ?? '–'} %</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">VPD-Bereich</span><span class="wiki-row-val">${s.vpdMin ?? '–'}–${s.vpdMax ?? '–'} kPa</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Feuchte Wachstum</span><span class="wiki-row-val">${s.humidityVeg != null ? (+s.humidityVeg).toFixed(0) : '–'} %</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">Feuchte Blüte</span><span class="wiki-row-val">${s.humidityBloom != null ? (+s.humidityBloom).toFixed(0) : '–'} %</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">VPD-Bereich</span><span class="wiki-row-val">${s.vpdMin != null ? (+s.vpdMin).toFixed(2) : '–'}–${s.vpdMax != null ? (+s.vpdMax).toFixed(2) : '–'} kPa</span></div>
       </div>
 
       <div class="wiki-section">
         <div class="wiki-section-title">🧪 Wirkstoffe</div>
-        <div class="wiki-row"><span class="wiki-row-label">THC</span><span class="wiki-row-val">${s.thcPercent != null ? s.thcPercent + ' %' : '–'}</span></div>
-        <div class="wiki-row"><span class="wiki-row-label">CBD</span><span class="wiki-row-val">${s.cbdPercent != null ? s.cbdPercent + ' %' : '–'}</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">THC</span><span class="wiki-row-val">${s.thcPercent != null ? +s.thcPercent + ' %' : '–'}</span></div>
+        <div class="wiki-row"><span class="wiki-row-label">CBD</span><span class="wiki-row-val">${s.cbdPercent != null ? +s.cbdPercent + ' %' : '–'}</span></div>
       </div>
 
       <div class="wiki-section wiki-form-full">
@@ -2095,8 +2326,8 @@ function wikiShowForm(id) {
 
       </div>
       <div class="wiki-form-actions">
-        <button class="wiki-save-btn" onclick="wikiSave(${id ? `'${id}'` : 'null'})">💾 Speichern</button>
-        <button class="wiki-cancel-btn" onclick="${id ? `wikiShowDetail('${id}')` : 'wikiRenderEmpty()'}">Abbrechen</button>
+        <button class="wiki-save-btn" onclick="wikiSave(${id ? `'${escAttr(id)}'` : 'null'})">💾 Speichern</button>
+        <button class="wiki-cancel-btn" onclick="${id ? `wikiShowDetail('${escAttr(id)}')` : 'wikiRenderEmpty()'}">Abbrechen</button>
       </div>
     </div>
   `;
@@ -2161,12 +2392,12 @@ async function wikiDelete(id) {
 }
 
 connect();
-setInterval(() => {
-  if (!connected) fetch('/api/state').then(r=>r.json()).then(s=>{ if (!connected) { render(s); updateTimestamp(); setConnected(true); } }).catch(()=>{});
+const _ivReconnect = setInterval(() => {
+  if (!connected) fetch('/api/state').then(r=>{ if (!r.ok) throw new Error(); return r.json(); }).then(s=>{ if (!connected) { render(s); updateTimestamp(); setConnected(true); } }).catch(()=>{});
 }, 15000);
 
 // Wind-Sim & Block-Countdown: tickt sekündlich im Browser — unabhängig vom SSE-Zyklus
-setInterval(() => {
+const _ivCountdown = setInterval(() => {
   const now = Date.now();
   document.querySelectorAll('.ws-cd').forEach(el => {
     const until = +el.dataset.until;
@@ -2230,28 +2461,30 @@ setInterval(() => {
 // Gepufferter Proxy-Refresh: lädt Bild über /api/cam-proxy (same-origin → kein CORS)
 // Erst bei Erfolg wird camCache + Thumbnail aktualisiert. Kein Flash bei Fehler.
 async function refreshCamThumb(groupId, url) {
+  if (camInFlight[groupId]) return; // vorheriger Refresh noch aktiv → überspringen
+  camInFlight[groupId] = true;
   const proxyUrl = '/api/cam-proxy?url=' + encodeURIComponent(url) + '&t=' + Date.now();
   try {
     const resp = await fetch(proxyUrl);
     if (!resp.ok) return; // Kamera antwortet nicht → altes Bild bleibt
     const blob = await resp.blob();
     if (!blob.type.startsWith('image/')) return;
-    // Alten ObjectURL freigeben
-    if (camCache[groupId] && camCache[groupId].startsWith('blob:')) {
-      URL.revokeObjectURL(camCache[groupId]);
-    }
     const objUrl = URL.createObjectURL(blob);
-    camCache[groupId] = objUrl;
     // Nur sichtbar machen wenn Bild korrekt decodiert wurde
     const tmp = new Image();
     tmp.onload = () => {
-      camCache[groupId] = objUrl; // bereits gesetzt, aber sicher
+      // Alten ObjectURL erst jetzt freigeben, wenn neues Bild bereit ist
+      if (camCache[groupId] && camCache[groupId].startsWith('blob:')) {
+        URL.revokeObjectURL(camCache[groupId]);
+      }
+      camCache[groupId] = objUrl;
       const el = document.getElementById('cam-thumb-' + groupId);
       if (el) { el.src = objUrl; el.style.opacity = '1'; }
     };
     tmp.onerror = () => URL.revokeObjectURL(objUrl);
     tmp.src = objUrl;
   } catch { /* Netzwerkfehler → altes Bild bleibt */ }
+  finally { camInFlight[groupId] = false; }
 }
 
 // Nach re-render: sofort aus Cache anzeigen, dann im Hintergrund aktualisieren
@@ -2271,11 +2504,17 @@ function initCamThumbs() {
 }
 
 // Auto-Refresh alle 10 Sekunden
-setInterval(() => {
+const _ivCamRefresh = setInterval(() => {
   for (const [gid, url] of Object.entries(camUrls)) {
     refreshCamThumb(gid, url);
   }
 }, 10000);
+
+window.addEventListener('beforeunload', () => {
+  clearInterval(_ivReconnect);
+  clearInterval(_ivCountdown);
+  clearInterval(_ivCamRefresh);
+});
 
 // ---- Analyse-Modal ----
 let cropModal = null, cropCanvas = null, cropCtx = null, cropOverlay = null;
@@ -2446,6 +2685,7 @@ function closeCropModal() {
 const _plantPanelOpen = new Set();
 
 async function doCropAnalyze() {
+  const snapshotGroupId = cropGroupId; // snapshot before first await (global may change)
   const statusEl = cropModal.querySelector('#crop-status');
   statusEl.textContent = '⏳ Analyse läuft...';
   cropModal.querySelector('#crop-analyze-btn').disabled = true;
@@ -2478,11 +2718,12 @@ async function doCropAnalyze() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ image: base64 }),
     });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     closeCropModal();
-    await addAnalysisToHistory(cropGroupId, data);
-    _plantPanelOpen.add(cropGroupId);
-    renderPlantResult(cropGroupId);
+    await addAnalysisToHistory(snapshotGroupId, data);
+    _plantPanelOpen.add(snapshotGroupId);
+    renderPlantResult(snapshotGroupId);
   } catch(e) {
     statusEl.textContent = '⚠ Netzwerkfehler: ' + e;
   }
@@ -2509,11 +2750,12 @@ async function loadHistoryAsync(groupId) {
 async function saveHistoryAsync(groupId, list) {
   _analysisCache.set(groupId, list);
   try {
-    await fetch(`/api/analyses/${groupId}`, {
+    const r = await fetch(`/api/analyses/${groupId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(list),
     });
+    if (!r.ok) console.warn('saveHistoryAsync: HTTP', r.status, 'für', groupId);
   } catch { /* ignore */ }
 }
 
@@ -2589,7 +2831,7 @@ function translateDisease(name) {
 
 function buildResultHtml(data, compact) {
   if (data.error) {
-    return `<div style="color:#d32f2f;font-size:12px">⚠ ${data.error}</div>`;
+    return `<div style="color:#d32f2f;font-size:12px">⚠ ${esc(data.error)}</div>`;
   }
   const health = data.result?.is_healthy;
   const diseases = data.result?.disease?.suggestions ?? [];
@@ -2605,7 +2847,7 @@ function buildResultHtml(data, compact) {
     }
     const top = realProblems[0] ?? diseases[0];
     const pct = Math.round((top?.probability ?? 0) * 100);
-    return `<span style="color:#f44336;font-weight:600">⚠ Problem</span> <span style="font-size:11px;color:#888">– ${translateDisease(top?.name)} (${pct}%)</span>`;
+    return `<span style="color:#f44336;font-weight:600">⚠ Problem</span> <span style="font-size:11px;color:#888">– ${esc(translateDisease(top?.name))} (${pct}%)</span>`;
   }
 
   // Vollansicht
@@ -2622,7 +2864,7 @@ function buildResultHtml(data, compact) {
         html += `<div class="plant-disease-row">
           <span style="flex:0 0 38px;font-size:11px;color:#aaa">${pct}%</span>
           <div class="plant-conf-bar"><div class="plant-conf-fill low" style="width:${pct}%"></div></div>
-          <span style="font-size:12px;flex:1;color:#aaa">${translateDisease(d.name)}</span>
+          <span style="font-size:12px;flex:1;color:#aaa">${esc(translateDisease(d.name))}</span>
         </div>`;
       });
     } else {
@@ -2640,7 +2882,7 @@ function buildResultHtml(data, compact) {
       html += `<div class="plant-disease-row">
         <span style="flex:0 0 38px;font-size:11px;color:#888">${pct}%</span>
         <div class="plant-conf-bar"><div class="plant-conf-fill ${cls}" style="width:${pct}%"></div></div>
-        <span style="font-size:12px;flex:1">${translateDisease(d.name)}</span>
+        <span style="font-size:12px;flex:1">${esc(translateDisease(d.name))}</span>
       </div>`;
     });
   }
@@ -2665,18 +2907,18 @@ function renderPlantResult(groupId) {
     const starIcon = e.starred ? '⭐' : '☆';
     const label = idx === 0 ? '<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;border-radius:3px;padding:1px 5px;margin-left:4px">NEU</span>' : '';
     return `<div class="analysis-entry ${e.starred ? 'analysis-entry-starred' : ''}">
-      <span class="analysis-entry-star" onclick="toggleStar(${e.id}, '${e.groupId}')" title="${e.starred ? 'Stern entfernen' : 'Als wichtig markieren'}">${starIcon}</span>
+      <span class="analysis-entry-star" onclick="toggleStar(${+e.id}, '${escAttr(e.groupId)}')" title="${e.starred ? 'Stern entfernen' : 'Als wichtig markieren'}">${starIcon}</span>
       <div class="analysis-entry-body">
         <div class="analysis-entry-ts">${edt}${label}</div>
         <div>${buildResultHtml(e.data, true)}</div>
       </div>
-      <span onclick="deleteHistoryEntry(${e.id}, '${e.groupId}')" style="cursor:pointer;color:#aaa;font-size:13px;flex-shrink:0" title="Loeschen">✕</span>
+      <span onclick="deleteHistoryEntry(${+e.id}, '${escAttr(e.groupId)}')" style="cursor:pointer;color:#aaa;font-size:13px;flex-shrink:0" title="Loeschen">✕</span>
     </div>`;
   }).join('');
 
   container.dataset.historyGroup = groupId;
   container.innerHTML = `
-    <span class="plant-result-toggle" onclick="togglePlantPanel('${groupId}')">
+    <span class="plant-result-toggle" onclick="togglePlantPanel('${escAttr(groupId)}')">
       🔬 ${list.length} Analyse${list.length !== 1 ? 'n' : ''}${starred ? ' · ' + starred + ' ⭐' : ''} · ${dt} ${isOpen ? '▲' : '▼'}
     </span>
     <div class="plant-result-panel" style="display:${isOpen ? 'block' : 'none'}">

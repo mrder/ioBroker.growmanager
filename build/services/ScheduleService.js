@@ -16,7 +16,8 @@ class ScheduleService {
         if ((0, time_1.isInTimeWindow)(now, lightOn.startHH, lightOn.startMM, lightOn.endHH, lightOn.endMM)) {
             // Prüfen ob wir noch im Übergang sind (nach Licht-AN)
             // minutesUntil gibt Minuten BIS ZUM nächsten Start → 1440 minus das = tatsächliche Minuten seit Start
-            const minutesSinceStart = 1440 - (0, time_1.minutesUntil)(now, lightOn.startHH, lightOn.startMM);
+            // % 1440: wenn minutesUntil=0 (exakt auf Startzeit) → 1440-0=1440, Modulo → 0 (korrekt)
+            const minutesSinceStart = (1440 - (0, time_1.minutesUntil)(now, lightOn.startHH, lightOn.startMM)) % 1440;
             if (minutesSinceStart < transitionMinutes) {
                 return 'transition';
             }
@@ -24,43 +25,76 @@ class ScheduleService {
         }
         else {
             // Nacht – Übergang prüfen (kurz nach Licht-AUS)
+            // minutesToEnd=0 bedeutet exakt die AUS-Minute → Transition beginnt jetzt
             const minutesToEnd = (0, time_1.minutesUntil)(now, lightOn.endHH, lightOn.endMM);
-            if (1440 - minutesToEnd < transitionMinutes) {
+            if ((transitionMinutes > 0 && minutesToEnd === 0) || 1440 - minutesToEnd < transitionMinutes) {
                 return 'transition';
             }
             return 'night';
         }
     }
     /**
-     * Berechnet aktive Sollwerte unter Berücksichtigung des Übergangs.
+     * Prüft ob jetzt das Lichtfenster aktiv ist (unabhängig von Transition-Status).
      */
-    getActiveSetpoint(profile, dayNight, lightChangeTs) {
+    isInLightWindow(now, schedule) {
+        const { lightOn } = schedule;
+        return (0, time_1.isInTimeWindow)(now, lightOn.startHH, lightOn.startMM, lightOn.endHH, lightOn.endMM);
+    }
+    /**
+     * Berechnet aktive Sollwerte unter Berücksichtigung des Übergangs.
+     * @param transitionFromNight true = Morgen-Übergang (Nacht→Tag), false = Abend-Übergang (Tag→Nacht)
+     */
+    getActiveSetpoint(profile, dayNight, lightChangeTs, transitionFromNight = false) {
         if (dayNight === 'day')
             return profile.day;
         if (dayNight === 'night')
             return profile.night;
-        // Übergang: linear interpolieren
+        // Übergang: Richtung bestimmt from/to
+        // Morgen (Nacht→Tag): t=0 = Nacht-Werte, t=1 = Tag-Werte
+        // Abend  (Tag→Nacht): t=0 = Tag-Werte,   t=1 = Nacht-Werte
         const t = (0, time_1.transitionProgress)(lightChangeTs, profile.transitionMinutes * 60);
-        const from = profile.day;
-        const to = profile.night;
+        const from = transitionFromNight ? profile.night : profile.day;
+        const to = transitionFromNight ? profile.day : profile.night;
+        // isNaN catches both NaN and undefined-cast-to-number at runtime.
+        // safeMin: returns Infinity when both undefined (no limit → alarm never fires).
+        // safeLerp: falls back to whichever side is defined.
+        const safeMin = (a, b) => {
+            if (isNaN(a) && isNaN(b))
+                return Infinity;
+            if (isNaN(a))
+                return b;
+            if (isNaN(b))
+                return a;
+            return Math.min(a, b);
+        };
+        const safeLerp = (a, b, p) => {
+            if (isNaN(a) && isNaN(b))
+                return 0;
+            if (isNaN(a))
+                return b;
+            if (isNaN(b))
+                return a;
+            return (0, calculations_1.lerp)(a, b, p);
+        };
         return {
-            temperature: (0, calculations_1.lerp)(from.temperature, to.temperature, t),
-            temperatureTolerance: (0, calculations_1.lerp)(from.temperatureTolerance, to.temperatureTolerance, t),
-            humidity: (0, calculations_1.lerp)(from.humidity, to.humidity, t),
-            humidityTolerance: (0, calculations_1.lerp)(from.humidityTolerance, to.humidityTolerance, t),
-            vpdMin: (0, calculations_1.lerp)(from.vpdMin, to.vpdMin, t),
-            vpdMax: (0, calculations_1.lerp)(from.vpdMax, to.vpdMax, t),
-            temperatureMin: (0, calculations_1.lerp)(from.temperatureMin, to.temperatureMin, t),
-            temperatureMax: (0, calculations_1.lerp)(from.temperatureMax, to.temperatureMax, t),
-            temperatureCritical: from.temperatureCritical,
-            humidityMin: (0, calculations_1.lerp)(from.humidityMin, to.humidityMin, t),
-            humidityMax: (0, calculations_1.lerp)(from.humidityMax, to.humidityMax, t),
-            humidityCritical: from.humidityCritical,
-            condensationRiskMaxHumidity: from.condensationRiskMaxHumidity,
+            temperature: safeLerp(from.temperature, to.temperature, t),
+            temperatureTolerance: safeLerp(from.temperatureTolerance, to.temperatureTolerance, t),
+            humidity: safeLerp(from.humidity, to.humidity, t),
+            humidityTolerance: safeLerp(from.humidityTolerance, to.humidityTolerance, t),
+            vpdMin: safeLerp(from.vpdMin, to.vpdMin, t),
+            vpdMax: safeLerp(from.vpdMax, to.vpdMax, t),
+            temperatureMin: safeLerp(from.temperatureMin, to.temperatureMin, t),
+            temperatureMax: safeLerp(from.temperatureMax, to.temperatureMax, t),
+            temperatureCritical: safeMin(from.temperatureCritical, to.temperatureCritical),
+            humidityMin: safeLerp(from.humidityMin, to.humidityMin, t),
+            humidityMax: safeLerp(from.humidityMax, to.humidityMax, t),
+            humidityCritical: safeMin(from.humidityCritical, to.humidityCritical),
+            condensationRiskMaxHumidity: safeMin(from.condensationRiskMaxHumidity, to.condensationRiskMaxHumidity),
         };
     }
     /**
      * Liefert Millisekunden bis zum nächsten Zeitplanwechsel.
+     * Während Transition: 60s (sekündliche Re-Evaluierung für glatte Interpolation).
      */
     msUntilNextChange(now, schedule) {
         const { lightOn } = schedule;
@@ -68,9 +102,29 @@ class ScheduleService {
         if (dayNight === 'day') {
             return (0, time_1.minutesUntil)(now, lightOn.endHH, lightOn.endMM) * 60000;
         }
+        else if (dayNight === 'transition') {
+            return 60 * 1000;
+        }
         else {
             return (0, time_1.minutesUntil)(now, lightOn.startHH, lightOn.startMM) * 60000;
         }
+    }
+    /**
+     * Berechnet den aktuellen Fortschritt der Trocknungsrampe.
+     * Gibt null zurück wenn die Rampe nicht aktiviert ist.
+     */
+    getDryingProgress(ramp) {
+        if (!ramp.enabled || ramp.durationDays <= 0)
+            return null;
+        const now = Date.now();
+        const elapsed = now - ramp.startDate;
+        const totalMs = ramp.durationDays * 24 * 3600 * 1000;
+        const progress = Math.max(0, Math.min(1, elapsed / totalMs));
+        const day = Math.max(1, Math.min(ramp.durationDays, Math.floor(elapsed / (24 * 3600 * 1000)) + 1));
+        const done = elapsed >= totalMs;
+        const tempTarget = ramp.startTemp + (ramp.endTemp - ramp.startTemp) * progress;
+        const humidityTarget = ramp.startHumidity + (ramp.endHumidity - ramp.startHumidity) * progress;
+        return { day, total: ramp.durationDays, progress, tempTarget, humidityTarget, done };
     }
     /**
      * Liefert lesbaren Text über nächsten Wechsel.

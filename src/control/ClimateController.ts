@@ -32,8 +32,9 @@ interface GroupHystStates {
 
 // Ableitung des Regelziels aus Aktor-Typ (wenn controlTarget nicht explizit gesetzt).
 // Im VPD-Modus regeln Feuchte- und Temperatur-Aktoren über VPD statt absolut.
-function inferControlTarget(act: ActuatorConfig, groupMode?: string): ControlTarget {
-    if (act.controlTarget) return act.controlTarget;
+// ignoreExplicit=true: ignoriert act.controlTarget (für Sicherheits-Overrides)
+function inferControlTarget(act: ActuatorConfig, groupMode?: string, ignoreExplicit = false): ControlTarget {
+    if (!ignoreExplicit && act.controlTarget) return act.controlTarget;
     const isVpdMode = groupMode === 'vpd';
     switch (act.type) {
         case 'light':          return 'light';
@@ -55,6 +56,7 @@ function inferControlDirection(act: ActuatorConfig): ControlDirection {
     switch (act.type) {
         case 'heating':      return 'up';
         case 'humidifier':   return 'up';
+        case 'co2Valve':     return 'up';
         case 'cooling':
         case 'exhaustFan':
         case 'supplyFan':
@@ -93,6 +95,7 @@ export class ClimateController {
         const temp = state.temperature;
         const hum = state.humidity;
         const vpd = state.vpd;
+        const co2 = state.co2 ?? null;
 
         let primaryReason = 'Keine Regelung notwendig';
 
@@ -102,11 +105,11 @@ export class ClimateController {
         if (temp !== null && temp > setpoint.temperatureCritical) {
             this.alarmService.raise(
                 ALARM_CODES.TEMPERATURE_HIGH, config.id, 'climate', 'critical',
-                `Kritische Übertemperatur: ${temp.toFixed(1)} °C > ${setpoint.temperatureCritical} °C`
+                `Kritische Übertemperatur: ${temp.toFixed(1)} °C > ${setpoint.temperatureCritical.toFixed(1)} °C`
             );
             primaryReason = `Übertemperatur ${temp.toFixed(1)} °C – Maximalabluft`;
-            this.requestByTarget(config, 'temperature', 'down', actions, true, 100, primaryReason, null, null);
-            this.requestByTarget(config, 'temperature', 'up', actions, false, 0, 'Verriegelung: Übertemperatur', null, null);
+            this.requestByTarget(config, 'temperature', 'down', actions, true, 100, primaryReason, null, null, false, true);
+            this.requestByTarget(config, 'temperature', 'up', actions, false, 0, 'Verriegelung: Übertemperatur', null, null, true, true);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
         } else if (temp !== null) {
             this.alarmService.clear(ALARM_CODES.TEMPERATURE_HIGH, config.id, 'climate');
@@ -121,7 +124,7 @@ export class ClimateController {
                 `Kritische Untertemperatur: ${temp.toFixed(1)} °C`
             );
             primaryReason = `Untertemperatur ${temp.toFixed(1)} °C – Heizung`;
-            this.requestByTarget(config, 'temperature', 'up', actions, true, 0, primaryReason, null, null);
+            this.requestByTarget(config, 'temperature', 'up', actions, true, 0, primaryReason, null, null, false, true);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
         } else if (temp !== null && temp >= setpoint.temperatureMin - 1) {
             this.alarmService.clear(ALARM_CODES.TEMPERATURE_LOW, config.id, 'climate');
@@ -136,11 +139,18 @@ export class ClimateController {
                 `Kondensationsrisiko: T=${temp.toFixed(1)}°C RH=${hum.toFixed(0)}%`
             );
             primaryReason = 'Kondensationsrisiko – Entfeuchter / Abluft';
-            this.requestByTarget(config, 'humidity', 'down', actions, true, 60, primaryReason, outdoorTemp, outdoorHumidity);
-            this.requestByTarget(config, 'humidity', 'up', actions, false, 0, 'Gegenseitige Verriegelung', null, null);
+            this.requestByTarget(config, 'humidity', 'down', actions, true, 60, primaryReason, outdoorTemp, outdoorHumidity, false, true, hum);
+            this.requestByTarget(config, 'humidity', 'up', actions, false, 0, 'Gegenseitige Verriegelung', null, null, true, true);
             return this.buildDecision(config, state, primaryReason, actions, shadowMode);
         } else if (temp !== null && hum !== null) {
             this.alarmService.clear(ALARM_CODES.CONDENSATION_RISK, config.id, 'climate');
+        }
+
+        // --------------------------------------------------------
+        // CO₂-Alarme (einmalig pro Gruppe, unabhängig von Aktor-Anzahl)
+        // --------------------------------------------------------
+        if (co2 !== null && setpoint.co2Target) {
+            this.raiseCo2Alarms(co2, config.id, setpoint);
         }
 
         // --------------------------------------------------------
@@ -183,7 +193,7 @@ export class ClimateController {
                 }
 
                 case 'co2': {
-                    const r = this.decideCo2Act(act, dir, setpoint, hyst, actions);
+                    const r = this.decideCo2Act(act, dir, co2, config.id, setpoint, hyst, actions);
                     if (r) reasons.push(r);
                     break;
                 }
@@ -202,7 +212,8 @@ export class ClimateController {
         primaryReason = reasons.length > 0 ? reasons.join('; ') : 'Alle Aktoren im Zielbereich';
 
         // Stufenregelung: Stufe-2-Aktoren sperren bis Stufe-1 lang genug aktiv ist
-        this.applyEscalationBlocking(config, actions);
+        // shadowMode=true: keine physische Aktivität → Timer nicht akkumulieren
+        this.applyEscalationBlocking(config, actions, shadowMode);
 
         return this.buildDecision(config, state, primaryReason, actions, shadowMode);
     }
@@ -242,15 +253,14 @@ export class ClimateController {
             hyst.temperature = tState;
         }
 
-        if (dir === 'up') {
+        if (dir === 'up' || dir === 'both') {
             // Heizung
             if (tState === -1) {
-                this.pushAction(actions, act, true, `T=${temp.toFixed(1)}°C < ${sp.temperature}°C`, false);
+                this.pushAction(actions, act, true, `T=${temp.toFixed(1)}°C < ${sp.temperature.toFixed(1)}°C`, false);
                 return `Heizung EIN (${temp.toFixed(1)} °C zu kalt)`;
-            } else {
-                this.pushAction(actions, act, false, `T im Zielbereich`, false);
             }
-        } else if (dir === 'down' || dir === 'both') {
+        }
+        if (dir === 'down' || dir === 'both') {
             // Kühlung / Abluft
             if (tState === 1) {
                 // Außenluft-Guard: nur schalten wenn Außenluft günstiger
@@ -258,17 +268,16 @@ export class ClimateController {
                     const minDelta = outdoorCfg?.minTempDeltaCelsius ?? 2;
                     const delta = temp - outdoorTemp;
                     if (delta < minDelta) {
-                        this.pushAction(actions, act, false, `Außenluft zu warm (${outdoorTemp.toFixed(1)}°C, Δ${delta.toFixed(1)}K < ${minDelta}K)`, false);
+                        this.pushAction(actions, act, false, `Außenluft zu warm (${outdoorTemp.toFixed(1)}°C, Δ${delta.toFixed(1)}K < ${Number(minDelta).toFixed(1)}K)`, false);
                         return `Lüfter gesperrt: Außenluft nicht kühler genug (${outdoorTemp.toFixed(1)}°C)`;
                     }
                 }
                 const val = act.supportsPercent ? 60 : true;
-                this.pushAction(actions, act, val, `T=${temp.toFixed(1)}°C > ${sp.temperature}°C`, false);
+                this.pushAction(actions, act, val, `T=${temp.toFixed(1)}°C > ${sp.temperature.toFixed(1)}°C`, false);
                 return `Kühlung EIN (${temp.toFixed(1)} °C zu warm)`;
-            } else {
-                this.pushAction(actions, act, false, `T im Zielbereich`, false);
             }
         }
+        this.pushAction(actions, act, false, `T im Zielbereich`, false);
         return null;
     }
 
@@ -302,7 +311,7 @@ export class ClimateController {
             hyst.humidity = hState;
         }
 
-        if (dir === 'up') {
+        if (dir === 'up' || dir === 'both') {
             // Befeuchter: VPD-Schutz – unteres Drittel des Sollbereichs blockiert Befeuchter
             if (hState === -1) {
                 if (act.type === 'humidifier' && vpd !== null && vpdMin !== null) {
@@ -312,12 +321,11 @@ export class ClimateController {
                         return null;
                     }
                 }
-                this.pushAction(actions, act, true, `RH=${hum.toFixed(0)}% < ${sp.humidity}%`, false);
+                this.pushAction(actions, act, true, `RH=${hum.toFixed(0)}% < ${sp.humidity.toFixed(0)}%`, false);
                 return `Befeuchter EIN (${hum.toFixed(0)}% zu trocken)`;
-            } else {
-                this.pushAction(actions, act, false, `RH im Zielbereich`, false);
             }
-        } else if (dir === 'down' || dir === 'both') {
+        }
+        if (dir === 'down' || dir === 'both') {
             // Entfeuchter: VPD-Schutz – oberes Drittel des Sollbereichs blockiert Entfeuchter
             if (hState === 1) {
                 if (act.type === 'dehumidifier' && vpd !== null && vpdMax !== null) {
@@ -336,12 +344,12 @@ export class ClimateController {
                     }
                 }
                 const val = act.supportsPercent ? 60 : true;
-                this.pushAction(actions, act, val, `RH=${hum.toFixed(0)}% > ${sp.humidity}%`, false);
+                this.pushAction(actions, act, val, `RH=${hum.toFixed(0)}% > ${sp.humidity.toFixed(0)}%`, false);
                 return `Entfeuchter EIN (${hum.toFixed(0)}% zu feucht)`;
-            } else {
-                this.pushAction(actions, act, false, `RH im Zielbereich`, false);
             }
         }
+        // RH im Zielbereich (oder dir='both' und hState===0)
+        this.pushAction(actions, act, false, `RH im Zielbereich`, false);
         return null;
     }
 
@@ -363,22 +371,47 @@ export class ClimateController {
     ): string | null {
         if (vpd === null || temp === null || hum === null) return null;
 
-        if (sp.vpdMin == null || sp.vpdMax == null) return null; // kein VPD-Sollwert konfiguriert
+        if (sp.vpdMin == null || sp.vpdMax == null || isNaN(sp.vpdMin) || isNaN(sp.vpdMax)) return null; // kein VPD-Sollwert konfiguriert
         const vpdMid = (sp.vpdMin + sp.vpdMax) / 2;
         let vpdState: HystState;
+        const prevAct = this.actuatorHystStates.get(act.id) ?? 0;
         if (act.actuatorHysteresis !== undefined && act.actuatorHysteresis > 0) {
-            const prevAct = this.actuatorHystStates.get(act.id) ?? 0;
-            vpdState = hysteresisCheck(vpd, vpdMid, act.actuatorHysteresis * 2, prevAct);
-            this.actuatorHystStates.set(act.id, vpdState);
+            // Richtungsbasiert: Setpoint liegt je nach dir direkt an vpdMin (Entfeuchter) oder
+            // vpdMax (Befeuchter), Band = actuatorHysteresis × 2.
+            // → Entfeuchter: ON wenn vpd < vpdMin, OFF wenn vpd > vpdMin + 2×hyst
+            // → Befeuchter:  ON wenn vpd > vpdMax, OFF wenn vpd < vpdMax - 2×hyst
+            if (dir === 'up') {
+                vpdState = hysteresisCheck(vpd, sp.vpdMax - act.actuatorHysteresis, act.actuatorHysteresis * 2, prevAct);
+            } else if (dir === 'down') {
+                vpdState = hysteresisCheck(vpd, sp.vpdMin + act.actuatorHysteresis, act.actuatorHysteresis * 2, prevAct);
+            } else {
+                // dir='both': center hysteresis on the midpoint of the target range
+                const mid = (sp.vpdMin + sp.vpdMax) / 2;
+                vpdState = hysteresisCheck(vpd, mid, act.actuatorHysteresis * 2, prevAct);
+            }
         } else {
-            const band = Math.max(0.05, sp.vpdMax - sp.vpdMin); // Mindestband 0.05 kPa gegen Bang-Bang
-            vpdState = hysteresisCheck(vpd, vpdMid, band, hyst.vpd);
-            hyst.vpd = vpdState;
+            // Richtungsbasierte Hysterese: Aktoren laufen bis zur Mitte des Sollbereichs (vpdMid),
+            // nicht nur bis zur Sollbereichsgrenze. Das schafft längere EIN/AUS-Zyklen.
+            // Entfeuchter/Abluft (dir='down'): EIN wenn VPD < vpdMin, AUS erst wenn VPD > vpdMid
+            // Befeuchter (dir='up'):           EIN wenn VPD > vpdMax, AUS erst wenn VPD < vpdMid
+            // Bidirektional (dir='both'):       symmetrisch um vpdMid
+            const halfRange = (sp.vpdMax - sp.vpdMin) / 2;
+            const band = Math.max(0.05, halfRange);
+            if (dir === 'up') {
+                vpdState = hysteresisCheck(vpd, sp.vpdMax - band / 2, band, prevAct);
+            } else if (dir === 'down') {
+                vpdState = hysteresisCheck(vpd, sp.vpdMin + band / 2, band, prevAct);
+            } else {
+                // dir='both': center on vpdMid so both low and high thresholds are symmetric
+                vpdState = hysteresisCheck(vpd, vpdMid, band, prevAct);
+            }
         }
+        this.actuatorHystStates.set(act.id, vpdState);
 
         if (vpdState === -1) {
             // VPD zu niedrig → Feuchte senken oder Temperatur erhöhen
-            if (dir === 'down' || dir === 'both') {
+            // dir='both'+heating uses the up-path; all other dir='both' use the down-path (dehumidify).
+            if (dir === 'down' || (dir === 'both' && act.type !== 'heating')) {
                 // Entfeuchter darf nur laufen wenn Temperatur ≤ Solltemperatur.
                 // Bei Übertemperatur ist Abluft/Kühlung das richtige Mittel — Entfeuchten
                 // würde VPD zwar auch erhöhen, aber die Temperatur nicht lösen.
@@ -399,18 +432,30 @@ export class ClimateController {
                 }
                 const val = act.supportsPercent ? 50 : true;
                 this.pushAction(actions, act, val, `VPD ${vpd.toFixed(2)} zu niedrig – Entfeuchten`, false);
-                return `VPD ${vpd.toFixed(2)} kPa (Ziel: ${sp.vpdMin}–${sp.vpdMax}) → zu niedrig: Entfeuchten`;
-            } else if (dir === 'up') {
-                // Heizung für VPD erhöhen
-                this.pushAction(actions, act, true, `VPD ${vpd.toFixed(2)} zu niedrig – Heizung`, false);
-                return `VPD zu niedrig → Heizung`;
+                return `VPD ${vpd.toFixed(2)} kPa (Ziel: ${sp.vpdMin?.toFixed(2)}–${sp.vpdMax?.toFixed(2)}) → zu niedrig: Entfeuchten`;
+            } else if (dir === 'up' || dir === 'both') {
+                // dir='up'/'both' mit Heizung: Heizung EIN → Temperatur und damit VPD erhöhen
+                if (act.type === 'heating') {
+                    this.pushAction(actions, act, true, `VPD ${vpd.toFixed(2)} zu niedrig – Heizung`, false);
+                    return `VPD zu niedrig → Heizung`;
+                } else {
+                    // Befeuchter: VPD bereits zu niedrig → AUSschalten, sonst sinkt VPD weiter
+                    this.pushAction(actions, act, false, `VPD ${vpd.toFixed(2)} zu niedrig – Befeuchter aus`, false);
+                    return `VPD zu niedrig → Befeuchter aus`;
+                }
             }
         } else if (vpdState === 1) {
             // VPD zu hoch → Feuchte erhöhen oder Temperatur senken
             if (dir === 'up') {
-                // Befeuchter: mehr Feuchte → VPD sinkt ✓
-                this.pushAction(actions, act, true, `VPD ${vpd.toFixed(2)} zu hoch – Befeuchten`, false);
-                return `VPD ${vpd.toFixed(2)} kPa → zu hoch: Befeuchten`;
+                if (act.type === 'heating') {
+                    // Heizung: VPD zu hoch → AUSschalten (Heizung würde VPD weiter erhöhen)
+                    this.pushAction(actions, act, false, `VPD ${vpd.toFixed(2)} zu hoch – Heizung aus`, false);
+                    return `VPD zu hoch → Heizung aus`;
+                } else {
+                    // Befeuchter: mehr Feuchte → VPD sinkt ✓
+                    this.pushAction(actions, act, true, `VPD ${vpd.toFixed(2)} zu hoch – Befeuchten`, false);
+                    return `VPD ${vpd.toFixed(2)} kPa → zu hoch: Befeuchten`;
+                }
             } else if (dir === 'down' || dir === 'both') {
                 // Entfeuchter senkt Feuchte → VPD würde steigen → darf bei VPD-zu-hoch NICHT laufen
                 if (act.type === 'dehumidifier') {
@@ -437,19 +482,46 @@ export class ClimateController {
     }
 
     // ============================================================
-    // CO₂-Aktor
+    // CO₂-Aktor (Zweipunkt mit Hysterese)
     // ============================================================
     private decideCo2Act(
         act: ActuatorConfig,
         dir: ControlDirection,
+        co2: number | null,
+        groupId: string,
         sp: ClimateSetpoint,
         hyst: GroupHystStates,
         actions: ControlAction[],
     ): string | null {
         if (!sp.co2Target) return null;
-        // CO₂ wird über separate Sensor-States gelesen — hier Platzhalter
-        // Die eigentliche CO₂-Regelung benötigt einen co2-Sensor in der Gruppe
-        this.pushAction(actions, act, false, 'CO₂-Regelung: kein Sensor', false);
+
+        if (co2 === null) {
+            this.pushAction(actions, act, false, 'CO₂-Regelung: kein Sensor', false);
+            return null;
+        }
+
+        const target = sp.co2Target;
+        const tolerance = sp.co2Tolerance ?? 50;
+
+        // Zweipunkt-Regelung mit Hysterese
+        hyst.co2 = hysteresisCheck(co2, target, tolerance * 2, hyst.co2);
+
+        if (dir === 'up' || dir === 'both') {
+            // CO₂-Ventil / Generator: EIN wenn CO₂ zu niedrig
+            if (hyst.co2 === -1) {
+                this.pushAction(actions, act, true, `CO₂ ${co2.toFixed(0)} ppm < Ziel ${target.toFixed(0)} ppm`, false);
+                return `CO₂-Ventil EIN (${co2.toFixed(0)} ppm zu niedrig)`;
+            }
+        }
+        if (dir === 'down' || dir === 'both') {
+            // Abluft für CO₂-Abbau: EIN wenn CO₂ zu hoch
+            if (hyst.co2 === 1) {
+                const val = act.supportsPercent ? 60 : true;
+                this.pushAction(actions, act, val, `CO₂ ${co2.toFixed(0)} ppm > Ziel ${target.toFixed(0)} ppm – Abluft`, false);
+                return `Abluft CO₂-Abbau EIN (${co2.toFixed(0)} ppm)`;
+            }
+        }
+        this.pushAction(actions, act, false, `CO₂ im Zielbereich (${co2.toFixed(0)} ppm)`, false);
         return null;
     }
 
@@ -467,13 +539,23 @@ export class ClimateController {
         reason: string,
         outdoorTemp: number | null,
         outdoorHumidity: number | null,
+        force = false,
+        safetyOverride = false,  // true: ignoriert group-mode beim Target-Matching (für Not-Checks)
+        indoorHum: number | null = null,
     ): void {
         for (const act of config.actuators) {
             if (!act.enabled) continue;
-            if (inferControlTarget(act, config.mode) !== target) continue;
+            // Sicherheitsübersteuerungen: Aktor nach physischem Typ matchen, nicht nach Modus/controlTarget
+            const effectiveTarget = inferControlTarget(act, safetyOverride ? undefined : config.mode, safetyOverride);
+            if (effectiveTarget !== target) continue;
             if (dir !== 'both' && inferControlDirection(act) !== dir && inferControlDirection(act) !== 'both') continue;
+            // Outdoor-Feuchte-Guard: Außenluft zu feucht → Lüftung/Entfeuchter sperren
+            if (on && act.outdoorGuardEnabled && outdoorHumidity !== null && indoorHum !== null) {
+                const maxDelta = config.outdoorSensor?.maxHumidityDeltaPercent ?? 10;
+                if (outdoorHumidity > indoorHum + maxDelta) continue;
+            }
             const val = on ? (act.supportsPercent && percent > 0 ? percent : true) : false;
-            this.pushAction(actions, act, val, reason, false);
+            this.pushAction(actions, act, val, reason, false, force);
         }
     }
 
@@ -482,12 +564,14 @@ export class ClimateController {
         act: ActuatorConfig,
         requested: boolean | number,
         reason: string,
-        blocked: boolean
+        blocked: boolean,
+        force = false
     ): void {
         const existing = actions.find(a => a.actuatorId === act.id);
         if (existing) {
             if (typeof requested === 'boolean') {
-                if (requested && !existing.requested) {
+                // force=true: false can override true (safety locks, condensation protection)
+                if (force || (requested && !existing.requested)) {
                     existing.requested = requested;
                     existing.reason = reason;
                 }
@@ -533,7 +617,7 @@ export class ClimateController {
      * Stufenregelung: Stufe-2-Aktoren werden gesperrt bis Stufe-1 lange genug läuft.
      * Stufe 1 = Lüftung (primär), Stufe 2 = Klimagerät / Heizung (Eskalation).
      */
-    private applyEscalationBlocking(config: GroupConfig, actions: ControlAction[]): void {
+    private applyEscalationBlocking(config: GroupConfig, actions: ControlAction[], shadowMode = false): void {
         const now = Date.now();
 
         // Stage-1-Tracking aktualisieren: für jede (target, dir)-Kombination prüfen ob Stufe-1 EIN
@@ -552,12 +636,20 @@ export class ClimateController {
             );
             const stage1IsOn = stage1Acts.some(a => {
                 const action = actions.find(x => x.actuatorId === a.id);
-                if (!action) return false;
+                if (!action || action.blocked) return false; // geblockte Aktoren sind effektiv AUS
                 return typeof action.requested === 'boolean' ? action.requested : action.requested > 0;
             });
 
             const mapKey = `${config.id}:${target}:${dir}`;
-            if (stage1IsOn) {
+            if (shadowMode) {
+                // Im Shadow-Modus kein physisches Schalten → activeSince auf now zurücksetzen,
+                // damit nach Shadow-Mode-Ende die volle Wartezeit neu beginnt
+                if (stage1IsOn) {
+                    this.stage1ActiveSince.set(mapKey, now);
+                } else {
+                    this.stage1ActiveSince.delete(mapKey);
+                }
+            } else if (stage1IsOn) {
                 if (!this.stage1ActiveSince.has(mapKey)) {
                     this.stage1ActiveSince.set(mapKey, now);
                 }
@@ -605,6 +697,40 @@ export class ClimateController {
                 );
             }
             // else: Stufe-1 läuft lang genug → Stufe-2 darf schalten
+        }
+    }
+
+    private raiseCo2Alarms(co2: number, groupId: string, sp: ClimateSetpoint): void {
+        const target = sp.co2Target!;
+        const tolerance = sp.co2Tolerance ?? 50;
+        const co2Max = sp.co2Max ?? target + tolerance * 4;
+        // co2Critical muss immer über co2Max liegen – sonst überspringt die Warning-Stufe
+        const co2Critical = Math.max(
+            sp.co2Critical ?? Math.max(5000, target + tolerance * 8),
+            co2Max + tolerance
+        );
+
+        if (co2 > co2Critical) {
+            this.alarmService.raise(
+                ALARM_CODES.CO2_HIGH, groupId, 'climate', 'critical',
+                `Kritischer CO₂-Wert: ${co2.toFixed(0)} ppm (Schwelle: ${co2Critical.toFixed(0)} ppm)`
+            );
+        } else if (co2 > co2Max) {
+            this.alarmService.raise(
+                ALARM_CODES.CO2_HIGH, groupId, 'climate', 'warning',
+                `CO₂ erhöht: ${co2.toFixed(0)} ppm (Max: ${co2Max.toFixed(0)} ppm)`
+            );
+        } else {
+            this.alarmService.clear(ALARM_CODES.CO2_HIGH, groupId, 'climate');
+        }
+
+        if (co2 < target - tolerance * 3) {
+            this.alarmService.raise(
+                ALARM_CODES.CO2_LOW, groupId, 'climate', 'warning',
+                `CO₂ zu niedrig: ${co2.toFixed(0)} ppm (Ziel: ${target.toFixed(0)} ppm)`
+            );
+        } else {
+            this.alarmService.clear(ALARM_CODES.CO2_LOW, groupId, 'climate');
         }
     }
 

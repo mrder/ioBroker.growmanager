@@ -65,6 +65,11 @@ export declare class ActuatorService {
      */
     isCirculationScheduleActive(config: ActuatorConfig, now: Date): boolean;
     /**
+     * Prüft ob ein Aktor-Zeitplan (timedActuator) gerade aktiv ist.
+     * 0=Mo, 1=Di, ..., 6=So. Leeres days-Array = alle Tage.
+     */
+    isActuatorScheduleActive(config: ActuatorConfig, now: Date): boolean;
+    /**
      * Prüft abgelaufene Overrides.
      */
     tickOverrides(): void;

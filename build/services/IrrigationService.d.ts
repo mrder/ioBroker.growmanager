@@ -9,9 +9,11 @@ export interface ZoneState {
     lastEndTs: number;
     pauseUntil: number;
     currentMoisture: number | null;
+    startMoisture: number | null;
     flowRate: number | null;
     lastFlowTs: number;
     totalFlowLiters: number;
+    maxRunSeconds?: number;
     cycleCount: number;
     faultCount: number;
     blocked: boolean;
@@ -54,7 +56,7 @@ export declare class IrrigationService {
     /**
      * Manuelle/Zeitplan-gesteuerte Bewässerung auslösen.
      */
-    triggerManual(zone: IrrigationZoneConfig, durationSeconds?: number): boolean;
+    triggerManual(zone: IrrigationZoneConfig, durationSeconds?: number, now?: Date): boolean;
     /**
      * Flow-Wert aus ioBroker aktualisieren (Volumenstrom in L/min).
      */

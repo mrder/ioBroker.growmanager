@@ -43,11 +43,20 @@ class SensorService {
             valid = false;
             error = 'Kein Wert vorhanden';
         }
-        else if (config.type !== 'door' && typeof rawValue !== 'number' && typeof rawValue !== 'string') {
+        else if (config.type === 'door') {
+            if (typeof rawValue !== 'boolean' && typeof rawValue !== 'string') {
+                valid = false;
+                error = `Door-Sensor: Unerwarteter Typ ${typeof rawValue}`;
+            }
+            else {
+                processed = rawValue;
+            }
+        }
+        else if (typeof rawValue !== 'number') {
             valid = false;
             error = `Unerwarteter Datentyp: ${typeof rawValue}`;
         }
-        else if (typeof rawValue === 'number') {
+        else {
             if (!isFinite(rawValue)) {
                 valid = false;
                 error = 'Wert ist nicht endlich';
@@ -62,9 +71,6 @@ class SensorService {
                     processed = this.applySmoothing(config, adjusted, prev?.processedValue);
                 }
             }
-        }
-        else {
-            processed = rawValue;
         }
         // Update device-level last-seen: share liveness across all channels of the same physical device.
         const dk = deviceKey(config.stateId);
@@ -82,7 +88,7 @@ class SensorService {
             : null; // null = no alive state, use timestamp
         const stale = aliveKnown === false ? true
             : aliveKnown === true ? false
-                : (0, time_1.isStale)(effectiveTs, config.staleAfterSeconds);
+                : config.staleAfterSeconds > 0 && (0, time_1.isStale)(effectiveTs, config.staleAfterSeconds);
         const unchanged = lc > 0 && (0, time_1.isStale)(lc, config.unchangedAlarmSeconds) && config.unchangedAlarmSeconds > 0;
         if (stale) {
             valid = false;
@@ -171,8 +177,9 @@ class SensorService {
         if (pairs.length > 3) {
             const vals = pairs.map(p => p.value);
             const sorted = [...vals].sort((a, b) => a - b);
-            const q1 = sorted[Math.floor(sorted.length * 0.25)];
-            const q3 = sorted[Math.floor(sorted.length * 0.75)];
+            // (n-1)*0.75 statt n*0.75: verhindert dass Q3 bei n=4 immer das Maximum wird
+            const q1 = sorted[Math.floor((sorted.length - 1) * 0.25)];
+            const q3 = sorted[Math.floor((sorted.length - 1) * 0.75)];
             const iqr = q3 - q1;
             const low = q1 - 1.5 * iqr;
             const high = q3 + 1.5 * iqr;
@@ -198,7 +205,7 @@ class SensorService {
                 : null;
             if (aliveKnown === false)
                 return false;
-            if (aliveKnown === null && (0, time_1.isStale)(effectiveTs, cfg.staleAfterSeconds))
+            if (aliveKnown === null && cfg.staleAfterSeconds > 0 && (0, time_1.isStale)(effectiveTs, cfg.staleAfterSeconds))
                 return false;
             if (stabilitySeconds !== undefined && stabilitySeconds > 0) {
                 const until = this.recoveringUntil.get(s.id);
@@ -267,7 +274,7 @@ class SensorService {
         const prev = this.states.get(config.id);
         if (!prev || typeof prev.processedValue !== 'number')
             return true;
-        const range = config.validMax - config.validMin;
+        const range = Math.abs(config.validMax - config.validMin); // abs: Fehlkonfiguration validMin>validMax absichern
         const maxJump = range * 0.25; // 25% Sprung als unplausibel
         return Math.abs(newValue - prev.processedValue) <= maxJump;
     }

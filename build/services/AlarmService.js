@@ -28,6 +28,9 @@ exports.ALARM_CODES = {
     SENSOR_DEGRADED: 'SENSOR_DEGRADED',
     EMERGENCY_STOP: 'EMERGENCY_STOP',
     CUSTOM_ALERT: 'CUSTOM_ALERT',
+    ACTUATOR_ALERT: 'ACTUATOR_ALERT',
+    CO2_HIGH: 'CO2_HIGH',
+    CO2_LOW: 'CO2_LOW',
 };
 class AlarmService {
     constructor(log) {
@@ -42,6 +45,11 @@ class AlarmService {
     addListener(fn) {
         this.listeners.push(fn);
     }
+    removeListener(fn) {
+        const idx = this.listeners.indexOf(fn);
+        if (idx >= 0)
+            this.listeners.splice(idx, 1);
+    }
     /**
      * Erzeugt oder aktualisiert einen Alarm.
      */
@@ -49,9 +57,10 @@ class AlarmService {
         const key = `${groupId}:${code}:${source}`;
         const existing = this.alarms.get(key);
         if (existing && existing.active) {
-            // Aktualisieren
+            // Aktualisieren — severity darf sinken (z.B. CO2 critical → warning)
             existing.lastUpdate = Date.now();
             existing.message = message;
+            existing.severity = severity;
             existing.repeatCount++;
             this.notifyListeners({ alarm: existing, isNew: false });
             return existing;

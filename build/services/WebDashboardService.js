@@ -71,6 +71,8 @@ class WebDashboardService {
         this.adapterDir = adapterDir;
         this.server = null;
         this.sseClients = new Set();
+        // Erlaubte Kamera-Origins (aus Adapter-Konfiguration) für SSRF-Schutz am cam-proxy
+        this.allowedCameraOrigins = new Set();
         this.state = {
             ts: Date.now(),
             adapterVersion: '0.1.0',
@@ -92,8 +94,12 @@ class WebDashboardService {
         this.analysesSetCallback = null;
         this.plantIdApiKey = '';
         this.strainsFilePath = '';
+        this.detectedAdapters = [];
+        this.testNotificationCallback = null;
     }
     setPin(pin) { this.pin = pin; }
+    setDetectedAdapters(adapters) { this.detectedAdapters = adapters; }
+    setTestNotificationCallback(cb) { this.testNotificationCallback = cb; }
     setPlantIdApiKey(key) { this.plantIdApiKey = key; }
     setControlCallback(cb) { this.controlCallback = cb; }
     setModeCallback(cb) { this.modeCallback = cb; }
@@ -114,7 +120,15 @@ class WebDashboardService {
             this.log.warn(`WebDashboard: HTML nicht gefunden unter ${htmlPath}`);
             this.dashboardHtml = '<html><body><p>dashboard.html nicht gefunden.</p></body></html>';
         }
-        this.server = http.createServer((req, res) => this.handleRequest(req, res));
+        this.server = http.createServer((req, res) => {
+            this.handleRequest(req, res).catch(err => {
+                this.log.error(`WebDashboard handleRequest: ${err}`);
+                if (!res.headersSent) {
+                    res.writeHead(500);
+                    res.end();
+                }
+            });
+        });
         this.server.on('error', err => this.log.error(`WebDashboard: ${err.message}`));
         this.server.listen(port, bindAddress, () => {
             this.log.info(`GrowManager Dashboard erreichbar unter http://${bindAddress}:${port}/`);
@@ -287,6 +301,16 @@ class WebDashboardService {
     }
     updateState(state) {
         this.state = state;
+        // Kamera-Allowlist aus Gruppen-Konfiguration aktualisieren (SSRF-Schutz)
+        this.allowedCameraOrigins.clear();
+        for (const g of state.groups) {
+            if (g.cameraUrl) {
+                try {
+                    this.allowedCameraOrigins.add(new URL(g.cameraUrl).origin);
+                }
+                catch { /* ungültige URL */ }
+            }
+        }
         if (this.sseClients.size > 0) {
             const data = `data: ${JSON.stringify(state)}\n\n`;
             for (const client of this.sseClients) {
@@ -301,8 +325,16 @@ class WebDashboardService {
     }
     async handleRequest(req, res) {
         const url = (req.url ?? '/').split('?')[0];
-        // CORS für lokale Entwicklung
+        // CORS für lokale Entwicklung (Admin-UI auf Port 8081 → WebDashboard auf Port 8097)
         res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        // CORS-Preflight für POST-Requests (Browser sendet OPTIONS vor jedem cross-origin POST)
+        if (req.method === 'OPTIONS') {
+            res.writeHead(204);
+            res.end();
+            return;
+        }
         if (url === '/' || url === '/index.html') {
             res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
             res.end(this.dashboardHtml);
@@ -311,6 +343,36 @@ class WebDashboardService {
         if (url === '/api/state') {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(this.state));
+            return;
+        }
+        if (url === '/api/adapters') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ detected: this.detectedAdapters }));
+            return;
+        }
+        if (url === '/api/test-notification' && req.method === 'POST') {
+            const json = (data, status = 200) => {
+                if (res.headersSent)
+                    return;
+                res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.end(JSON.stringify(data));
+            };
+            if (!this.testNotificationCallback) {
+                json({ ok: false, error: 'Adapter nicht bereit' }, 503);
+                return;
+            }
+            let body = '';
+            req.on('data', (chunk) => { body += chunk.toString(); });
+            req.on('end', async () => {
+                try {
+                    const { channel } = JSON.parse(body);
+                    const result = await this.testNotificationCallback(channel);
+                    json(result);
+                }
+                catch (e) {
+                    json({ ok: false, error: String(e) }, 500);
+                }
+            });
             return;
         }
         if (url === '/api/events') {
@@ -434,8 +496,16 @@ class WebDashboardService {
                 res.end(JSON.stringify(data));
             };
             if (req.method === 'GET') {
-                const list = this.analysesGetCallback ? await this.analysesGetCallback(groupId) : [];
-                jsonA(list);
+                try {
+                    const list = this.analysesGetCallback ? await this.analysesGetCallback(groupId) : [];
+                    jsonA(list);
+                }
+                catch (err) {
+                    if (!res.headersSent) {
+                        res.writeHead(500);
+                        res.end('[]');
+                    }
+                }
                 return;
             }
             if (req.method === 'PUT') {
@@ -472,10 +542,15 @@ class WebDashboardService {
             }
             try {
                 const camUrl = new URL(decodeURIComponent(rawUrl));
-                // Only allow http/https to prevent SSRF to internal services
+                // SSRF-Schutz: nur http/https und nur konfigurierte Kamera-Origins erlauben
                 if (camUrl.protocol !== 'http:' && camUrl.protocol !== 'https:') {
                     res.writeHead(400);
                     res.end('Bad protocol');
+                    return;
+                }
+                if (this.allowedCameraOrigins.size === 0 || !this.allowedCameraOrigins.has(camUrl.origin)) {
+                    res.writeHead(403);
+                    res.end('URL not in camera allowlist');
                     return;
                 }
                 const lib = camUrl.protocol === 'https:' ? https : http;
@@ -530,8 +605,13 @@ class WebDashboardService {
             return;
         }
         let body = '';
-        req.on('data', chunk => { body += chunk; if (body.length > 8 * 1024 * 1024)
-            req.destroy(); });
+        req.on('data', chunk => { body += chunk; if (body.length > 8 * 1024 * 1024) {
+            if (!res.headersSent) {
+                res.writeHead(413);
+                res.end();
+            }
+            req.destroy();
+        } });
         req.on('error', () => { });
         req.on('end', () => {
             let imageBase64;
@@ -563,8 +643,25 @@ class WebDashboardService {
             };
             const plantReq = https.request(options, plantRes => {
                 let data = '';
-                plantRes.on('data', chunk => { data += chunk; });
+                plantRes.on('data', chunk => {
+                    data += chunk;
+                    if (data.length > 512 * 1024) { // 512 KB Limit für plant.id Antwort
+                        plantReq.destroy();
+                        if (!res.headersSent) {
+                            res.writeHead(502, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Antwort von plant.id zu groß' }));
+                        }
+                    }
+                });
+                plantRes.on('error', () => {
+                    if (!res.headersSent) {
+                        res.writeHead(502, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: 'Stream-Fehler von plant.id' }));
+                    }
+                });
                 plantRes.on('end', () => {
+                    if (res.headersSent)
+                        return;
                     res.writeHead(plantRes.statusCode ?? 200, {
                         'Content-Type': 'application/json',
                         'Access-Control-Allow-Origin': '*',
@@ -572,10 +669,15 @@ class WebDashboardService {
                     res.end(data);
                 });
             });
+            plantReq.setTimeout(10000, () => {
+                plantReq.destroy(new Error('plant.id timeout'));
+            });
             plantReq.on('error', err => {
                 this.log.error(`Plant.id API Fehler: ${err.message}`);
-                res.writeHead(502, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: `Plant.id nicht erreichbar: ${err.message}` }));
+                if (!res.headersSent) {
+                    res.writeHead(502, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: `Plant.id nicht erreichbar: ${err.message}` }));
+                }
             });
             plantReq.write(payload);
             plantReq.end();
@@ -583,8 +685,13 @@ class WebDashboardService {
     }
     handleMode(req, res) {
         let body = '';
-        req.on('data', chunk => { body += chunk; if (body.length > 65536)
-            req.destroy(); });
+        req.on('data', chunk => { body += chunk; if (body.length > 65536) {
+            if (!res.headersSent) {
+                res.writeHead(413);
+                res.end();
+            }
+            req.destroy();
+        } });
         req.on('error', () => { });
         req.on('end', async () => {
             try {
@@ -597,6 +704,17 @@ class WebDashboardService {
                 if (!this.modeCallback) {
                     res.writeHead(503, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ error: 'Adapter nicht bereit' }));
+                    return;
+                }
+                if (!payload.groupId || !payload.mode) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'groupId und mode erforderlich' }));
+                    return;
+                }
+                const VALID_MODES = ['auto', 'off', 'manual', 'schedule', 'temperature', 'humidity', 'vpd', 'combined', 'monitorOnly', 'maintenance'];
+                if (!VALID_MODES.includes(payload.mode)) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Ungültiger Modus' }));
                     return;
                 }
                 await this.modeCallback({ groupId: payload.groupId, mode: payload.mode });
@@ -612,20 +730,30 @@ class WebDashboardService {
     }
     handleControl(req, res) {
         let body = '';
-        req.on('data', chunk => { body += chunk; if (body.length > 65536)
-            req.destroy(); });
+        req.on('data', chunk => { body += chunk; if (body.length > 65536) {
+            if (!res.headersSent) {
+                res.writeHead(413);
+                res.end();
+            }
+            req.destroy();
+        } });
         req.on('error', () => { });
         req.on('end', async () => {
             try {
                 const payload = JSON.parse(body);
-                if (this.pin && payload.pin !== this.pin) {
-                    res.writeHead(403, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: 'Falsche PIN' }));
-                    return;
-                }
                 if (!this.controlCallback) {
                     res.writeHead(503, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ error: 'Adapter nicht bereit' }));
+                    return;
+                }
+                if (!payload.groupId || !payload.actuatorId || payload.command === undefined || payload.command === null) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'groupId, actuatorId und command erforderlich' }));
+                    return;
+                }
+                if (typeof payload.command !== 'boolean' && typeof payload.command !== 'number') {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'command muss boolean oder number sein' }));
                     return;
                 }
                 await this.controlCallback({

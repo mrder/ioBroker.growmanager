@@ -1,8 +1,208 @@
-﻿{
+{
   "common": {
     "name": "growmanager",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "news": {
+      "0.4.0": {
+        "en": "v0.4.0: Major release — timedActuator type, bloom temp guard with hysteresis, leaf-VPD estimation, power monitoring improvements, drying phase with proportional ramp, stuckOn retry, unreachable alarm grace period, alarm history dashboard, and dozens of stability fixes across 0.3.x.",
+        "de": "v0.4.0: Major Release — zeitgesteuerter Aktor-Typ, Blüte-Temperaturgard mit Hysterese, Leaf-VPD-Schätzung, Leistungsüberwachung verbessert, Trocknungsphase mit proportionaler Rampe, StuckOn-Retry, Grace-Period für Verbindungsverlust-Alarme, Alarmverlauf im Dashboard und zahlreiche Stabilitätskorrekturen aus den 0.3.x-Patches."
+      },
+      "0.3.49": {
+        "en": "v0.3.49: Drying phase — new plant phase 'drying' with optional proportional ramp (configurable start/end temp and humidity over N days), light actuator lockout, and dashboard drying badge showing day X/Y progress.",
+        "de": "v0.3.49: Trocknung – neue Pflanzenphase 'Trocknung' mit optionaler proportionaler Rampe (Temp- und Feuchte-Sollwerte über N Tage interpoliert), automatische Licht-Sperre und Dashboard-Abzeichen mit Tag-X/Y-Fortschritt."
+      },
+      "0.3.48": {
+        "en": "v0.3.48: Unreachable alarm grace period (60s) + alarm history in dashboard — sporadic WiFi dropouts no longer trigger immediate alarms; all alarms (active + resolved) now visible in the dashboard via the Alarme chip.",
+        "de": "v0.3.48: Grace-Period (60s) für Verbindungsverlust-Alarme + Alarmverlauf im Dashboard — kurze WLAN-Aussetzer lösen keinen sofortigen Alarm mehr aus; alle Alarme (aktiv + gelöscht) sind im Dashboard über den Alarme-Chip sichtbar."
+      },
+      "0.3.47": {
+        "en": "v0.3.47: StuckOn retry before alarm — when an actuator is detected as stuck-on, the OFF command is resent once; alarm only fires if still stuck after 90 seconds.",
+        "de": "v0.3.47: StuckOn-Retry vor Alarm — wenn ein Aktor als klebendes Relais erkannt wird, wird der AUS-Befehl einmal wiederholt; Alarm wird erst ausgelöst wenn nach 90 Sekunden immer noch EIN."
+      },
+      "0.3.46": {
+        "en": "v0.3.46: Bloom temp guard now also applies to timedActuator — non-shared schedule actuators check the guard in tickScheduleActuators; UI shows the field for timedActuator type.",
+        "de": "v0.3.46: Blüte-Temp-Schutz gilt jetzt auch für zeitgesteuerte Aktoren — nicht-geteilte timedActuator prüfen den Guard in tickScheduleActuators; Admin-UI zeigt das Feld auch für Typ 'Zeitgesteuert'."
+      },
+      "0.3.45": {
+        "en": "v0.3.45: Bloom temp guard hysteresis — activates at max temp, stays locked until 2°C below max. Releases automatically when actuator is no longer needed (humidity already fine).",
+        "de": "v0.3.45: Blüte-Temp-Schutz mit 2°C Hysterese — aktiviert bei Max-Temperatur, bleibt gesperrt bis 2°C darunter. Gibt automatisch frei wenn Aktor ohnehin nicht mehr gebraucht wird (Feuchte bereits im Sollbereich)."
+      },
+      "0.3.44": {
+        "en": "v0.3.44: Bloom temp guard per actuator (heating/dehumidifier blocked when bloom group exceeds max temp). Leaf-VPD now always computed — estimated via configurable offset (default 2°C) when no leaf sensor, shown in dashboard below air-VPD.",
+        "de": "v0.3.44: Blüte-Temperatur-Schutz je Aktor (Heizung/Entfeuchter wird gesperrt wenn Blüte-Gruppe Max-Temperatur überschreitet). Leaf-VPD wird jetzt immer berechnet — geschätzt über konfigurierbaren Offset (Standard 2°C) wenn kein Blattsensor, im Dashboard unter Luft-VPD angezeigt."
+      },
+      "0.3.43": {
+        "en": "v0.3.43: Fix shared timedActuator voting — owner now votes based on schedule (not always OFF), participants abstain. Fixes dehumidifier/fan not switching on when configured as shared timedActuator. Schedule editor shows browser clock for time reference.",
+        "de": "v0.3.43: Fix geteilte zeitgesteuerte Aktoren — Eigentümer stimmt jetzt per Zeitplan (nicht immer AUS), Teilnehmer enthalten sich. Behebt Problem dass Entfeuchter/Lüfter als geteilter timedAktor nicht eingeschaltet wurden. Zeitplan-Editor zeigt Browser-Uhr zur Orientierung."
+      },
+      "0.3.42": {
+        "en": "v0.3.42: Fix schedule editor visibility for timedActuator — editor now appears directly below the type selector, Regelziel/Wirkrichtung and Stufenregelung sections hidden for timedActuator type.",
+        "de": "v0.3.42: Fix Zeitplan-Editor-Sichtbarkeit für zeitgesteuerte Aktoren — Editor erscheint jetzt direkt unterhalb der Typauswahl, Regelziel/Wirkrichtung und Stufenregelung werden für Typ 'Zeitgesteuert' ausgeblendet."
+      },
+      "0.3.41": {
+        "en": "v0.3.41: New actuator type 'Zeitgesteuert' (timedActuator) — configure multiple weekly schedules per actuator (days of week + time window), adapter switches actuator on/off automatically. Independent of climate control.",
+        "de": "v0.3.41: Neuer Aktor-Typ 'Zeitgesteuert' (timedActuator) — mehrere Wochenpläne pro Aktor konfigurierbar (Wochentage + Zeitfenster), Adapter schaltet Aktor automatisch. Unabhängig von der Klimaregelung."
+      },
+      "0.3.40": {
+        "en": "v0.3.40: Live power badge on individual actuator rows now only shown when actuator is ON — prevents misleading standby/stale watt readings on OFF actuators.",
+        "de": "v0.3.40: Live-Leistungsbadge an Aktor-Zeilen wird jetzt nur noch bei eingeschalteten Aktoren angezeigt — verhindert irreführende Standby-/veraltete Watt-Werte bei ausgeschalteten Aktoren."
+      },
+      "0.3.39": {
+        "en": "v0.3.39: Fix energyStateUnit defaulting — when energyStateId is configured but unit was never explicitly saved, it now correctly defaults to W (was: silent no-op, causing 0 Wh and no group power chip). Admin also pre-sets W when energyStateId is first entered.",
+        "de": "v0.3.39: Fix energyStateUnit-Default — wenn energyStateId konfiguriert aber Einheit nie explizit gespeichert wurde, wird jetzt korrekt W angenommen (bisher: stiller No-Op, führte zu 0 Wh und fehlendem Gruppenleistungs-Chip). Admin setzt W jetzt automatisch beim ersten Eintragen der energyStateId."
+      },
+      "0.3.38": {
+        "en": "v0.3.38: Fix ActuatorState.power never being set from energyStateId (W unit) — both at startup and on live state changes. Group power chip now shows correct live watts for all actuators with an energy datapoint configured.",
+        "de": "v0.3.38: Fix: ActuatorState.power wurde bei energyStateId (Einheit W) nie gesetzt — weder beim Start noch bei Live-Zustandsänderungen. Der Gruppenleistungs-Chip zeigt jetzt korrekte Live-Watt für alle Aktoren mit konfiguriertem Energiedatenpunkt."
+      },
+      "0.3.37": {
+        "en": "v0.3.37: Fix group power chip layout (buttons no longer shift left when no power data) and use auto-learned peak watts as ratedPowerW fallback in dashboard state so the chip appears even without manual ratedPowerW configuration.",
+        "de": "v0.3.37: Layout-Fix für Gruppenleistungs-Chip (Buttons bleiben rechts auch ohne Leistungsdaten) + auto-gelernte Spitzenwatt als ratedPowerW-Fallback im Dashboard-State, damit der Chip auch ohne manuelle ratedPowerW-Konfiguration erscheint."
+      },
+      "0.3.36": {
+        "en": "v0.3.36: Dashboard group cards now show total live group power (in watts) below the analysis section — shared actuators are only counted at their owner group. Shows live watts when available, estimated watts (from ratedPowerW) as fallback.",
+        "de": "v0.3.36: Dashboard-Gruppenkarten zeigen jetzt die Gruppengesamt-Istleistung (in Watt) unterhalb der Analysen — geteilte Aktoren werden nur beim Eigentümer gezählt. Zeigt Live-Watt wenn verfügbar, sonst geschätzten Wert (aus ratedPowerW)."
+      },
+      "0.3.35": {
+        "en": "v0.3.35: Auto-learn peak watt values from live energy state readings — persisted across restarts so ratedPowerW is always available as fallback even without manual configuration. Dashboard Energie tab now shows observed peak watts per actuator.",
+        "de": "v0.3.35: Automatisches Lernen von Spitzenwerten aus Live-Leistungsdaten — wird über Neustarts hinweg gespeichert, sodass ratedPowerW als Fallback immer verfügbar ist. Energie-Tab im Dashboard zeigt den beobachteten Spitzenwert je Aktor."
+      },
+      "0.3.34": {
+        "en": "v0.3.34: Actuator alert rules now have a configurable trigger delay — alarm only fires if the fault state persists uninterrupted for the set number of minutes (default 5). Timer resets automatically if actuator recovers.",
+        "de": "v0.3.34: Aktor-Alarmregeln haben jetzt eine konfigurierbare Verzögerungszeit — Alarm feuert nur wenn der Fehlerzustand mindestens X Minuten ununterbrochen anhält (Standard 5 Min.). Timer wird automatisch zurückgesetzt wenn Aktor sich erholt."
+      },
+      "0.3.33": {
+        "en": "v0.3.33: Add configurable actuator alert rules — monitor individual actuators with custom severity: alarm when actuator should be ON but doesn't respond (feedback), consumes no power while ON (power monitoring), or stays ON despite OFF command (stuck relay)",
+        "de": "v0.3.33: Konfigurierbare Aktor-Alarmregeln — einzelne Aktoren mit eigenem Schweregrad überwachen: Alarm wenn Aktor EIN sein soll aber nicht reagiert (Feedback), keinen Strom verbraucht obwohl eingeschaltet (Leistungsüberwachung), oder AN bleibt trotz AUS-Befehl (hängendes Relais)"
+      },
+      "0.3.32": {
+        "en": "v0.3.32: Rework push notification format — cleaner layout without dividers or internal codes; German severity labels (Warnung/Fehler/Kritisch); HTML formatting only for Telegram (bold/italic), plain text for WhatsApp/Signal/Pushover to avoid literal HTML tags",
+        "de": "v0.3.32: Push-Benachrichtigungsformat überarbeitet — sauberes Layout ohne Trennlinien oder interne Codes; deutsche Severity-Labels (Warnung/Fehler/Kritisch); HTML-Formatierung nur für Telegram, Klartext für WhatsApp/Signal/Pushover (keine literal HTML-Tags mehr)"
+      },
+      "0.3.31": {
+        "en": "v0.3.31: WhatsApp no longer requires phone number in channel config (adapter uses its own settings); test notification via HTTP instead of broken socket.io; add /api/test-notification endpoint",
+        "de": "v0.3.31: WhatsApp benötigt keine Telefonnummer mehr in der Kanal-Konfiguration (Adapter nutzt eigene Einstellungen); Test-Benachrichtigung über HTTP statt defektem socket.io; /api/test-notification Endpoint hinzugefügt"
+      },
+      "0.3.30": {
+        "en": "v0.3.30: Fix admin UI live preview (fetch from WebDashboard API port instead of broken socket.io in Admin 5+ iframe); fix blank Alarme tab (React hook violation inside switch); add /api/adapters endpoint for adapter detection without socket dependency",
+        "de": "v0.3.30: Admin-UI Live-Preview repariert (Fetch direkt vom WebDashboard-API-Port statt defektem socket.io im Admin 5+ iframe); leere Alarme-Seite behoben (React-Hook-Verletzung in switch); /api/adapters Endpoint für Adapter-Erkennung ohne Socket-Abhängigkeit"
+      },
+      "0.3.29": {
+        "en": "v0.3.29: Fix energy Wh accumulation (0W samples no longer reset the timing reference, fixing permanently-0 Wh display for actuators with live W sensors); fix all floating-point rounding in reason strings and dashboard alarm tips (max 2 decimal places everywhere)",
+        "de": "v0.3.29: Energie-Wh-Akkumulation repariert (0W-Samples setzen den Zeitstempel nicht mehr zurück, behebt dauerhaft 0 Wh-Anzeige bei Aktoren mit Live-Leistungssensor); alle Gleitkomma-Rundungsprobleme in Reason-Strings und Dashboard-Alarm-Tipps behoben (max. 2 Nachkommastellen überall)"
+      },
+      "0.3.28": {
+        "en": "v0.3.28: Add urgency to AUS votes at RH boundaries for correct majority voting — humidifier voting AUS because RH > Max now carries urgency proportional to the overshoot (so a strong EIN vote from another group cannot override it); dehumidifier voting AUS because RH < Min carries urgency proportional to the undershoot; votes within the setpoint or hysteresis band stay urgency=0",
+        "de": "v0.3.28: AUS-Stimmen an RH-Grenzen erhalten jetzt Urgency für korrekte Mehrheitsabstimmung — Befeuchter der AUS stimmt weil RH > Max bekommt Urgency proportional zur Überschreitung (damit eine starke EIN-Stimme aus einer anderen Gruppe nicht overriden kann); Entfeuchter der AUS stimmt weil RH < Min bekommt Urgency proportional zur Unterschreitung; Stimmen innerhalb von Sollwert oder Hysterese-Band bleiben urgency=0"
+      },
+      "0.3.27": {
+        "en": "v0.3.27: Sharpen voting reason texts for humidifier and dehumidifier — reason now correctly shows 'RH X% > Max Y% – Entfeuchter zuständig' when humidity exceeds the max boundary, 'RH X% < Min Y% – Befeuchter zuständig' when below the min boundary, 'in Hysterese [Min–Soll%]' when in the band, and 'kein Bedarf' when on the correct side of the setpoint",
+        "de": "v0.3.27: Abstimmungs-Reason-Texte für Befeuchter und Entfeuchter präzisiert — zeigt jetzt korrekt 'RH X% > Max Y% – Entfeuchter zuständig' wenn RH über Max-Grenze liegt, 'RH X% < Min Y% – Befeuchter zuständig' wenn unter Min-Grenze, 'in Hysterese [Min–Soll%]' im Hysterese-Band, und 'kein Bedarf' wenn auf der richtigen Seite des Sollwerts"
+      },
+      "0.3.26": {
+        "en": "v0.3.26: Fix RH regulation hysteresis for humidifier and dehumidifier in combined/humidity mode — (1) humidityTolerance from active profile is now used as hysteresis band instead of hardcoded 3%; (2) currentlyOn hysteresis: device now runs until setpoint is reached (not just until the turn-on threshold); (3) reason text now distinguishes 'above/below setpoint – no need' vs 'within hysteresis band [X–Y%]' instead of the misleading 'im Sollbereich'",
+        "de": "v0.3.26: RH-Regelungs-Hysterese für Befeuchter und Entfeuchter im kombinierten/Feuchte-Modus korrigiert — (1) humidityTolerance aus dem aktiven Profil wird jetzt als Hysterese-Band verwendet statt fest eingecodierter 3%; (2) currentlyOn-Hysterese: Gerät läuft jetzt bis zum Sollwert (nicht nur bis zur Einschaltschwelle); (3) Reason-Text unterscheidet jetzt 'über/unter Sollwert – kein Bedarf' vs. 'in Hysterese [X–Y%]' statt des irreführenden 'im Sollbereich'"
+      },
+      "0.3.25": {
+        "en": "v0.3.25: Fix humidifier VPD guard hysteresis in combined/humidity mode — uses a 0.05 kPa band (when OFF: stays blocked until VPD > vpdMin+0.05; when ON: blocks at vpdMin) to prevent rapid on/off toggling when VPD oscillates near vpdMin",
+        "de": "v0.3.25: Befeuchter VPD-Guard Hysterese im kombinierten/Feuchte-Modus behoben — 0.05 kPa Totzone (wenn AUS: gesperrt bis VPD > vpdMin+0.05; wenn EIN: Sperre ab vpdMin) verhindert schnelles Flattern wenn VPD um vpdMin schwankt"
+      },
+      "0.3.24": {
+        "en": "v0.3.24: Fix 3 confirmed bugs — (1) 'auto' mode was missing from VALID_MODES in handleMode: switching a group back to AUTO via dashboard always returned HTTP 400 and never cleared dashboardModeOverrides, causing actuator overrides to persist permanently; (2) Override renewal guard now correctly checks for mode === 'manual' instead of any truthy map entry, preventing non-manual modes from accidentally extending overrides; (3) VPD guard for dehumidifier in combined/humidity mode now uses a 0.05 kPa hysteresis band to prevent rapid on/off toggling when VPD oscillates near vpdMax",
+        "de": "v0.3.24: 3 bestätigte Fehler behoben — (1) 'auto'-Modus fehlte in VALID_MODES in handleMode: Umschalten einer Gruppe zurück auf AUTO im Dashboard lieferte immer HTTP 400 und löschte dashboardModeOverrides nie, wodurch Aktor-Overrides dauerhaft bestehen blieben; (2) Override-Verlängerungs-Guard prüft jetzt korrekt auf mode === 'manual' statt jeden vorhandenen Map-Eintrag, damit Nicht-MANUELL-Modi keine Overrides verlängern; (3) VPD-Guard für Entfeuchter im kombinierten/Feuchte-Modus nutzt jetzt eine 0.05 kPa Hysterese um schnelles An/Aus-Flattern bei VPD nahe vpdMax zu verhindern"
+      },
+      "0.3.23": {
+        "en": "v0.3.23: Fix JavaScript syntax error in sendControl (dangling else-if after PIN removal in v0.3.21) that prevented the dashboard from connecting to the adapter",
+        "de": "v0.3.23: JavaScript-Syntaxfehler in sendControl behoben (übergebliebenes else-if nach PIN-Entfernung in v0.3.21) der verhinderte dass das Dashboard eine Verbindung zum Adapter aufbauen konnte"
+      },
+      "0.3.22": {
+        "en": "v0.3.22: Harden shared-actor voting for all group-mode combinations — computeParticipantNeed now enforces mode boundaries: (1) inactive groups (off/manual/schedule/monitorOnly/maintenance) always vote AUS; (2) dehumidifier/humidifier vote AUS in temperature-only groups; (3) exhaustFan/supplyFan in humidity-only groups vote based on RH target instead of temperature; (4) cooling votes AUS in humidity-only groups; (5) heating votes AUS in humidity-only groups; (6) circulationFan/damper votes AUS in humidity-only groups",
+        "de": "v0.3.22: Geteilte-Aktor-Abstimmung für alle Gruppenmode-Kombinationen gehärtet — computeParticipantNeed setzt jetzt Mode-Grenzen durch: (1) Inaktive Gruppen (off/manual/schedule/monitorOnly/maintenance) stimmen immer AUS; (2) Entfeuchter/Befeuchter stimmen AUS in reinen Temperatur-Gruppen; (3) Zu-/Abluft in reinen Feuchte-Gruppen stimmt nach RH-Sollwert statt Temperatur; (4) Kühlung stimmt AUS in reinen Feuchte-Gruppen; (5) Heizung stimmt AUS in reinen Feuchte-Gruppen; (6) Umluft/Dämpfer stimmt AUS in reinen Feuchte-Gruppen"
+      },
+      "0.3.21": {
+        "en": "v0.3.21: Fix 4 regressions — (1) Actuator manual override no longer expires while group stays in MANUELL mode (override auto-renewed every 60 min); (2) PIN prompt removed from individual EIN/AUS actuator control — PIN is now only required for group mode changes (AUTO↔MANUELL); (3) Dehumidifier/humidifier in combined or humidity group mode now regulates by RH target (with VPD as hard upper/lower guard) instead of using VPD-only logic; (4) Actuator row layout fixed with flex-wrap to prevent column overflow when MANUELL badges and EIN/AUS buttons are shown simultaneously",
+        "de": "v0.3.21: 4 Regressionen behoben — (1) Manueller Aktor-Override läuft nicht mehr ab solange die Gruppe im MANUELL-Modus bleibt (Override wird alle 60 min automatisch verlängert); (2) PIN-Abfrage bei einzelnen EIN/AUS-Aktor-Befehlen entfernt — PIN wird jetzt nur noch bei Gruppenmodusänderungen (AUTO↔MANUELL) verlangt; (3) Entfeuchter/Befeuchter im kombinierten oder Feuchte-Gruppenmode regelt jetzt nach RH-Sollwert (mit VPD als hartem Überbereich-Guard) statt nur nach VPD; (4) Aktor-Zeilen-Layout mit flex-wrap korrigiert damit MANUELL-Badges und EIN/AUS-Tasten keine Spaltenüberlaufe verursachen"
+      },
+      "0.3.20": {
+        "en": "v0.3.20: Fix energy tracking for W-sensor actuators — energy now correctly shows Wh even when ioBroker does not fire state-change events for unchanged power values: (1) updateLastKnownWatts() stores last seen W reading independently of ON/OFF tracking; (2) getEnergy() uses ratedWatts as avgW fallback when no W-samples were accumulated (fixes wh=0 when wh/runtimeMin=0); (3) updateActuatorPowerSample() keeps ratedWatts updated on every sample; (4) initGroup reads W-state for all actuators (not only ON ones) to seed the fallback value on adapter start",
+        "de": "v0.3.20: Energie-Tracking für W-Sensor-Aktoren korrigiert — Wh werden jetzt korrekt angezeigt auch wenn ioBroker für gleiche Werte keine State-Change-Events feuert: (1) updateLastKnownWatts() speichert letzten W-Wert unabhängig vom AN/AUS-Tracking; (2) getEnergy() nutzt ratedWatts als avgW-Fallback wenn keine W-Samples akkumuliert wurden (behebt wh=0 wenn wh/runtimeMin=0); (3) updateActuatorPowerSample() aktualisiert ratedWatts bei jedem Sample; (4) initGroup liest W-State für alle Aktoren (nicht nur AN) um Fallback-Wert beim Adapter-Start zu befüllen"
+      },
+      "0.3.19": {
+        "en": "v0.3.19: Final clean-up pass — ScheduleService: safeMin/safeLerp helpers prevent NaN for temperatureCritical/humidityCritical/condensationRiskMaxHumidity and vpdMin/vpdMax during transitions; IrrigationService: reverted startZone flowRate reset (regression), dry-run guard now requires lastFlowTs>startTs (no false alarm for push-based sensors), triggerManual respects allowedWindow; SensorService: staleAfterSeconds=0 no longer marks sensors as stale; ClimateController: decideCo2Act dir=both now reaches exhaust path for high CO2, decideVpdAct guards against NaN vpdMin/vpdMax; dashboard: XSS fixes for g.id/a.id in element IDs, blockUntil/windSimNextChangeAt as numeric, sharedVotingMode escaped, activeAlarms numeric coercion, data-on as string",
+        "de": "v0.3.19: Finaler Bereinigungsdurchgang — ScheduleService: safeMin/safeLerp-Helfer verhindern NaN für temperatureCritical/humidityCritical/condensationRiskMaxHumidity und vpdMin/vpdMax bei Übergängen; IrrigationService: startZone flowRate-Reset rückgängig gemacht (Regression), Trockenläufer-Guard prüft jetzt lastFlowTs>startTs (kein Fehlalarm bei Push-Sensoren), triggerManual beachtet allowedWindow; SensorService: staleAfterSeconds=0 markiert Sensoren nicht mehr als veraltet; ClimateController: decideCo2Act dir=both erreicht jetzt Abluft-Pfad bei hohem CO2, decideVpdAct prüft NaN vpdMin/vpdMax; Dashboard: XSS-Fixes für g.id/a.id in Element-IDs, blockUntil/windSimNextChangeAt als Zahl, sharedVotingMode escaped, activeAlarms numerische Konvertierung, data-on als String"
+      },
+      "0.3.18": {
+        "en": "v0.3.18: Round 18 bug-fix pass — ClimateController: decideVpdAct dir=both heating path unreachable fixed, decideVpdAct hysteresis setpoint uses midpoint for dir=both, decideCo2Act dir=both now sends command, requestByTarget outdoor humidity guard now active for condensation path; IrrigationService: startZone resets flowRate (dry-run no longer uses stale prior-run value); main.ts: pump-OFF bypasses minimumOnSeconds (safety stops execute immediately), E-stop now calls recordCommand so device state is known after E-stop clears, initGroup reads flowStateId initial value for all zones even when stateId is shared; WebDashboardService: unhandled async rejection in handleRequest now caught; dashboard: influenceFactor/ratedPowerW numeric coercion, power.toFixed() non-number guard, analysis e.id numeric coercion",
+        "de": "v0.3.18: Runde-18-Bug-Fix-Pass — ClimateController: decideVpdAct dir=both Heizungs-Pfad unerreichbar behoben, decideVpdAct Hysterese-Sollwert nutzt Mittelpunkt für dir=both, decideCo2Act dir=both sendet jetzt Befehl, requestByTarget Außenluft-Feuchte-Guard jetzt aktiv für Kondensations-Pfad; IrrigationService: startZone setzt flowRate zurück (Trockenläufer nutzt keinen veralteten Wert mehr); main.ts: Pumpe-AUS umgeht minimumOnSeconds (Sicherheits-Stopps sofort), E-Stop ruft jetzt recordCommand auf damit Gerätezustand nach E-Stop bekannt ist, initGroup liest flowStateId-Initialwert für alle Zonen auch bei geteilter StateID; WebDashboardService: unbehandelte async-Rejection in handleRequest jetzt gefangen; Dashboard: influenceFactor/ratedPowerW numerische Konvertierung, power.toFixed() Nicht-Zahl-Guard, Analyse e.id numerische Konvertierung"
+      },
+      "0.3.17": {
+        "en": "v0.3.17: Round 17 bug-fix pass — ClimateController: co2Valve inferControlDirection returns 'up' (valve now activates), decideTemperatureAct dir=both now reaches heating path, decideVpdAct heating-off missing return added; IrrigationService: disabled zone while running now calls stopZone; main.ts: flowStateId subscribed in initGroup+onStateChange (dryRunProtection now works), pump-OFF sent even when blocked (pump physically turns off), disabled zones processed for stop; DiagnosticsEngine: windowSeconds<=0 guard prevents division by zero; dashboard: wikiTypeBadge XSS, wikiShowDetail numeric coercion, renderWeekNav date XSS, qualityBadgeHtml XSS, lsBarHtml XSS, renderIrrigationTable durationSec coercion, alarm severity null guard",
+        "de": "v0.3.17: Runde-17-Bug-Fix-Pass — ClimateController: co2Valve inferControlDirection gibt 'up' zurück (Ventil aktiviert sich jetzt), decideTemperatureAct dir=both erreicht jetzt Heizungs-Pfad, decideVpdAct Heizung-aus fehlendes return ergänzt; IrrigationService: deaktivierte Zone während Lauf ruft jetzt stopZone auf; main.ts: flowStateId wird in initGroup+onStateChange abonniert (dryRunProtection funktioniert jetzt), Pumpe-AUS wird auch bei blocked gesendet (Pumpe schaltet physisch aus), deaktivierte Zonen werden für Stop verarbeitet; DiagnosticsEngine: windowSeconds<=0-Guard verhindert Division durch null; Dashboard: wikiTypeBadge XSS, wikiShowDetail numerische Konvertierung, renderWeekNav Datum XSS, qualityBadgeHtml XSS, lsBarHtml XSS, renderIrrigationTable durationSec-Konvertierung, Alarm-Schweregrad Null-Guard"
+      },
+      "0.3.16": {
+        "en": "v0.3.16: Round 16 bug-fix pass — IrrigationService: totalFlowLiters units fixed (hours→minutes, 60× error), dry-run check moved before stopZone (correct stop reason); AirSystemService: fan rotation fixed (only active fan runs, true equal distribution); ScheduleService: critical thresholds now use conservative min() during transitions; NotificationService: isQuietHour uses Intl.DateTimeFormat with %24 guard; main.ts: handleEmergencyStop clears manualLocks+dashboardOverrides, lightTransitionFromNight cleaned on non-transition; ClimateController: decideHumidityAct dir=both now reaches humidifier logic, applyEscalationBlocking shadowMode resets timer instead of leaking",
+        "de": "v0.3.16: Runde-16-Bug-Fix-Pass — IrrigationService: totalFlowLiters Zeiteinheit korrigiert (Stunden→Minuten, 60×-Fehler), Dry-Run-Check vor stopZone verschoben (korrekter Stop-Grund); AirSystemService: Ventilator-Rotation korrigiert (echter Wechselbetrieb); ScheduleService: kritische Schwellwerte nutzen konservatives min() bei Übergängen; NotificationService: isQuietHour nutzt Intl.DateTimeFormat mit %24-Guard; main.ts: handleEmergencyStop löscht manualLocks+dashboardOverrides, lightTransitionFromNight bei Nicht-Übergang bereinigt; ClimateController: decideHumidityAct dir=both erreicht jetzt Befeuchter-Logik, applyEscalationBlocking shadowMode setzt Timer zurück"
+      },
+      "0.3.15": {
+        "en": "v0.3.15: Round 15 bug-fix pass — main.ts: emergencyStop safeState default fixed (off not on), dashboard override expiry now releases actuatorService lock, setActuatorStateWithVerify race condition fixed (timerRef self-check after await); WebDashboardService: SSRF allowlist blocks all when empty, mode enum validation, command type validation; ActuatorService: tickWindSimulator uses injected now param; SensorService: dead else-if cleaned; dashboard: climateValHtml label XSS, voting modeLabel fallback XSS, camera onclick gid/escAttr, renderPlantResult groupId escAttr, a.health attr-injection, actuatorHtml groupName param, EventSource.onerror null guard, saveHistoryAsync res.ok",
+        "de": "v0.3.15: Runde-15-Bug-Fix-Pass — main.ts: emergencyStop safeState-Standard korrigiert (off statt on), Dashboard-Override-Ablauf gibt ActuatorService-Lock frei, setActuatorStateWithVerify Race-Condition behoben (timerRef-Selbstcheck nach await); WebDashboardService: SSRF-Allowlist sperrt alles bei leerem Set, Mode-Enum-Validierung, command-Typ-Validierung; ActuatorService: tickWindSimulator nutzt injizierten now-Parameter; SensorService: tote else-if-Bedingung entfernt; Dashboard: climateValHtml label XSS, Voting modeLabel-Fallback XSS, Kamera onclick gid/escAttr, renderPlantResult groupId escAttr, a.health Attribut-Injektion, actuatorHtml groupName-Parameter, EventSource.onerror Null-Guard, saveHistoryAsync res.ok"
+      },
+      "0.3.14": {
+        "en": "v0.3.14: Round 14 bug-fix pass — main.ts: emergencyStop changed to 60s cooldown (re-applies on reconnect), setpointTempTolerance/setpointHumidityTolerance now populated and sent to dashboard; ClimateController: inferControlTarget ignoreExplicit param for safetyOverride, applyEscalationBlocking shadowMode param freezes timer; AlarmService: removeListener method added, re-raise updates severity; SensorService: IQR filter (n-1)*0.75 formula, door sensor type guard; ActuatorService: randBetween lo/hi floor fix; WebDashboardService: SSRF allowedCameraOrigins allowlist, handleMode/handleControl input validation, DashboardGroupState tolerance fields; dashboard: gid/showLs/showDb/safeId use escAttr(), sendMode/sendControl res.ok checks, cropGroupId race condition fixed",
+        "de": "v0.3.14: Runde-14-Bug-Fix-Pass — main.ts: emergencyStop auf 60s-Cooldown umgestellt (gilt erneut bei Reconnect), setpointTempTolerance/setpointHumidityTolerance befüllt und ans Dashboard gesendet; ClimateController: inferControlTarget ignoreExplicit-Parameter für safetyOverride, applyEscalationBlocking shadowMode-Parameter friert Timer ein; AlarmService: removeListener-Methode hinzugefügt, Re-Raise aktualisiert Schweregrad; SensorService: IQR-Filter (n-1)*0,75-Formel, Türsensor-Typwächter; ActuatorService: randBetween lo/hi Floor-Fix; WebDashboardService: SSRF allowedCameraOrigins-Allowlist, handleMode/handleControl Eingabevalidierung, DashboardGroupState Toleranz-Felder; Dashboard: gid/showLs/showDb/safeId nutzen escAttr(), sendMode/sendControl res.ok-Checks, cropGroupId Race-Condition behoben"
+      },
+      "0.3.13": {
+        "en": "v0.3.13: Round 13 bug-fix pass — ClimateController: applyEscalationBlocking now ignores blocked stage-1 actions (action.blocked check), safetyOverride in requestByTarget; main.ts: handleEmergencyStop guard (no repeat writes per cycle), WindSimulator skip setActuatorStateWithVerify (no false alarms), emergencyStopApplied flag resets on normal cycle; dashboard: ctrlBtns/modeToggle/soilSensor onclick use escAttr(), showTrend res.ok check",
+        "de": "v0.3.13: Runde-13-Bug-Fix-Pass — ClimateController: applyEscalationBlocking ignoriert geblockte Stufe-1-Aktoren (action.blocked-Prüfung), safetyOverride in requestByTarget; main.ts: handleEmergencyStop-Guard (keine wiederholten Schreibzugriffe pro Zyklus), WindSimulator überspringt setActuatorStateWithVerify (keine False-Alarms), emergencyStopApplied-Flag beim normalen Zyklus zurückgesetzt; Dashboard: ctrlBtns/modeToggle/soilSensor onclick nutzen escAttr(), showTrend res.ok-Check"
+      },
+      "0.3.12": {
+        "en": "v0.3.12: Round 12 bug-fix pass — IrrigationService: triggerManual duration now respected, totalFlowLiters reset per cycle, lastFlowTs reset on start (no phantom flow), startMoisture saved for stop event; WebDashboardService: plant.id headersSent guards + plantRes error handler; SensorService: string values correctly rejected for numeric sensor types; ClimateController: co2Critical always above co2Max, dead hyst.vpd write removed; main.ts: energy tracking for schedule/alwaysOn circulation fans, CO2 aggregation uses stabilityTimeSeconds; dashboard: 14 XSS/JS-injection fixes, escAttr handles backslash+quotes, resp.ok checks in saveLs/loadAllLifestyle/reconnect, dbSwitchTab race condition guard",
+        "de": "v0.3.12: Runde-12-Bug-Fix-Pass — IrrigationService: triggerManual-Dauer jetzt berücksichtigt, totalFlowLiters pro Zyklus zurückgesetzt, lastFlowTs beim Start zurückgesetzt (kein Phantom-Flow), startMoisture für Stop-Event gespeichert; WebDashboardService: plant.id headersSent-Guards + plantRes-Fehler-Handler; SensorService: String-Werte für numerische Sensortypen korrekt abgelehnt; ClimateController: co2Critical immer über co2Max, toter hyst.vpd-Schreibzugriff entfernt; main.ts: Energie-Tracking für schedule/alwaysOn Umluft, CO2-Aggregation nutzt stabilityTimeSeconds; Dashboard: 14 XSS/JS-Injection-Fixes, escAttr berücksichtigt Backslash+Quotes, resp.ok-Checks in saveLs/loadAllLifestyle/reconnect, dbSwitchTab Race-Condition-Guard"
+      },
+      "0.3.11": {
+        "en": "v0.3.11: Round 11 bug-fix pass — humidifier in VPD mode no longer turns ON when VPD too low, condensation lock now forces false over true, morning transition interpolates night→day direction, ScheduleService wakes every 60s during transition, kWh double-counting guard for air/circulation/irrigation, Emergency Stop uses offValue for numeric actuators, isQuietHour uses Europe/Berlin timezone, plant.id timeout+size limit, trackSensorValue NaN guard, ConfigurationService undefined field validation, dashboard XSS fixes (7 locations), camera blob race condition, missing resp.ok checks",
+        "de": "v0.3.11: Runde-11-Bug-Fix-Pass — Befeuchter im VPD-Modus wird nicht mehr EIN bei zu niedrigem VPD, Kondensationsverriegelung überschreibt jetzt true, Morgen-Transition interpoliert Nacht→Tag, ScheduleService wacht alle 60s während Transition, kWh-Doppelzählungs-Guard für Luft/Umluft/Bewässerung, Not-Aus nutzt offValue für numerische Aktoren, isQuietHour nutzt Europe/Berlin-Zeitzone, plant.id Timeout+Größenlimit, trackSensorValue NaN-Guard, ConfigurationService undefined-Feldvalidierung, Dashboard XSS-Fixes (7 Stellen), Kamera-Blob-Race-Condition, fehlende resp.ok-Checks"
+      },
+      "0.3.10": {
+        "en": "v0.3.10: Fix XSS in group card HTML, 413 responses for oversized bodies in all POST handlers, setInterval cleanup on page unload, linearTrend null for identical timestamps, checkPlausibility with inverted validMin/validMax, shared actuator flag in dashboard state, async render race condition fixed",
+        "de": "v0.3.10: XSS in Gruppen-Karten-HTML behoben, 413-Antworten für zu große Request-Bodies in allen POST-Handlern, setInterval-Cleanup beim Seitenverlassen, linearTrend gibt null bei identischen Timestamps zurück, checkPlausibility mit vertauschten validMin/validMax, shared-Aktorfeld im Dashboard-State, asynchrone Render-Race-Condition behoben"
+      },
+      "0.3.9": {
+        "en": "v0.3.9: 7-round bug-fix pass — fix phantom hysteresis for shared actors, database date off-by-one, SafeState overridden by Override, dimmer percentage change detection, ScheduleService transition edge case, missing energy tracking for air/circulation/irrigation actuators, unhandled Promise rejections, ConfigurationService import without migration",
+        "de": "v0.3.9: 7-Runden Bug-Fix-Pass — Phantom-Hysterese bei geteilten Aktoren, Datenbankdatum um einen Tag verschoben, SafeState wurde von Override überschrieben, Dimmer-Prozentwertänderung nicht erkannt, ScheduleService-Übergang bei exakter Startminute, fehlendes Energie-Tracking für Luft-/Umluft-/Bewässerungsaktoren, unbehandelte Promise-Rejections, ConfigurationService-Import ohne Migration"
+      },
+      "0.3.8": {
+        "en": "v0.3.8: fix VPD + temperature hysteresis for shared actors (computeParticipantNeed): run-to-midpoint dead band, proportional urgency on boundary violations; majority mode balances overshoot vs. remaining need (weighted), any/primary mode uses hard veto on urgency>0 off-votes from non-owner participants",
+        "de": "v0.3.8: Fix VPD + Temperatur-Hysterese fuer geteilte Aktoren (computeParticipantNeed): Laufen-bis-Mitte Totband, proportionale Dringlichkeit bei Grenzwertverletzungen; majority-Modus wägt Ueberschreitung gegen Restbedarf ab (gewichtet), any/primary-Modus setzt hartes Veto bei urgency>0 AUS-Stimmen von Nicht-Eigentümern"
+      },
+      "0.3.7": {
+        "en": "v0.3.7: week navigation (◀/▶) for stats and energy history (7 days per page, 30 days stored); VPD hysteresis now direction-based — devices run until midpoint of setpoint range before switching off, creating longer ON/OFF cycles for better climate stability",
+        "de": "v0.3.7: Wochen-Navigation (◀/▶) fuer Statistik- und Energie-Verlauf (7 Tage pro Seite, 30 Tage gespeichert); VPD-Hysterese jetzt richtungsbasiert – Aktoren laufen bis zur Mitte des Sollbereichs bevor sie abschalten, laengere EIN/AUS-Zyklen fuer bessere Klimastabilitaet"
+      },
+      "0.3.6": {
+        "en": "v0.3.6: redesign daily sensor statistics table to per-sensor cards (Date / Min / Avg / Max) matching the energy table layout; min in blue, max in red for quick scanning; add co2 label",
+        "de": "v0.3.6: Tages-Statistiken als Sensor-Karten neu gestaltet (Datum / Min / Avg / Max) passend zum Energie-Layout; Min in Blau, Max in Rot fuer schnelle Erfassung; CO2-Label ergaenzt"
+      },
+      "0.3.5": {
+        "en": "v0.3.5 patch: fix trackActuatorOff not called for actuators without ratedPowerW (SharedAktor + windSimulator paths), causing runtime to count through OFF periods; read initial W-sensor value at startup to prevent 0 Wh on static W values; redesign energy history table to per-actuator cards",
+        "de": "v0.3.5 Patch: Fix trackActuatorOff wurde bei Aktoren ohne Nennleistung nicht aufgerufen (SharedAktor + windSimulator), Laufzeit zaehlte durch AUS-Phasen; initialer W-Sensor-Wert beim Start lesen um 0 Wh bei konstantem W-Wert zu vermeiden; Energietabelle als Karten je Aktor neu gestaltet"
+      },
+      "0.3.4": {
+        "en": "v0.3.4 patch: fix energy tracking showing 0 Wh for actuators running continuously (never turned off); store ratedWatts in accumulator, use as avgW fallback in live display and midnight flush when no completed ON→OFF cycle exists",
+        "de": "v0.3.4 Patch: Fix Energietracking zeigte 0 Wh fuer dauerlaufende Aktoren (nie abgeschaltet); ratedWatts im Akkumulator gespeichert, als avgW-Fallback in Live-Anzeige und Midnight-Flush wenn kein abgeschlossener EIN→AUS-Zyklus vorhanden"
+      },
+      "0.3.3": {
+        "en": "v0.3.3 patch: fix CO2_LOW alarm stuck in dead zone (else if → else); extract CO2 alarms to raiseCo2Alarms() to prevent duplicate notifications with multiple co2Valve actuators; fix stuckOn detection for consistently-off actuators (needsSync guard); dashboard CO2 uses state.co2 instead of re-aggregating",
+        "de": "v0.3.3 Patch: Fix CO2_LOW-Alarm klebte im Dead-Zone-Bereich (else if → else); CO2-Alarme in raiseCo2Alarms() ausgelagert um Doppel-Notifications bei mehreren co2Valve-Aktoren zu vermeiden; Fix stuckOn-Erkennung fuer dauerhaft-AUS-Aktoren (needsSync-Guard); Dashboard CO2 nutzt state.co2 statt erneuter Aggregation"
+      },
+      "0.3.2": {
+        "en": "v0.3.2: CO2 control via co2Valve/exhaustFan with two-point hysteresis regulation; CO2_HIGH and CO2_LOW alarms; co2Target/co2Tolerance/co2Max/co2Critical in ClimateSetpoint; CO2 already shown in dashboard; add admin logo growmanager.png",
+        "de": "v0.3.2: CO2-Regelung ueber co2Valve/exhaustFan mit Zweipunkt-Hysterese; Alarme CO2_HIGH und CO2_LOW; co2Target/co2Tolerance/co2Max/co2Critical im ClimateSetpoint; CO2-Anzeige bereits im Dashboard; Admin-Logo growmanager.png ergaenzt"
+      },
+      "0.3.1": {
+        "en": "v0.3.1 patch: fix lastSwitchTs set on firstSync (broke minimumOffSeconds on restart); pre-seed lastMidnightFlush in loadGroup to prevent spurious early flush; add Feuchte-Zuluft humidity exception to participant outdoor guard (parity with owner guard)",
+        "de": "v0.3.1 Patch: Fix lastSwitchTs wurde bei firstSync gesetzt (minimumOffSeconds war nach Neustart falsch); lastMidnightFlush in loadGroup vormerken um vorzeitigen Flush zu verhindern; Feuchte-Zuluft-Ausnahme zum Teilnehmer-Outdoor-Guard ergaenzt (Parität mit Eigentümer-Guard)"
+      },
       "0.3.0": {
         "en": "v0.3.0 quality release: fix midnight flush running only once for all groups; fix noFeedback false-positive on adapter start; fix firstSync phantom switch counter; fix critical undertemperature blocked by condensation check (priority swap); fix VPD null sensor falling through to RH fallback; apply outdoor guard to participant votes; fix trackActuatorOff missing when ratedPowerW=0; add energy tracking to legacy resolveAll path; fix deleted group alarms accumulating forever; cancel verify timer on numeric command; live block-countdown in dashboard; XSS escaping for vote tooltip; double-click guard on sendControl/sendMode",
         "de": "v0.3.0 Qualitaets-Release: Fix Midnight-Flush lief nur einmal fuer alle Gruppen; Fix noFeedback-Fehlalarm beim Adapter-Start; Fix firstSync zaehlt faelschlicherweise als Schaltvorgang; Fix kritische Untertemperatur wurde von Kondensationspruefung blockiert (Prioritaetsreihenfolge getauscht); Fix VPD-Sensor nicht verfuegbar fiel auf RH-Fallback zurueck; Outdoor-Guard auf Teilnehmer-Stimmen angewendet; Fix trackActuatorOff fehlte bei ratedPowerW=0; Energie-Tracking in Legacy resolveAll-Pfad ergaenzt; Fix aktive Alarme geloeschter Gruppen haeufen sich auf; Verify-Timer bei numerischem Befehl abbrechen; Live-Countdown fuer Sperrzeiten im Dashboard; XSS-Escaping fuer Vote-Tooltip; Doppelklick-Schutz fuer sendControl/sendMode"
@@ -725,4 +925,5 @@
     }
   ]
 }
+
 

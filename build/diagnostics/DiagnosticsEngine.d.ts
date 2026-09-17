@@ -24,7 +24,7 @@ export declare class DiagnosticsEngine {
     /**
      * Fügt einen Messwert zum Trend-Puffer hinzu.
      */
-    recordValue(groupId: string, variable: 'temperature' | 'humidity' | 'vpd', value: number): void;
+    recordValue(groupId: string, variable: 'temperature' | 'humidity' | 'vpd' | 'co2', value: number): void;
     /** Gibt die letzten 48 Stundenmittelwerte zurück (inklusive laufender Stunde). */
     getHourlyHistory(groupId: string, variable: 'temperature' | 'humidity' | 'vpd'): Array<{
         ts: number;

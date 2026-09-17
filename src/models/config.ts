@@ -81,6 +81,7 @@ export type ActuatorType =
     | 'irrigation'
     | 'co2Valve'
     | 'damper'
+    | 'timedActuator'
     | 'custom';
 
 export type ActuatorDataType = 'boolean' | 'number' | 'string';
@@ -158,6 +159,24 @@ export interface ActuatorConfig {
     energyStateId?: string;
     energyStateUnit?: 'W' | 'kWh';
     ratedPowerW?: number;
+    // Zeitgesteuerte Aktoren (type === 'timedActuator')
+    scheduleEntries?: ActuatorScheduleEntry[];
+    // Blüte-Temperatur-Schutz: sperrt diesen Aktor wenn Gruppe in Blüte und Temp ≥ Schwelle
+    bloomTempGuardMaxC?: number;
+}
+
+// ---- Aktor-Zeitplan ----------------------------------------
+
+export interface ActuatorScheduleEntry {
+    id: string;
+    name: string;
+    enabled: boolean;
+    /** Wochentage: 0=Mo, 1=Di, 2=Mi, 3=Do, 4=Fr, 5=Sa, 6=So. Leer = alle Tage. */
+    days: number[];
+    startHH: number;
+    startMM: number;
+    endHH: number;
+    endMM: number;
 }
 
 // ---- Umluft-Windsimulator ----------------------------------
@@ -209,6 +228,8 @@ export interface ClimateSetpoint {
     // Optionale Sollwerte für weitere Regelgrößen
     co2Target?: number;
     co2Tolerance?: number;
+    co2Max?: number;       // Warnschwelle ppm (überschritten → Alarm 'warning'); default: target + tolerance * 4
+    co2Critical?: number;  // Kritisch-Schwelle ppm (überschritten → Alarm 'critical'); default: max(5000, target + tolerance * 8)
     soilMoistureTarget?: number;
     soilMoistureTolerance?: number;
 }
@@ -406,6 +427,24 @@ export interface AlarmChannel {
     retentionDays: number;
 }
 
+// ---- Trocknung ---------------------------------------------
+
+export interface DryingRampConfig {
+    enabled: boolean;
+    /** Erntedatum als Unix-Timestamp (ms) – Startpunkt der Rampe */
+    startDate: number;
+    /** Gesamtdauer der Trocknung in Tagen */
+    durationDays: number;
+    /** Starttemperatur zu Beginn der Trocknung (°C) */
+    startTemp: number;
+    /** Zieltemperatur am Ende der Trocknung (°C) */
+    endTemp: number;
+    /** Start-Luftfeuchte zu Beginn der Trocknung (%) */
+    startHumidity: number;
+    /** Ziel-Luftfeuchte am Ende der Trocknung (%) */
+    endHumidity: number;
+}
+
 // ---- Gruppe ------------------------------------------------
 
 export interface GroupConfig {
@@ -432,6 +471,12 @@ export interface GroupConfig {
     stabilityTimeSeconds: number;
     sensorDisagreementThreshold: number;
     outdoorSensor?: OutdoorSensorConfig;
+    /** Geschätzter Unterschied Blatttemperatur zu Lufttemperatur in °C (Standard: 2°C). Wird für Leaf-VPD Schätzung genutzt wenn kein Blattsensor vorhanden. */
+    leafTempOffsetC?: number;
+    /** Trocknungsrampe: proportionale Interpolation von Sollwerten über die Trockendauer */
+    dryingRamp?: DryingRampConfig;
+    /** Licht-Aktoren im Trocknungsmodus automatisch sperren (Standard: true) */
+    dryingLightOff?: boolean;
 }
 
 // ---- Push-Benachrichtigungen -------------------------------
@@ -490,6 +535,25 @@ export interface CustomAlertRule {
     cooldownMinutes: number;
 }
 
+// ---- Aktor-Alarmregeln ------------------------------------
+
+export type ActuatorAlertCondition =
+    | 'off_when_should_be_on'   // Feedback sagt AUS, obwohl Befehl EIN (noFeedback)
+    | 'no_power_when_on'        // Kein Stromverbrauch obwohl eingeschaltet (noPower)
+    | 'stuck_on';               // Bleibt an trotz Aus-Befehl (stuckOn)
+
+export interface ActuatorAlertRule {
+    id: string;
+    name: string;
+    enabled: boolean;
+    groupId: string;
+    actuatorId: string;
+    condition: ActuatorAlertCondition;
+    severity: 'info' | 'warning' | 'fault' | 'critical';
+    triggerDelayMinutes: number;    // Mindestdauer des Fehlerzustands bevor Alarm feuert
+    cooldownMinutes: number;
+}
+
 // ---- Globale Konfiguration ---------------------------------
 
 export type StartBehavior = 'lastState' | 'delayedStart' | 'safeTurnOff' | 'monitorOnly';
@@ -513,6 +577,7 @@ export interface GrowManagerConfig {
     notifications?: NotificationConfig;
     plantIdApiKey?: string;
     customAlertRules?: CustomAlertRule[];
+    actuatorAlertRules?: ActuatorAlertRule[];
 }
 
 // ---- Laufzeitzustände (nicht persistent) -------------------
@@ -569,6 +634,15 @@ export interface ActuatorState {
     lastSwitchTs: number;
 }
 
+export interface DryingProgress {
+    day: number;           // Aktueller Tag (1-basiert), z.B. 5
+    total: number;         // Gesamtdauer in Tagen, z.B. 14
+    progress: number;      // 0–1, linearer Fortschritt
+    tempTarget: number;    // Aktueller interpolierter Temperatursollwert
+    humidityTarget: number; // Aktueller interpolierter Feuchte-Sollwert
+    done: boolean;         // true wenn Dauer abgelaufen
+}
+
 export interface GroupState {
     id: string;
     mode: GroupMode;
@@ -582,6 +656,7 @@ export interface GroupState {
     dewPoint: number | null;
     absoluteHumidity: number | null;
     condensationRisk: boolean;
+    co2: number | null;
     sensorQuality: number;
     activeProfile?: ClimateProfile;
     lastDecision?: ControlDecision;
@@ -590,6 +665,7 @@ export interface GroupState {
     nextScheduleChange?: number;
     alarmActive: boolean;
     highestAlarmSeverity?: string;
+    dryingProgress?: DryingProgress | null;
 }
 
 export interface ControlAction {

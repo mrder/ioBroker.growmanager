@@ -22,7 +22,7 @@ export interface SensorConfig {
 
 export type ActuatorType =
     | 'light' | 'circulationFan' | 'exhaustFan' | 'supplyFan' | 'heating'
-    | 'cooling' | 'humidifier' | 'dehumidifier' | 'irrigation' | 'co2Valve' | 'damper' | 'custom';
+    | 'cooling' | 'humidifier' | 'dehumidifier' | 'irrigation' | 'co2Valve' | 'damper' | 'timedActuator' | 'custom';
 
 export type ActuatorDataType = 'boolean' | 'number' | 'string';
 export type ActuatorSafeState = 'off' | 'on' | 'keep' | 'minLevel';
@@ -63,6 +63,20 @@ export interface ActuatorConfig {
     energyStateId?: string;
     energyStateUnit?: 'W' | 'kWh';
     ratedPowerW?: number;
+    scheduleEntries?: ActuatorScheduleEntry[];
+    bloomTempGuardMaxC?: number;
+}
+
+export interface ActuatorScheduleEntry {
+    id: string;
+    name: string;
+    enabled: boolean;
+    /** 0=Mo, 1=Di, 2=Mi, 3=Do, 4=Fr, 5=Sa, 6=So. Leer = alle Tage. */
+    days: number[];
+    startHH: number;
+    startMM: number;
+    endHH: number;
+    endMM: number;
 }
 
 export interface WindSimulatorConfig {
@@ -138,6 +152,16 @@ export interface CameraConfig {
     cpuLimitPercent: number;
 }
 
+export interface DryingRampConfig {
+    enabled: boolean;
+    startDate: number;
+    durationDays: number;
+    startTemp: number;
+    endTemp: number;
+    startHumidity: number;
+    endHumidity: number;
+}
+
 export interface GroupConfig {
     id: string; name: string; description: string; color: string; enabled: boolean;
     phase: PlantPhase; mode: GroupMode; schedule: DaySchedule;
@@ -148,6 +172,9 @@ export interface GroupConfig {
     fallbackChain: GroupMode[]; stabilityTimeSeconds: number;
     sensorDisagreementThreshold: number;
     outdoorSensor?: OutdoorSensorConfig;
+    leafTempOffsetC?: number;
+    dryingRamp?: DryingRampConfig;
+    dryingLightOff?: boolean;
 }
 
 export type NotificationChannelType = 'telegram' | 'whatsapp' | 'discord' | 'signal' | 'pushover';
@@ -196,6 +223,23 @@ export interface CustomAlertRule {
     cooldownMinutes: number;
 }
 
+export type ActuatorAlertCondition =
+    | 'off_when_should_be_on'
+    | 'no_power_when_on'
+    | 'stuck_on';
+
+export interface ActuatorAlertRule {
+    id: string;
+    name: string;
+    enabled: boolean;
+    groupId: string;
+    actuatorId: string;
+    condition: ActuatorAlertCondition;
+    severity: 'info' | 'warning' | 'fault' | 'critical';
+    triggerDelayMinutes: number;
+    cooldownMinutes: number;
+}
+
 export type StartBehavior = 'lastState' | 'delayedStart' | 'safeTurnOff' | 'monitorOnly';
 
 export interface GrowManagerConfig {
@@ -207,4 +251,5 @@ export interface GrowManagerConfig {
     notifications?: NotificationConfig;
     plantIdApiKey?: string;
     customAlertRules?: CustomAlertRule[];
+    actuatorAlertRules?: ActuatorAlertRule[];
 }

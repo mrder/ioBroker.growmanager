@@ -15,6 +15,7 @@ export interface DailyEnergyStat {
         name: string;
         wh: number;
         runtimeMin: number;
+        peakW?: number;
     }>;
 }
 export interface IrrigationEvent {
@@ -38,17 +39,24 @@ export declare class DatabaseService {
     private readonly irrCache;
     private readonly sensorAcc;
     private readonly energyAcc;
+    private readonly peakWatts;
     private readonly lastMidnightFlush;
     constructor(log: ILogger, setState: SetStateFn, getState: GetStateFn);
     loadGroup(groupId: string): Promise<void>;
     trackSensorValue(groupId: string, sensorId: string, value: number, name?: string): void;
-    trackActuatorOn(groupId: string, actuatorId: string, name: string): void;
+    trackActuatorOn(groupId: string, actuatorId: string, name: string, ratedWatts?: number): void;
     trackActuatorOff(groupId: string, actuatorId: string, ratedWatts: number): void;
     /**
      * Wird bei jedem Live-W-Wert aufgerufen (energyStateUnit='W').
      * Akkumuliert Wh seit dem letzten Sample-Zeitpunkt.
      */
     updateActuatorPowerSample(groupId: string, actuatorId: string, watts: number): void;
+    /**
+     * Speichert den zuletzt bekannten W-Wert eines Aktors als Schätzwert.
+     * Wird aufgerufen wenn ein W-State-Update eintrifft (unabhängig vom AN/AUS-Status).
+     * Sichert so den Fallback-Wert für getEnergy() auch wenn keine Zyklen akkumuliert wurden.
+     */
+    updateLastKnownWatts(groupId: string, actuatorId: string, name: string, watts: number): void;
     trackActuatorWh(groupId: string, actuatorId: string, name: string, deltaWh: number, durationMin: number): void;
     addIrrigationEvent(groupId: string, event: IrrigationEvent): Promise<void>;
     tickMidnight(groupId: string): Promise<void>;
@@ -56,9 +64,12 @@ export declare class DatabaseService {
     getStats(groupId: string): DailySensorStat[];
     getEnergy(groupId: string): DailyEnergyStat[];
     getIrrigation(groupId: string): IrrigationEvent[];
+    getLearnedPeakWatts(groupId: string): Record<string, number>;
+    private recordPeak;
     private readJson;
     private flush;
     private todayStr;
+    private yesterdayStr;
 }
 export {};
 //# sourceMappingURL=DatabaseService.d.ts.map

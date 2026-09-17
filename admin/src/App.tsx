@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { GrowManagerConfig, GroupConfig, ClimateProfile, ControlTarget, ControlDirection, OutdoorSensorConfig, SharedParticipant, NotificationChannel, NotificationConfig, NotificationChannelType, WindSimulatorConfig, CirculationScheduleWindow, CustomAlertRule, CustomAlertMetric, CustomAlertCondition } from './types';
+import type { GrowManagerConfig, GroupConfig, ClimateProfile, ControlTarget, ControlDirection, OutdoorSensorConfig, SharedParticipant, NotificationChannel, NotificationConfig, NotificationChannelType, WindSimulatorConfig, CirculationScheduleWindow, CustomAlertRule, CustomAlertMetric, CustomAlertCondition, ActuatorAlertRule, ActuatorAlertCondition, ActuatorScheduleEntry } from './types';
 
 // ioBroker Admin-Globals (werden vom Admin-Framework bereitgestellt)
 declare const socket: {
@@ -669,6 +669,100 @@ const CirculationFanSettings: React.FC<{
     );
 };
 
+const WEEK_DAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+const newScheduleEntry = (): ActuatorScheduleEntry => ({
+    id: Math.random().toString(36).slice(2, 9),
+    name: 'Zeitplan',
+    enabled: true,
+    days: [],
+    startHH: 6, startMM: 0, endHH: 22, endMM: 0,
+});
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const parseHHMM = (hh: number, mm: number) => `${pad2(hh)}:${pad2(mm)}`;
+const splitHHMM = (s: string) => {
+    const [h, m] = s.split(':').map(Number);
+    return { hh: isNaN(h) ? 0 : h, mm: isNaN(m) ? 0 : m };
+};
+
+const TimedActuatorScheduleEditor: React.FC<{
+    entries: ActuatorScheduleEntry[];
+    onChange: (entries: ActuatorScheduleEntry[]) => void;
+}> = ({ entries, onChange }) => {
+    const [serverTime, setServerTime] = React.useState<string>('…');
+    React.useEffect(() => {
+        const update = () => setServerTime(new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        update();
+        const t = setInterval(update, 1000);
+        return () => clearInterval(t);
+    }, []);
+    const update = (i: number, patch: Partial<ActuatorScheduleEntry>) =>
+        onChange(entries.map((e, idx) => idx === i ? { ...e, ...patch } : e));
+    const remove = (i: number) => onChange(entries.filter((_, idx) => idx !== i));
+    const inp: React.CSSProperties = { width: '100%', padding: '4px 6px', borderRadius: 4, border: '1px solid #444', background: '#1a1a2e', color: '#e0e0e0', fontSize: 12 };
+    const dayBtn = (active: boolean): React.CSSProperties => ({
+        padding: '2px 7px', borderRadius: 4, border: '1px solid ' + (active ? '#66bb6a' : '#444'),
+        background: active ? 'rgba(102,187,106,0.2)' : 'transparent',
+        color: active ? '#66bb6a' : '#888', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+    });
+    return (
+        <div style={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 6, padding: 10, marginTop: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#42a5f5' }}>🕐 Zeitpläne <span style={{ fontWeight: 400, color: '#888', fontSize: 11 }} title="Browser-Zeit deines Geräts – kann von der Serverzeit abweichen">(Browser-Zeit: {serverTime})</span></div>
+                <button style={{ padding: '3px 10px', borderRadius: 4, border: '1px solid #42a5f5', background: 'transparent', color: '#42a5f5', cursor: 'pointer', fontSize: 11 }}
+                    onClick={() => onChange([...entries, newScheduleEntry()])}>+ Zeitplan</button>
+            </div>
+            {entries.length === 0 && (
+                <div style={{ fontSize: 11, color: '#666', textAlign: 'center', padding: '8px 0' }}>
+                    Noch kein Zeitplan — Aktor bleibt immer AUS bis ein Zeitplan aktiv ist.
+                </div>
+            )}
+            {entries.map((e, i) => (
+                <div key={e.id} style={{ background: '#111827', border: '1px solid #2a2a3e', borderRadius: 5, padding: 8, marginBottom: 6 }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                        <input style={{ ...inp, flex: 1 }} value={e.name}
+                            placeholder="Name" onChange={ev => update(i, { name: ev.target.value })} />
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#aaa', whiteSpace: 'nowrap' }}>
+                            <input type="checkbox" checked={e.enabled} onChange={ev => update(i, { enabled: ev.target.checked })} />
+                            Aktiv
+                        </label>
+                        <button style={{ padding: '2px 7px', borderRadius: 4, border: '1px solid #c62828', background: 'transparent', color: '#ef5350', cursor: 'pointer', fontSize: 11 }}
+                            onClick={() => remove(i)}>✕</button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 6, flexWrap: 'wrap' }}>
+                        {WEEK_DAYS.map((d, di) => (
+                            <button key={di} style={dayBtn(e.days.includes(di) || e.days.length === 0)}
+                                onClick={() => {
+                                    const all = e.days.length === 0;
+                                    const next = all
+                                        ? WEEK_DAYS.map((_, idx) => idx).filter(idx => idx !== di)
+                                        : e.days.includes(di) ? e.days.filter(x => x !== di) : [...e.days, di].sort();
+                                    update(i, { days: next.length === 7 ? [] : next });
+                                }}>{d}</button>
+                        ))}
+                        <span style={{ fontSize: 10, color: '#666', alignSelf: 'center', marginLeft: 4 }}>
+                            {e.days.length === 0 ? 'Alle Tage' : ''}
+                        </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                        <div>
+                            <label style={{ fontSize: 11, color: '#aaa', display: 'block', marginBottom: 2 }}>Von</label>
+                            <input style={inp} type="time" value={parseHHMM(e.startHH, e.startMM)}
+                                onChange={ev => { const { hh, mm } = splitHHMM(ev.target.value); update(i, { startHH: hh, startMM: mm }); }} />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: 11, color: '#aaa', display: 'block', marginBottom: 2 }}>Bis</label>
+                            <input style={inp} type="time" value={parseHHMM(e.endHH, e.endMM)}
+                                onChange={ev => { const { hh, mm } = splitHHMM(ev.target.value); update(i, { endHH: hh, endMM: mm }); }} />
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
+
 const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ownerGroupId, onSave, onClose }) => {
     const [edit, setEdit] = useState(actuator ?? defaultActuator());
 
@@ -699,38 +793,48 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                     <option value="irrigation">Bewässerung</option>
                     <option value="co2Valve">CO₂-Ventil</option>
                     <option value="damper">Klappe</option>
+                    <option value="timedActuator">Zeitgesteuert</option>
                     <option value="custom">Benutzerdefiniert</option>
                 </select>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    <div>
-                        <label style={styles.fieldLabel}>Regelziel (controlTarget)</label>
-                        <select style={styles.select}
-                            value={edit.controlTarget ?? ''}
-                            onChange={e => setEdit(prev => ({ ...prev, controlTarget: (e.target.value || undefined) as ControlTarget | undefined }))}>
-                            <option value="">– Auto (vom Typ abgeleitet) –</option>
-                            <option value="temperature">Temperatur</option>
-                            <option value="humidity">Luftfeuchtigkeit</option>
-                            <option value="vpd">VPD (koordiniert)</option>
-                            <option value="co2">CO₂</option>
-                            <option value="soilMoisture">Bodenfeuchte</option>
-                            <option value="light">Licht (Zeitplan)</option>
-                            <option value="timer">Timer (immer EIN)</option>
-                            <option value="custom">Benutzerdefiniert</option>
-                        </select>
+                {edit.type === 'timedActuator' && (
+                    <TimedActuatorScheduleEditor
+                        entries={edit.scheduleEntries ?? []}
+                        onChange={entries => setEdit(prev => ({ ...prev, scheduleEntries: entries }))}
+                    />
+                )}
+
+                {edit.type !== 'timedActuator' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        <div>
+                            <label style={styles.fieldLabel}>Regelziel (controlTarget)</label>
+                            <select style={styles.select}
+                                value={edit.controlTarget ?? ''}
+                                onChange={e => setEdit(prev => ({ ...prev, controlTarget: (e.target.value || undefined) as ControlTarget | undefined }))}>
+                                <option value="">– Auto (vom Typ abgeleitet) –</option>
+                                <option value="temperature">Temperatur</option>
+                                <option value="humidity">Luftfeuchtigkeit</option>
+                                <option value="vpd">VPD (koordiniert)</option>
+                                <option value="co2">CO₂</option>
+                                <option value="soilMoisture">Bodenfeuchte</option>
+                                <option value="light">Licht (Zeitplan)</option>
+                                <option value="timer">Timer (immer EIN)</option>
+                                <option value="custom">Benutzerdefiniert</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style={styles.fieldLabel}>Wirkrichtung</label>
+                            <select style={styles.select}
+                                value={edit.controlDirection ?? ''}
+                                onChange={e => setEdit(prev => ({ ...prev, controlDirection: (e.target.value || undefined) as ControlDirection | undefined }))}>
+                                <option value="">– Auto (vom Typ abgeleitet) –</option>
+                                <option value="up">Erhöhen (up) – z.B. Heizung, Befeuchter</option>
+                                <option value="down">Senken (down) – z.B. Abluft, Entfeuchter</option>
+                                <option value="both">Beides</option>
+                            </select>
+                        </div>
                     </div>
-                    <div>
-                        <label style={styles.fieldLabel}>Wirkrichtung</label>
-                        <select style={styles.select}
-                            value={edit.controlDirection ?? ''}
-                            onChange={e => setEdit(prev => ({ ...prev, controlDirection: (e.target.value || undefined) as ControlDirection | undefined }))}>
-                            <option value="">– Auto (vom Typ abgeleitet) –</option>
-                            <option value="up">Erhöhen (up) – z.B. Heizung, Befeuchter</option>
-                            <option value="down">Senken (down) – z.B. Abluft, Entfeuchter</option>
-                            <option value="both">Beides</option>
-                        </select>
-                    </div>
-                </div>
+                )}
                 {(edit.type === 'exhaustFan' || edit.type === 'supplyFan') && (
                     <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '6px 0', cursor: 'pointer', fontSize: 13 }}>
                         <input type="checkbox"
@@ -741,8 +845,8 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                     </label>
                 )}
 
-                {/* Stufenregelung: nur für Aktoren die Klima beeinflussen (nicht Licht/Umluft/CO₂) */}
-                {!['light', 'circulationFan', 'co2Valve', 'irrigation', 'custom'].includes(edit.type) && (
+                {/* Stufenregelung: nur für Aktoren die Klima beeinflussen (nicht Licht/Umluft/CO₂/Zeitplan) */}
+                {!['light', 'circulationFan', 'co2Valve', 'irrigation', 'custom', 'timedActuator'].includes(edit.type) && (
                     <div style={{ background: '#f5f8ff', border: '1px solid #d0daf0', borderRadius: 8, padding: '12px 14px', marginTop: 14 }}>
                         <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
                             Stufenregelung
@@ -795,6 +899,23 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                     placeholder="z.B. zigbee.0.device.state_l"
                 />
 
+                {/* Blüte-Temperatur-Schutz */}
+                {['heating', 'dehumidifier', 'humidifier', 'co2Valve', 'timedActuator', 'custom'].includes(edit.type) && (
+                    <div style={{ background: '#1a0010', border: '1px solid #c62828', borderRadius: 6, padding: 10, marginTop: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: '#ef9a9a' }}>🌸 Blüte-Temperatur-Schutz (optional)</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input style={{ ...styles.input, width: 80 }} type="number" min={20} max={40} step={0.5}
+                                placeholder="z.B. 28"
+                                value={edit.bloomTempGuardMaxC ?? ''}
+                                onChange={e => setEdit(prev => ({ ...prev, bloomTempGuardMaxC: e.target.value ? +e.target.value : undefined }))} />
+                            <span style={{ fontSize: 12 }}>°C Max</span>
+                        </div>
+                        <span style={{ fontSize: 11, color: '#aaa', display: 'block', marginTop: 4 }}>
+                            Sperrt diesen Aktor wenn die Gruppe (oder geteilte Blüte-Gruppe) in der Blüte-Phase ist und die Temperatur diesen Wert erreicht oder überschreitet. Leer = deaktiviert.
+                        </span>
+                    </div>
+                )}
+
                 {/* Energie-Tracking */}
                 <div style={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 6, padding: 10, marginTop: 8 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: '#f0b429' }}>⚡ Energie-Tracking (optional)</div>
@@ -802,7 +923,7 @@ const ActuatorEditor: React.FC<ActuatorEditorProps> = ({ actuator, allGroups, ow
                         label="Energie-State (W oder kWh)"
                         tip="State der Watt oder kWh liefert (z.B. tasmota.0.ENERGY_Power). Ohne State wird die Nennleistung × Laufzeit gerechnet."
                         value={edit.energyStateId ?? ''}
-                        onChange={v => setEdit(prev => ({ ...prev, energyStateId: v || undefined }))}
+                        onChange={v => setEdit(prev => ({ ...prev, energyStateId: v || undefined, energyStateUnit: prev.energyStateUnit ?? (v ? 'W' : undefined) }))}
                         placeholder="z.B. shelly.0.device.Power (optional)"
                     />
                     {edit.energyStateId && (
@@ -1237,6 +1358,103 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                         <option value="custom">Benutzerdefiniert</option>
                     </select>
 
+                    {/* Trocknungs-Einstellungen */}
+                    {edit.phase === 'drying' && (
+                        <div style={{ background: 'rgba(120,180,255,0.08)', border: '1px solid rgba(120,180,255,0.3)', borderRadius: 6, padding: 12, marginBottom: 4 }}>
+                            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: '#7ab8ff' }}>Trocknungseinstellungen</div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                <input type="checkbox"
+                                    checked={edit.dryingLightOff ?? true}
+                                    onChange={e => setEdit(prev => ({ ...prev, dryingLightOff: e.target.checked }))} />
+                                <span style={{ fontSize: 13 }}>Licht-Aktoren dauerhaft AUS (empfohlen)</span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                <input type="checkbox"
+                                    checked={edit.dryingRamp?.enabled ?? false}
+                                    onChange={e => setEdit(prev => ({
+                                        ...prev,
+                                        dryingRamp: {
+                                            enabled: e.target.checked,
+                                            startDate: prev.dryingRamp?.startDate ?? Date.now(),
+                                            durationDays: prev.dryingRamp?.durationDays ?? 14,
+                                            startTemp: prev.dryingRamp?.startTemp ?? 18,
+                                            endTemp: prev.dryingRamp?.endTemp ?? 16,
+                                            startHumidity: prev.dryingRamp?.startHumidity ?? 60,
+                                            endHumidity: prev.dryingRamp?.endHumidity ?? 50,
+                                        }
+                                    }))} />
+                                <span style={{ fontSize: 13 }}>Sollwert-Rampe aktivieren (proportionale Interpolation)</span>
+                            </div>
+
+                            {edit.dryingRamp?.enabled && (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={styles.fieldLabel}>Erntedatum (Startpunkt der Rampe)</label>
+                                        <input style={styles.input} type="date"
+                                            value={new Date(edit.dryingRamp.startDate).toISOString().slice(0, 10)}
+                                            onChange={e => setEdit(prev => ({
+                                                ...prev,
+                                                dryingRamp: { ...prev.dryingRamp!, startDate: new Date(e.target.value).getTime() }
+                                            }))} />
+                                    </div>
+                                    <div>
+                                        <label style={styles.fieldLabel}>Dauer (Tage)</label>
+                                        <input style={styles.input} type="number" min={1} max={60}
+                                            value={edit.dryingRamp.durationDays}
+                                            onChange={e => setEdit(prev => ({
+                                                ...prev,
+                                                dryingRamp: { ...prev.dryingRamp!, durationDays: +e.target.value }
+                                            }))} />
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 8, marginTop: 2, fontSize: 12, color: '#7ab8ff' }}>
+                                        Temperatur-Sollwert (Start → End)
+                                    </div>
+                                    <div>
+                                        <label style={styles.fieldLabel}>Start-Temp (°C)</label>
+                                        <input style={styles.input} type="number" min={10} max={35} step={0.5}
+                                            value={edit.dryingRamp.startTemp}
+                                            onChange={e => setEdit(prev => ({
+                                                ...prev,
+                                                dryingRamp: { ...prev.dryingRamp!, startTemp: +e.target.value }
+                                            }))} />
+                                    </div>
+                                    <div>
+                                        <label style={styles.fieldLabel}>End-Temp (°C)</label>
+                                        <input style={styles.input} type="number" min={10} max={35} step={0.5}
+                                            value={edit.dryingRamp.endTemp}
+                                            onChange={e => setEdit(prev => ({
+                                                ...prev,
+                                                dryingRamp: { ...prev.dryingRamp!, endTemp: +e.target.value }
+                                            }))} />
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 8, marginTop: 2, fontSize: 12, color: '#7ab8ff' }}>
+                                        Feuchte-Sollwert (Start → End)
+                                    </div>
+                                    <div>
+                                        <label style={styles.fieldLabel}>Start-Feuchte (%)</label>
+                                        <input style={styles.input} type="number" min={30} max={90}
+                                            value={edit.dryingRamp.startHumidity}
+                                            onChange={e => setEdit(prev => ({
+                                                ...prev,
+                                                dryingRamp: { ...prev.dryingRamp!, startHumidity: +e.target.value }
+                                            }))} />
+                                    </div>
+                                    <div>
+                                        <label style={styles.fieldLabel}>End-Feuchte (%)</label>
+                                        <input style={styles.input} type="number" min={30} max={90}
+                                            value={edit.dryingRamp.endHumidity}
+                                            onChange={e => setEdit(prev => ({
+                                                ...prev,
+                                                dryingRamp: { ...prev.dryingRamp!, endHumidity: +e.target.value }
+                                            }))} />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     <label style={styles.fieldLabel}>Betriebsart</label>
                     <select style={styles.select} {...field('mode')}>
                         <option value="off">Aus</option>
@@ -1297,6 +1515,13 @@ const GroupEditor: React.FC<GroupEditorProps> = ({ group, profiles, allGroups, o
                             <label style={styles.fieldLabel}>Sensor-Abweichungsalarm (°C)</label>
                             <input style={styles.input} type="number" min={1} value={edit.sensorDisagreementThreshold ?? 5}
                                 onChange={e => setEdit(prev => ({ ...prev, sensorDisagreementThreshold: +e.target.value }))} />
+                        </div>
+                        <div>
+                            <label style={styles.fieldLabel}>Blatttemp.-Offset für Leaf-VPD (°C)</label>
+                            <input style={styles.input} type="number" min={0} max={5} step={0.5}
+                                value={edit.leafTempOffsetC ?? 2}
+                                onChange={e => setEdit(prev => ({ ...prev, leafTempOffsetC: +e.target.value }))} />
+                            <span style={{ fontSize: 11, color: '#888' }}>Blatt ist X °C kühler als Luft (Standard: 2 °C). Wird genutzt wenn kein Blattsensor vorhanden.</span>
                         </div>
                     </div>
 
@@ -1812,6 +2037,203 @@ const CustomAlertRulesEditor: React.FC<{
                             <strong>{rule.name}</strong>
                             <span style={{ marginLeft: 8, fontSize: 12, color: '#666' }}>
                                 {groupName} · {METRIC_LABELS[rule.metric]} {condText}
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <span style={{ fontSize: 11, color: SEVERITY_COLORS[rule.severity], fontWeight: 600 }}>
+                                {rule.severity.toUpperCase()}
+                            </span>
+                            <button style={styles.btnSecondary} onClick={() => toggleRule(idx)}>
+                                {rule.enabled ? 'Deaktivieren' : 'Aktivieren'}
+                            </button>
+                            <button style={styles.btnSecondary} onClick={() => startEdit(idx)}>Bearbeiten</button>
+                            <button style={{ ...styles.btnSecondary, color: '#d32f2f' }} onClick={() => deleteRule(idx)}>Löschen</button>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
+// ---- ActuatorAlertRulesEditor ------------------------------
+
+const ACTUATOR_CONDITION_LABELS: Record<ActuatorAlertCondition, string> = {
+    off_when_should_be_on: 'AUS obwohl EIN sein sollte (Feedback)',
+    no_power_when_on:      'Kein Strom obwohl eingeschaltet (Leistung)',
+    stuck_on:              'Bleibt AN trotz AUS-Befehl (hängendes Relais)',
+};
+
+function newActuatorRule(groupId = '', actuatorId = ''): ActuatorAlertRule {
+    return {
+        id: `actrule_${Date.now()}`,
+        name: '',
+        enabled: true,
+        groupId,
+        actuatorId,
+        condition: 'off_when_should_be_on',
+        severity: 'warning',
+        triggerDelayMinutes: 5,
+        cooldownMinutes: 30,
+    };
+}
+
+const ActuatorAlertRulesEditor: React.FC<{
+    rules: ActuatorAlertRule[];
+    groups: GroupConfig[];
+    onChange: (rules: ActuatorAlertRule[]) => void;
+}> = ({ rules, groups, onChange }) => {
+    const [editIdx, setEditIdx] = useState<number | null>(null);
+    const [editRule, setEditRule] = useState<ActuatorAlertRule | null>(null);
+
+    const firstGroup = groups[0];
+    const firstActuator = firstGroup?.actuators[0];
+
+    const startNew = () => {
+        setEditRule(newActuatorRule(firstGroup?.id ?? '', firstActuator?.id ?? ''));
+        setEditIdx(-1);
+    };
+
+    const startEdit = (idx: number) => {
+        setEditIdx(idx);
+        setEditRule({ ...rules[idx] });
+    };
+
+    const saveEdit = () => {
+        if (!editRule) return;
+        if (!editRule.name.trim()) { alert('Bitte einen Namen vergeben.'); return; }
+        if (!editRule.groupId) { alert('Bitte eine Gruppe wählen.'); return; }
+        if (!editRule.actuatorId) { alert('Bitte einen Aktor wählen.'); return; }
+        const updated = [...rules];
+        if (editIdx === -1) updated.push(editRule);
+        else if (editIdx !== null) updated[editIdx] = editRule;
+        onChange(updated);
+        setEditIdx(null);
+        setEditRule(null);
+    };
+
+    const deleteRule = (idx: number) => {
+        if (!window.confirm(`Aktor-Regel „${rules[idx].name}" wirklich löschen?`)) return;
+        onChange(rules.filter((_, i) => i !== idx));
+    };
+
+    const toggleRule = (idx: number) => {
+        const updated = [...rules];
+        updated[idx] = { ...updated[idx], enabled: !updated[idx].enabled };
+        onChange(updated);
+    };
+
+    const inputStyle: React.CSSProperties = {
+        border: '1px solid #ccc', borderRadius: 4, padding: '4px 8px', fontSize: 13, width: '100%', boxSizing: 'border-box',
+    };
+    const labelStyle: React.CSSProperties = { fontSize: 12, color: '#555', marginBottom: 2 };
+    const fieldWrap: React.CSSProperties = { marginBottom: 10 };
+    const row: React.CSSProperties = { display: 'flex', gap: 10, marginBottom: 10 };
+
+    const selectedGroup = editRule ? groups.find(g => g.id === editRule.groupId) : null;
+    const actuatorsInGroup = selectedGroup?.actuators ?? [];
+
+    if (editRule !== null) {
+        return (
+            <div style={{ background: '#f9f9f9', border: '1px solid #ddd', borderRadius: 6, padding: 16, marginTop: 16 }}>
+                <h4 style={{ margin: '0 0 12px' }}>{editIdx === -1 ? 'Neue Aktor-Alarmregel' : 'Aktor-Regel bearbeiten'}</h4>
+                <div style={row}>
+                    <div style={{ flex: 2, ...fieldWrap }}>
+                        <div style={labelStyle}>Name *</div>
+                        <input style={inputStyle} value={editRule.name}
+                            onChange={e => setEditRule(r => r && ({ ...r, name: e.target.value }))}
+                            placeholder="z.B. Licht Blüteraum Überwachung" />
+                    </div>
+                </div>
+                <div style={row}>
+                    <div style={{ flex: 1, ...fieldWrap }}>
+                        <div style={labelStyle}>Gruppe *</div>
+                        <select style={inputStyle} value={editRule.groupId}
+                            onChange={e => setEditRule(r => r && ({ ...r, groupId: e.target.value, actuatorId: '' }))}>
+                            <option value="">– wählen –</option>
+                            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                        </select>
+                    </div>
+                    <div style={{ flex: 1, ...fieldWrap }}>
+                        <div style={labelStyle}>Aktor *</div>
+                        <select style={inputStyle} value={editRule.actuatorId}
+                            onChange={e => setEditRule(r => r && ({ ...r, actuatorId: e.target.value }))}>
+                            <option value="">– wählen –</option>
+                            {actuatorsInGroup.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                        </select>
+                    </div>
+                </div>
+                <div style={row}>
+                    <div style={{ flex: 2, ...fieldWrap }}>
+                        <div style={labelStyle}>Bedingung</div>
+                        <select style={inputStyle} value={editRule.condition}
+                            onChange={e => setEditRule(r => r && ({ ...r, condition: e.target.value as ActuatorAlertCondition }))}>
+                            {(Object.keys(ACTUATOR_CONDITION_LABELS) as ActuatorAlertCondition[]).map(c =>
+                                <option key={c} value={c}>{ACTUATOR_CONDITION_LABELS[c]}</option>
+                            )}
+                        </select>
+                    </div>
+                    <div style={{ flex: 1, ...fieldWrap }}>
+                        <div style={labelStyle}>Schweregrad</div>
+                        <select style={inputStyle} value={editRule.severity}
+                            onChange={e => setEditRule(r => r && ({ ...r, severity: e.target.value as ActuatorAlertRule['severity'] }))}>
+                            <option value="info">ℹ Info</option>
+                            <option value="warning">⚠ Warnung</option>
+                            <option value="fault">🔥 Fehler</option>
+                            <option value="critical">🚨 Kritisch</option>
+                        </select>
+                    </div>
+                    <div style={{ flex: 1, ...fieldWrap }}>
+                        <div style={labelStyle}>Verzögerung (Min.)</div>
+                        <input style={inputStyle} type="number" min={0}
+                            value={editRule.triggerDelayMinutes ?? 5}
+                            onChange={e => setEditRule(r => r && ({ ...r, triggerDelayMinutes: +e.target.value }))} />
+                    </div>
+                    <div style={{ flex: 1, ...fieldWrap }}>
+                        <div style={labelStyle}>Cooldown (Min.)</div>
+                        <input style={inputStyle} type="number" min={0}
+                            value={editRule.cooldownMinutes}
+                            onChange={e => setEditRule(r => r && ({ ...r, cooldownMinutes: +e.target.value }))} />
+                    </div>
+                </div>
+                {(editRule.condition === 'off_when_should_be_on') && (
+                    <p style={{ fontSize: 11, color: '#888', margin: '0 0 10px' }}>
+                        ℹ Erfordert einen konfigurierten Feedback-Datenpunkt am Aktor.
+                    </p>
+                )}
+                {(editRule.condition === 'no_power_when_on') && (
+                    <p style={{ fontSize: 11, color: '#888', margin: '0 0 10px' }}>
+                        ℹ Erfordert einen konfigurierten Leistungs-Datenpunkt am Aktor.
+                    </p>
+                )}
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <button style={styles.btnPrimary} onClick={saveEdit}>Speichern</button>
+                    <button style={styles.btnSecondary} onClick={() => { setEditIdx(null); setEditRule(null); }}>Abbrechen</button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ marginTop: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <h4 style={{ margin: 0 }}>Aktor-Überwachung ({rules.length})</h4>
+                <button style={styles.btnPrimary} onClick={startNew}>+ Neue Aktor-Regel</button>
+            </div>
+            {rules.length === 0 && (
+                <p style={{ color: '#888', fontSize: 13 }}>
+                    Noch keine Aktor-Regeln. Damit lassen sich z.B. Lampen überwachen: Alarm wenn das Licht EIN sein sollte, aber kein Feedback kommt oder kein Strom verbraucht wird.
+                </p>
+            )}
+            {rules.map((rule, idx) => {
+                const groupName = groups.find(g => g.id === rule.groupId)?.name ?? rule.groupId;
+                const actuatorName = groups.find(g => g.id === rule.groupId)?.actuators.find(a => a.id === rule.actuatorId)?.name ?? rule.actuatorId;
+                return (
+                    <div key={rule.id} style={{ ...styles.listRow, opacity: rule.enabled ? 1 : 0.5, borderLeft: `4px solid ${SEVERITY_COLORS[rule.severity]}` }}>
+                        <div style={{ flex: 1 }}>
+                            <strong>{rule.name}</strong>
+                            <span style={{ marginLeft: 8, fontSize: 12, color: '#666' }}>
+                                {groupName} · {actuatorName} · {ACTUATOR_CONDITION_LABELS[rule.condition]} · {rule.triggerDelayMinutes ?? 5} Min. Verzögerung
                             </span>
                         </div>
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -2637,6 +3059,7 @@ const SettingsView: React.FC<{
             <NotificationSettings
                 value={config.notifications ?? { enabled: false, channels: [], cooldownMinutes: 30 }}
                 onChange={n => onChange({ ...config, notifications: n })}
+                webPort={config.webPort}
             />
         </div>
     );
@@ -2667,33 +3090,44 @@ function defaultChannel(type: NotificationChannelType): NotificationChannel {
 const NotificationSettings: React.FC<{
     value: NotificationConfig;
     onChange: (v: NotificationConfig) => void;
-}> = ({ value, onChange }) => {
+    webPort?: number;
+}> = ({ value, onChange, webPort }) => {
     const [detected, setDetected] = useState<Array<{ type: string; instance: string }> | null>(null);
     const [testResults, setTestResults] = useState<Record<string, string>>({});
     const [editingChannel, setEditingChannel] = useState<NotificationChannel | null>(null);
 
     const setChannels = (channels: NotificationChannel[]) => onChange({ ...value, channels });
 
-    const detectAdapters = () => {
-        iobSendTo('growmanager.0', 'detectAdapters', {}, (result: unknown) => {
-            if (result === null) {
-                alert('Adapter-Erkennung nicht verfügbar – bitte Instanznummer manuell eintragen.');
-                return;
-            }
-            const r = result as { detected: Array<{ type: string; instance: string }> };
+    const detectAdapters = async () => {
+        const port = webPort || 8097;
+        try {
+            const resp = await fetch(`http://${window.location.hostname}:${port}/api/adapters`, { signal: AbortSignal.timeout(4000) });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const r = await resp.json() as { detected: Array<{ type: string; instance: string }> };
             setDetected(r?.detected ?? []);
-        });
+        } catch {
+            alert('Adapter-Erkennung nicht verfügbar – bitte Instanznummer manuell eintragen.');
+        }
     };
 
-    const testChannel = (ch: NotificationChannel) => {
+    const testChannel = async (ch: NotificationChannel) => {
         setTestResults(prev => ({ ...prev, [ch.id]: '⏳ Sende…' }));
-        iobSendTo('growmanager.0', 'testNotification', { channel: ch }, (result: unknown) => {
-            const r = result as { ok: boolean; error?: string } | null;
+        const port = webPort || 8097;
+        try {
+            const resp = await fetch(`http://${window.location.hostname}:${port}/api/test-notification`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channel: ch }),
+                signal: AbortSignal.timeout(15000),
+            });
+            const r = await resp.json() as { ok: boolean; error?: string };
             setTestResults(prev => ({
                 ...prev,
-                [ch.id]: r?.ok ? '✅ Gesendet' : `❌ ${r?.error ?? 'Kein Ergebnis – Adapter läuft?'}`,
+                [ch.id]: r?.ok ? '✅ Gesendet' : `❌ ${r?.error ?? 'Unbekannter Fehler'}`,
             }));
-        });
+        } catch {
+            setTestResults(prev => ({ ...prev, [ch.id]: '❌ Keine Verbindung zum Adapter' }));
+        }
     };
 
     return (
@@ -2785,7 +3219,7 @@ const NotificationSettings: React.FC<{
                             </div>
                             <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
                                 {ch.type === 'telegram' && `telegram.${ch.telegramInstance ?? '0'}${ch.telegramChatId ? ` · Chat: ${ch.telegramChatId}` : ' · Broadcast'}`}
-                                {ch.type === 'whatsapp' && `whatsapp-cmb.${ch.whatsappInstance ?? '0'} · ${ch.whatsappPhone ?? 'keine Nummer'}`}
+                                {ch.type === 'whatsapp' && `whatsapp-cmb.${ch.whatsappInstance ?? '0'}`}
                                 {ch.type === 'signal' && `signal-cmb.${ch.signalInstance ?? '0'} · ${ch.signalPhone ?? 'keine Nummer'}`}
                                 {ch.type === 'discord' && (ch.discordWebhookUrl ? 'Webhook konfiguriert ✓' : '⚠ Webhook-URL fehlt')}
                                 {ch.type === 'pushover' && `pushover.${ch.pushoverInstance ?? '0'}`}
@@ -2849,12 +3283,9 @@ const NotificationChannelEditor: React.FC<{
                 </>)}
 
                 {ch.type === 'whatsapp' && (<>
-                    <FieldLabel tip="Instanznummer des whatsapp-cmb Adapters">Instanz-Nummer</FieldLabel>
+                    <FieldLabel tip="Instanznummer des whatsapp-cmb Adapters (Telefonnummer wird in den Adaptereinstellungen konfiguriert)">Instanz-Nummer</FieldLabel>
                     <input style={styles.input} placeholder="0" value={ch.whatsappInstance ?? ''}
                         onChange={e => setCh({ ...ch, whatsappInstance: e.target.value })} />
-                    <FieldLabel tip="Telefonnummer im E.164-Format, z.B. +491234567890">Telefonnummer</FieldLabel>
-                    <input style={styles.input} placeholder="+491234567890" value={ch.whatsappPhone ?? ''}
-                        onChange={e => setCh({ ...ch, whatsappPhone: e.target.value })} />
                 </>)}
 
                 {ch.type === 'discord' && (<>
@@ -2936,6 +3367,7 @@ const App: React.FC = () => {
     const [saveError, setSaveError] = useState('');
     // adapterReady = ioBroker-Bridge ist bereit (loadConfig wurde aufgerufen)
     const [adapterReady, setAdapterReady] = useState(false);
+    const [alarmSubTab, setAlarmSubTab] = useState<'active' | 'rules'>('active');
 
     // ioBroker-Anbindung: config laden sobald loadConfig verfügbar
     useEffect(() => {
@@ -2960,60 +3392,66 @@ const App: React.FC = () => {
     // Stabile Referenz der Gruppen-IDs — verhindert Neustart des Intervals bei jedem Keystroke
     const groupIds = config.groups.map(g => g.id).join(',');
 
-    // Live-Polling via sendTo('getGroupState') — funktioniert ohne socket.io im iframe
+    // Live-Polling via WebDashboard-API — zuverlässiger als socket.io im Admin-iframe
     useEffect(() => {
         if (!adapterReady || !groupIds) return;
-        const urlInstance = new URLSearchParams(window.location.search).get('instance') ?? '0';
-        const instanceId = urlInstance.replace(/^growmanager\./, '');
-        const instanceName = `growmanager.${instanceId}`;
         const groups = config.groups;
+        const webPort = config.webPort || 8097;
+        const apiUrl = `http://${window.location.hostname}:${webPort}/api/state`;
 
-        type ActSt = { requested: unknown; feedback: unknown; power: number | null; health: string };
-        type GS = {
-            temperature?: number | null;
-            humidity?: number | null;
-            vpd?: number | null;
-            sensorQuality?: number;
-            degradation?: string;
-            mode?: string;
-            lastDecision?: { reason?: string } | null;
-            actuators?: Record<string, ActSt>;
-            highestAlarmSeverity?: string;
-        } | null;
-
-        function pollGroup(g: typeof groups[0]): Promise<void> {
-            return new Promise(resolve => {
-                iobSendTo(instanceName, 'getGroupState', { groupId: g.id }, (result: unknown) => {
-                    const gs = result as GS;
-                    const acts: Record<string, ActSt> = {};
-                    if (gs?.actuators) {
-                        for (const [id, a] of Object.entries(gs.actuators)) {
-                            acts[id] = { requested: a.requested, feedback: a.feedback, power: a.power ?? null, health: a.health ?? 'unknown' };
-                        }
-                    }
-                    setLiveStates(prev => ({
-                        ...prev,
-                        [g.id]: {
-                            temperature: gs?.temperature ?? null,
-                            humidity: gs?.humidity ?? null,
-                            vpd: gs?.vpd ?? null,
-                            sensorQuality: typeof gs?.sensorQuality === 'number' ? gs.sensorQuality : 0,
-                            health: gs?.degradation ?? 'FULL',
-                            mode: gs?.mode ?? g.mode,
-                            phase: g.phase,
-                            alarmSeverity: gs?.highestAlarmSeverity ?? 'none',
-                            nextChange: '',
-                            actuators: acts,
-                            lastDecision: gs?.lastDecision?.reason ?? '',
-                        },
-                    }));
-                    resolve();
-                });
-            });
-        }
+        type ApiAct = { id: string; command: unknown; feedback: unknown; power: number | null; health: string };
+        type ApiGroup = {
+            id: string;
+            temperature: number | null;
+            humidity: number | null;
+            vpd: number | null;
+            sensorQuality: number;
+            health: string;
+            mode: string;
+            actuators: ApiAct[];
+            alarms: Array<{ severity: string }>;
+            lastDecision: string;
+        };
 
         async function poll() {
-            await Promise.all(groups.map(pollGroup));
+            try {
+                const resp = await fetch(apiUrl, { signal: AbortSignal.timeout(4000) });
+                if (!resp.ok) return;
+                const state = await resp.json() as { groups?: ApiGroup[] };
+                if (!state.groups) return;
+                const byId = new Map(state.groups.map(g => [g.id, g]));
+                setLiveStates(prev => {
+                    const next = { ...prev };
+                    for (const g of groups) {
+                        const live = byId.get(g.id);
+                        if (!live) continue;
+                        const acts: Record<string, { requested: unknown; feedback: unknown; power: number | null; health: string }> = {};
+                        for (const a of live.actuators ?? []) {
+                            acts[a.id] = { requested: a.command, feedback: a.feedback, power: a.power ?? null, health: a.health ?? 'unknown' };
+                        }
+                        const worstSev = (live.alarms ?? []).reduce<string>((w, a) =>
+                            a.severity === 'critical' ? 'critical'
+                            : w !== 'critical' && a.severity === 'warning' ? 'warning'
+                            : w, 'none');
+                        next[g.id] = {
+                            temperature: live.temperature,
+                            humidity: live.humidity,
+                            vpd: live.vpd,
+                            sensorQuality: typeof live.sensorQuality === 'number' ? live.sensorQuality : 0,
+                            health: live.health ?? 'FULL',
+                            mode: live.mode ?? g.mode,
+                            phase: g.phase,
+                            alarmSeverity: worstSev,
+                            nextChange: '',
+                            actuators: acts,
+                            lastDecision: live.lastDecision ?? '',
+                        };
+                    }
+                    return next;
+                });
+            } catch {
+                // Fetch fehlgeschlagen (Port falsch, Adapter gestoppt) → Zustand unverändert
+            }
         }
 
         poll();
@@ -3128,7 +3566,6 @@ const App: React.FC = () => {
                 );
 
             case 'alarms': {
-                const [alarmSubTab, setAlarmSubTab] = React.useState<'active' | 'rules'>('active');
                 const subTabStyle = (t: 'active' | 'rules'): React.CSSProperties => ({
                     padding: '6px 18px', cursor: 'pointer', background: 'none', border: 'none',
                     fontSize: 13, fontWeight: alarmSubTab === t ? 600 : 400,
@@ -3142,16 +3579,23 @@ const App: React.FC = () => {
                                 Aktive Alarme {alarms.filter(a => a.active).length > 0 ? `(${alarms.filter(a => a.active).length})` : ''}
                             </button>
                             <button style={subTabStyle('rules')} onClick={() => setAlarmSubTab('rules')}>
-                                Alarmregeln ({(config.customAlertRules ?? []).length})
+                                Alarmregeln ({(config.customAlertRules ?? []).length + (config.actuatorAlertRules ?? []).length})
                             </button>
                         </div>
                         {alarmSubTab === 'active'
                             ? <AlarmView alarms={alarms} onAck={handleAck} />
-                            : <CustomAlertRulesEditor
-                                rules={config.customAlertRules ?? []}
-                                groups={config.groups}
-                                onChange={rules => { setConfig(prev => ({ ...prev, customAlertRules: rules })); setDirty(true); }}
-                              />
+                            : <>
+                                <CustomAlertRulesEditor
+                                    rules={config.customAlertRules ?? []}
+                                    groups={config.groups}
+                                    onChange={rules => { setConfig(prev => ({ ...prev, customAlertRules: rules })); setDirty(true); }}
+                                />
+                                <ActuatorAlertRulesEditor
+                                    rules={config.actuatorAlertRules ?? []}
+                                    groups={config.groups}
+                                    onChange={rules => { setConfig(prev => ({ ...prev, actuatorAlertRules: rules })); setDirty(true); }}
+                                />
+                              </>
                         }
                     </div>
                 );

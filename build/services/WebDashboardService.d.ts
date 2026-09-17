@@ -6,6 +6,7 @@ export interface DashboardActuatorState {
     effectiveState: boolean | number | string | null;
     feedback: boolean | number | string | null;
     health: string;
+    shared?: boolean;
     sharedVotingMode?: string;
     sharedParticipants?: Array<{
         groupId: string;
@@ -79,7 +80,9 @@ export interface DashboardGroupState {
     lastDecision: string;
     irrigationRunning: boolean;
     setpointTemp: number | null;
+    setpointTempTolerance: number | null;
     setpointHumidity: number | null;
+    setpointHumidityTolerance: number | null;
     setpointVpdMin: number | null;
     setpointVpdMax: number | null;
     setpointSoilMoistureTarget: number | null;
@@ -153,6 +156,7 @@ export declare class WebDashboardService {
     private readonly adapterDir;
     private server;
     private readonly sseClients;
+    private readonly allowedCameraOrigins;
     private state;
     private dashboardHtml;
     private pin;
@@ -168,12 +172,22 @@ export declare class WebDashboardService {
     private analysesSetCallback;
     private plantIdApiKey;
     private strainsFilePath;
+    private detectedAdapters;
+    private testNotificationCallback;
     constructor(log: {
         info: (m: string) => void;
         warn: (m: string) => void;
         error: (m: string) => void;
     }, adapterDir: string);
     setPin(pin: string): void;
+    setDetectedAdapters(adapters: Array<{
+        type: string;
+        instance: string;
+    }>): void;
+    setTestNotificationCallback(cb: (channel: unknown) => Promise<{
+        ok: boolean;
+        error?: string;
+    }>): void;
     setPlantIdApiKey(key: string): void;
     setControlCallback(cb: (cmd: ControlCommand) => Promise<void>): void;
     setModeCallback(cb: (cmd: ModeCommand) => Promise<void>): void;

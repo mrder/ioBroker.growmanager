@@ -56,8 +56,13 @@ class GrowManagerAdapter extends utils.Adapter {
         this.votingResults = new Map(); // letzte Voting-Entscheidung je Aktor-ID
         this.directDesires = new Map(); // aktueller Reglerwunsch für direkte Aktoren
         this.switchBlocks = new Map(); // canSwitch-Sperren für Dashboard
+        this.stuckOnRetryTs = new Map(); // Zeitstempel des letzten AUS-Retry bei stuckOn
+        this.unreachableFirstTs = new Map(); // Zeitstempel erstes Erkennen von "nicht erreichbar"
         this.lightChangeTimes = new Map();
+        this.lightTransitionFromNight = new Map(); // true = Morgen-Übergang (Nacht→Tag)
         this.subscribedStateIds = new Set();
+        // Aktor-Alarmregeln: Zeitstempel wenn Bedingung erstmals ausgelöst (ruleId → ts)
+        this.actuatorRuleTriggerTs = new Map();
         // Letzte bekannte Tag/Nacht-Zustände für Wechselerkennung
         this.lastDayNight = new Map();
         // Manuelle Übersteuerungen vom Dashboard {actuatorId → {command, until}}
@@ -68,6 +73,9 @@ class GrowManagerAdapter extends utils.Adapter {
         this.pendingVerify = new Map();
         // Lock gegen parallele Regelzyklen
         this.cycleRunning = false;
+        // Zeitstempel des letzten E-Stop-Schreibdurchlaufs; 0 = noch nie angewendet
+        // Re-Apply alle 60s damit Geräte die reconnecten wieder sicher gestellt werden
+        this.emergencyStopLastAppliedAt = 0;
         // Außenluft-Sensorwerte {stateId → Wert}
         this.outdoorValues = new Map();
         // Letzter bekannter kWh-Wert pro Aktor-State-ID für Delta-Berechnung
@@ -169,6 +177,10 @@ class GrowManagerAdapter extends utils.Adapter {
         const webBind = this.growConfig.webBindAddress ?? '0.0.0.0';
         this.webDashboard.setPin(this.growConfig.dashboardPin ?? '');
         this.webDashboard.setPlantIdApiKey(this.growConfig.plantIdApiKey ?? '');
+        this.webDashboard.setTestNotificationCallback(async (channel) => {
+            const ch = channel;
+            return this.notificationService.sendTest(ch);
+        });
         this.webDashboard.setModeCallback(async ({ groupId, mode }) => {
             const group = this.growConfig.groups.find(g => g.id === groupId);
             if (!group)
@@ -303,6 +315,7 @@ class GrowManagerAdapter extends utils.Adapter {
         });
         await this.initGlobalDatabase();
         this.webDashboard.start(webPort, webBind);
+        this.detectAndCacheAdapters();
         // Regelzyklus starten
         this.scheduleNextCycle();
         // Watchdog
@@ -329,6 +342,18 @@ class GrowManagerAdapter extends utils.Adapter {
         // Bewässerungs-Zonen initialisieren
         for (const zone of group.irrigationZones) {
             this.irrigationService.initZone(zone);
+            if (zone.flowStateId) {
+                if (!this.subscribedStateIds.has(zone.flowStateId)) {
+                    await this.subscribeForeignStatesAsync(zone.flowStateId);
+                    this.subscribedStateIds.add(zone.flowStateId);
+                }
+                // Read initial value for every zone regardless of subscription dedup
+                // so zones sharing the same flowStateId all get the current reading.
+                const flowSt = await this.getForeignStateAsync(zone.flowStateId);
+                if (flowSt && typeof flowSt.val === 'number') {
+                    this.irrigationService.updateFlow(zone.id, flowSt.val);
+                }
+            }
         }
         // Kameras initialisieren
         for (const camera of group.cameras) {
@@ -350,6 +375,7 @@ class GrowManagerAdapter extends utils.Adapter {
             dewPoint: null,
             absoluteHumidity: null,
             condensationRisk: false,
+            co2: null,
             sensorQuality: 0,
             sensors: new Map(),
             actuators: new Map(),
@@ -427,14 +453,27 @@ class GrowManagerAdapter extends utils.Adapter {
                 await this.subscribeForeignStatesAsync(actuator.energyStateId);
                 this.subscribedStateIds.add(actuator.energyStateId);
             }
-            // Energie-Tracking: beim Start bereits-AN-Aktoren erfassen
+            // Energie-Tracking: W-Sensor-Initialwert lesen (unabhängig vom AN/AUS-Status),
+            // damit ratedWatts als Fallback für Perioden ohne W-State-Updates bekannt ist.
             {
+                let wStartValue = 0;
+                if ((actuator.energyStateUnit ?? 'W') === 'W' && actuator.energyStateId) {
+                    const wState = await this.getForeignStateAsync(actuator.energyStateId);
+                    if (typeof wState?.val === 'number' && wState.val > 0) {
+                        wStartValue = wState.val;
+                        this.databaseService.updateLastKnownWatts(group.id, actuator.id, actuator.name, wStartValue);
+                        const actSt = this.actuatorService.getState(actuator.id);
+                        if (actSt)
+                            this.actuatorService.processFeedback(actuator, actSt.feedback, wStartValue);
+                    }
+                }
                 const actState = this.actuatorService.getState(actuator.id);
                 const isOn = actState
                     ? (typeof actState.effectiveState === 'boolean' ? actState.effectiveState : actState.effectiveState > 0)
                     : false;
                 if (isOn && actuator.energyStateUnit !== 'kWh') {
-                    this.databaseService.trackActuatorOn(group.id, actuator.id, actuator.name);
+                    const startRatedW = actuator.ratedPowerW ?? wStartValue;
+                    this.databaseService.trackActuatorOn(group.id, actuator.id, actuator.name, startRatedW);
                 }
             }
             if (actuator.healthStateId && !this.subscribedStateIds.has(actuator.healthStateId)) {
@@ -488,12 +527,12 @@ class GrowManagerAdapter extends utils.Adapter {
     // ============================================================
     queryHistory(adapter, stateId, start, end) {
         return new Promise((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error(`${adapter} timeout`)), 4000);
+            const timer = this.setTimeout(() => reject(new Error(`${adapter} timeout`)), 4000);
             this.sendTo(adapter, 'getHistory', {
                 id: stateId,
                 options: { start, end, aggregate: 'none', count: 5000, addId: false },
             }, (result) => {
-                clearTimeout(timer);
+                this.clearTimeout(timer);
                 const r = result;
                 if (!r || r.error) {
                     reject(new Error(r?.error ?? 'no result'));
@@ -540,7 +579,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     // which would falsely trigger the stale check.
                     Math.max(state.ts, Date.now() - 5000), state.lc ?? state.ts, group.stabilityTimeSeconds);
                     const gs = this.groupStates.get(group.id);
-                    if (gs)
+                    if (gs && sensorState)
                         gs.sensors.set(sensor.id, sensorState);
                 }
             }
@@ -574,8 +613,12 @@ class GrowManagerAdapter extends utils.Adapter {
                     }
                 }
                 // Energie-Tracking: W-State (Momentanleistung) → Wh per Sample akkumulieren
-                if (actuator.energyStateId === id && typeof state.val === 'number' && actuator.energyStateUnit === 'W') {
+                if (actuator.energyStateId === id && typeof state.val === 'number' && (actuator.energyStateUnit ?? 'W') === 'W') {
+                    this.databaseService.updateLastKnownWatts(group.id, actuator.id, actuator.name, state.val);
                     this.databaseService.updateActuatorPowerSample(group.id, actuator.id, state.val);
+                    const actSt = this.actuatorService.getState(actuator.id);
+                    if (actSt)
+                        this.actuatorService.processFeedback(actuator, actSt.feedback, state.val);
                 }
             }
             // Außensensor-Werte aktualisieren
@@ -583,6 +626,13 @@ class GrowManagerAdapter extends utils.Adapter {
             if (outdoor?.enabled && typeof state.val === 'number') {
                 if (outdoor.tempStateId === id || outdoor.humidityStateId === id) {
                     this.outdoorValues.set(id, state.val);
+                }
+            }
+            // Durchfluss-Sensor aktualisieren
+            for (const zone of group.irrigationZones) {
+                if (zone.flowStateId === id) {
+                    const flowVal = typeof state.val === 'number' ? state.val : null;
+                    this.irrigationService.updateFlow(zone.id, flowVal);
                 }
             }
         }
@@ -604,9 +654,13 @@ class GrowManagerAdapter extends utils.Adapter {
                     this.actuatorService.setReachable(actuator.id, healthy);
                     if (!healthy) {
                         this.log.warn(`Aktor ${actuator.name} nicht erreichbar (${stateId} = ${val})`);
-                        this.alarmService.raise(AlarmService_1.ALARM_CODES.ACTUATOR_UNREACHABLE, group.id, actuator.id, 'fault', `Aktor "${actuator.name}" nicht erreichbar`);
+                        // Alarm erst nach Grace-Period (60s) in processGroup feuern, um Kurzausfälle zu ignorieren
+                        if (!this.unreachableFirstTs.has(actuator.id)) {
+                            this.unreachableFirstTs.set(actuator.id, Date.now());
+                        }
                     }
                     else {
+                        this.unreachableFirstTs.delete(actuator.id);
                         this.alarmService.clear(AlarmService_1.ALARM_CODES.ACTUATOR_UNREACHABLE, group.id, actuator.id);
                     }
                 }
@@ -644,6 +698,28 @@ class GrowManagerAdapter extends utils.Adapter {
     // ============================================================
     // Regelzyklus
     // ============================================================
+    detectAndCacheAdapters() {
+        const ADAPTER_MAP = [
+            { adapter: 'telegram', type: 'telegram' },
+            { adapter: 'whatsapp-cmb', type: 'whatsapp' },
+            { adapter: 'signal-cmb', type: 'signal' },
+            { adapter: 'pushover', type: 'pushover' },
+        ];
+        const detected = [];
+        const checks = [];
+        for (const { adapter, type } of ADAPTER_MAP) {
+            for (let i = 0; i <= 4; i++) {
+                checks.push(this.getForeignObjectAsync(`system.adapter.${adapter}.${i}`)
+                    .then(obj => { if (obj)
+                    detected.push({ type, instance: String(i) }); })
+                    .catch(() => { }));
+            }
+        }
+        Promise.all(checks).then(() => {
+            detected.push({ type: 'discord', instance: '' });
+            this.webDashboard.setDetectedAdapters(detected);
+        }).catch(() => { });
+    }
     scheduleNextCycle() {
         const interval = (this.growConfig.controlCycleSeconds ?? 10) * 1000;
         this.cycleTimer = this.setTimeout(async () => {
@@ -668,6 +744,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 await this.handleEmergencyStop();
                 return;
             }
+            this.emergencyStopLastAppliedAt = 0; // E-Stop beendet → nächster E-Stop schreibt sofort
             // Gemeinsame Aktoren: Anforderungen sammeln und danach auflösen
             this.sharedActorManager.clearCycle();
             for (const group of this.growConfig.groups) {
@@ -688,9 +765,22 @@ class GrowManagerAdapter extends utils.Adapter {
                     const hysteresisSeconds = actuatorConfig.sharedVoteHysteresisSeconds ?? 60;
                     // Eigentümer-Stimme: aktuellen Klimabedarf berechnen (gleiche Logik wie Teilnehmer)
                     const ownerGs = this.groupStates.get(group.id);
-                    let ownerNeed = ownerGs
-                        ? this.computeParticipantNeed(actuatorConfig.type, ownerGs, 3)
-                        : { wantsOn: false, urgency: 0, reason: 'Kein Gruppenstatus' };
+                    // Tatsächlichen Hardware-Zustand lesen (nicht votingResults, das speichert nur
+                    // Abstimmungsabsicht — wenn canSwitch blockiert hat, wäre votingResults=EIN
+                    // obwohl der Aktor physisch aus ist → Phantom-Hysterese).
+                    const currentActState = this.actuatorService.getState(actuatorConfig.id);
+                    const sharedCurrentlyOn = (currentActState?.requested ?? false) !== false
+                        && (currentActState?.requested ?? false) !== 0;
+                    let ownerNeed;
+                    if (actuatorConfig.type === 'timedActuator') {
+                        const schedActive = this.actuatorService.isActuatorScheduleActive(actuatorConfig, new Date());
+                        ownerNeed = { wantsOn: schedActive, urgency: 0, reason: schedActive ? 'Zeitplan aktiv' : 'Kein Zeitplan aktiv' };
+                    }
+                    else {
+                        ownerNeed = ownerGs
+                            ? this.computeParticipantNeed(actuatorConfig.type, ownerGs, 3, sharedCurrentlyOn, group.mode)
+                            : { wantsOn: false, urgency: 0, reason: 'Kein Gruppenstatus' };
+                    }
                     // Outdoor-Guard für Lüfter: Außenluft nur einsetzen wenn innen wärmer als außen.
                     // Ausnahme: VPD zu hoch (innen zu trocken) + Außenluft feuchter → Feuchte-Zuluft erlauben.
                     if (ownerNeed.wantsOn &&
@@ -726,6 +816,19 @@ class GrowManagerAdapter extends utils.Adapter {
                             }
                         }
                     }
+                    // Blüte-Temp-Guard für Eigentümer-Stimme (mit Hysterese: aktiv bei ≥ max, bleibt bis < max-1.5)
+                    if (actuatorConfig.bloomTempGuardMaxC != null && ownerNeed.wantsOn) {
+                        const ownerTemp = ownerGs?.temperature ?? null;
+                        if (group.phase === 'bloom' && ownerTemp !== null) {
+                            const hyst = 2.0;
+                            const guardThreshold = sharedCurrentlyOn
+                                ? actuatorConfig.bloomTempGuardMaxC
+                                : actuatorConfig.bloomTempGuardMaxC - hyst;
+                            if (ownerTemp >= guardThreshold) {
+                                ownerNeed = { wantsOn: false, urgency: 1, reason: `Blüte-Temp-Schutz: ${ownerTemp.toFixed(1)}°C ≥ ${guardThreshold.toFixed(1)}°C (Max ${actuatorConfig.bloomTempGuardMaxC}°C)` };
+                            }
+                        }
+                    }
                     this.sharedActorManager.submitVote(actuatorConfig.id, {
                         groupId: group.id,
                         groupName: group.name,
@@ -739,7 +842,7 @@ class GrowManagerAdapter extends utils.Adapter {
                         if (!pState)
                             continue;
                         const pGroup = this.growConfig.groups.find(g => g.id === participant.groupId);
-                        let need = this.computeParticipantNeed(actuatorConfig.type, pState, 3);
+                        let need = this.computeParticipantNeed(actuatorConfig.type, pState, 3, sharedCurrentlyOn, pGroup?.mode);
                         // Outdoor-Guard für Teilnehmer-Stimmen (Zuluft/Abluft)
                         if (need.wantsOn &&
                             (actuatorConfig.type === 'supplyFan' || actuatorConfig.type === 'exhaustFan') &&
@@ -751,8 +854,39 @@ class GrowManagerAdapter extends utils.Adapter {
                                 if (outTemp !== null && inTemp !== null) {
                                     const minDelta = pOutdoorCfg.minTempDeltaCelsius ?? 2;
                                     if (inTemp - outTemp < minDelta) {
-                                        need = { wantsOn: false, urgency: 0, reason: `Außenluft-Guard (Teilnehmer): Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C (Δ<${minDelta}°C)` };
+                                        // Ausnahme: Feuchte-Zuluft wenn Innen-VPD zu hoch und Außenluft feuchter
+                                        let humidityException = false;
+                                        if (pOutdoorCfg.humidityStateId) {
+                                            const outHum = this.outdoorValues.get(pOutdoorCfg.humidityStateId) ?? null;
+                                            const inHum = pState.humidity ?? null;
+                                            const inVpd = pState.vpd ?? null;
+                                            const spKey = pState.dayNight === 'night' ? 'night' : 'day';
+                                            const vpdMax = pState.activeProfile?.[spKey]?.vpdMax ?? null;
+                                            if (outHum !== null && inHum !== null && inVpd !== null && vpdMax !== null
+                                                && inVpd > vpdMax && outHum > inHum) {
+                                                humidityException = true;
+                                                need = { wantsOn: true, urgency: Math.min(1, (inVpd - vpdMax) / 0.3), reason: `VPD ${inVpd.toFixed(2)} kPa zu hoch + Außenluft feuchter (${outHum.toFixed(0)}% > ${inHum.toFixed(0)}%) – Feuchte-Zuluft (Teilnehmer)` };
+                                                this.log.debug(`SharedAktor ${actuatorConfig.name} (Teilnehmer ${participant.groupId}): Feuchte-Zuluft-Ausnahme – Außen ${outHum.toFixed(0)}% > Innen ${inHum.toFixed(0)}%, VPD ${inVpd.toFixed(2)} > Max ${vpdMax.toFixed(2)}`);
+                                            }
+                                        }
+                                        if (!humidityException) {
+                                            this.log.debug(`SharedAktor ${actuatorConfig.name} (Teilnehmer ${participant.groupId}): Outdoor-Guard – Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C, Delta < ${minDelta}°C → blockiert`);
+                                            need = { wantsOn: false, urgency: 0, reason: `Außenluft-Guard (Teilnehmer): Außen ${outTemp.toFixed(1)}°C, Innen ${inTemp.toFixed(1)}°C (Δ<${minDelta}°C)` };
+                                        }
                                     }
+                                }
+                            }
+                        }
+                        // Blüte-Temp-Guard für Teilnehmer-Stimme (mit Hysterese: aktiv bei ≥ max, bleibt bis < max-1.5)
+                        if (actuatorConfig.bloomTempGuardMaxC != null && need.wantsOn && pGroup?.phase === 'bloom') {
+                            const pTemp = pState.temperature ?? null;
+                            if (pTemp !== null) {
+                                const hyst = 2.0;
+                                const guardThreshold = sharedCurrentlyOn
+                                    ? actuatorConfig.bloomTempGuardMaxC
+                                    : actuatorConfig.bloomTempGuardMaxC - hyst;
+                                if (pTemp >= guardThreshold) {
+                                    need = { wantsOn: false, urgency: 1, reason: `Blüte-Temp-Schutz (Teilnehmer): ${pTemp.toFixed(1)}°C ≥ ${guardThreshold.toFixed(1)}°C (Max ${actuatorConfig.bloomTempGuardMaxC}°C)` };
                                 }
                             }
                         }
@@ -765,8 +899,7 @@ class GrowManagerAdapter extends utils.Adapter {
                             reason: need.reason,
                         });
                     }
-                    // Aktuellen Befehl als Basis für Hysterese ermitteln
-                    const currentActState = this.actuatorService.getState(actuatorConfig.id);
+                    // Aktuellen Befehl als Basis für Hysterese ermitteln (currentActState oben bereits gelesen)
                     const currentCommand = currentActState?.requested ?? false;
                     const votingMode = actuatorConfig.sharedVotingMode ?? 'any';
                     const hysteresisForVoting = hysteresisSeconds;
@@ -787,10 +920,10 @@ class GrowManagerAdapter extends utils.Adapter {
                             if (actuatorConfig.energyStateUnit !== 'kWh') {
                                 const isOn = finalCommand === true || (typeof finalCommand === 'number' && finalCommand > 0);
                                 if (isOn) {
-                                    this.databaseService.trackActuatorOn(group.id, actuatorConfig.id, actuatorConfig.name);
+                                    this.databaseService.trackActuatorOn(group.id, actuatorConfig.id, actuatorConfig.name, actuatorConfig.ratedPowerW ?? 0);
                                 }
-                                else if (actuatorConfig.ratedPowerW) {
-                                    this.databaseService.trackActuatorOff(group.id, actuatorConfig.id, actuatorConfig.ratedPowerW);
+                                else {
+                                    this.databaseService.trackActuatorOff(group.id, actuatorConfig.id, actuatorConfig.ratedPowerW ?? 0);
                                 }
                             }
                         }
@@ -827,7 +960,7 @@ class GrowManagerAdapter extends utils.Adapter {
                                 if (act.energyStateUnit !== 'kWh') {
                                     const isOn = result.finalCommand === true || (typeof result.finalCommand === 'number' && result.finalCommand > 0);
                                     if (isOn) {
-                                        this.databaseService.trackActuatorOn(result.winningGroupId, act.id, act.name);
+                                        this.databaseService.trackActuatorOn(result.winningGroupId, act.id, act.name, act.ratedPowerW ?? 0);
                                     }
                                     else {
                                         this.databaseService.trackActuatorOff(result.winningGroupId, act.id, act.ratedPowerW ?? 0);
@@ -861,15 +994,34 @@ class GrowManagerAdapter extends utils.Adapter {
             return;
         const now = new Date();
         // 1) Tag/Nacht bestimmen
-        const dayNight = this.scheduleService.getDayNight(now, config.schedule);
+        // Im Trocknungsmodus: dauerhaft Nacht (kein Lichtzyklus)
+        let dayNight = this.scheduleService.getDayNight(now, config.schedule);
+        if (config.phase === 'drying')
+            dayNight = 'night';
         const prevDayNight = this.lastDayNight.get(config.id);
         if (dayNight !== prevDayNight) {
             this.lightChangeTimes.set(config.id, Date.now());
+            if (dayNight === 'transition') {
+                // Übergangsrichtung festhalten: Morgen = vorher Nacht, Abend = vorher Tag
+                this.lightTransitionFromNight.set(config.id, prevDayNight === 'night');
+            }
+            else {
+                this.lightTransitionFromNight.delete(config.id);
+            }
             this.lastDayNight.set(config.id, dayNight);
             this.log.info(`Gruppe ${config.name}: Wechsel zu ${dayNight}`);
         }
         state.dayNight = dayNight;
-        state.nextScheduleChange = this.scheduleService.msUntilNextChange(now, config.schedule) + Date.now();
+        state.nextScheduleChange = config.phase === 'drying'
+            ? undefined
+            : this.scheduleService.msUntilNextChange(now, config.schedule) + Date.now();
+        // 1b) Trocknungsrampe berechnen (wenn phase === 'drying')
+        if (config.phase === 'drying' && config.dryingRamp) {
+            state.dryingProgress = this.scheduleService.getDryingProgress(config.dryingRamp);
+        }
+        else {
+            state.dryingProgress = null;
+        }
         // 2) Aggregierte Klimawerte berechnen
         const stab = config.stabilityTimeSeconds;
         const tempAgg = this.sensorService.aggregate(config.sensors, 'temperature', config.aggregationMethod, stab);
@@ -881,6 +1033,7 @@ class GrowManagerAdapter extends utils.Adapter {
             this.log.warn(`Gruppe ${config.name}: Feuchte-Backup-Sensor aktiv (primary ausgefallen)`);
         state.temperature = tempAgg.value;
         state.humidity = humAgg.value;
+        state.co2 = this.sensorService.aggregate(config.sensors, 'co2', config.aggregationMethod, stab).value;
         // Abgeleitete Größen
         if (state.temperature !== null && state.humidity !== null) {
             state.vpd = (0, calculations_1.calculateVPD)(state.temperature, state.humidity);
@@ -889,6 +1042,11 @@ class GrowManagerAdapter extends utils.Adapter {
             state.condensationRisk = (0, calculations_1.condensationRisk)(state.temperature, state.humidity);
             if (leafTempAgg.value !== null) {
                 state.leafVpd = (0, calculations_1.calculateLeafVPD)(state.temperature, leafTempAgg.value, state.humidity);
+            }
+            else {
+                // Keine Blatttemperatur-Messung: schätzen mit konfiguriertem Offset (Standard 2°C)
+                const offset = config.leafTempOffsetC ?? 2.0;
+                state.leafVpd = (0, calculations_1.calculateLeafVPD)(state.temperature, state.temperature - offset, state.humidity);
             }
         }
         else {
@@ -906,14 +1064,25 @@ class GrowManagerAdapter extends utils.Adapter {
             this.diagnosticsEngine.recordValue(config.id, 'humidity', state.humidity);
         if (state.vpd !== null)
             this.diagnosticsEngine.recordValue(config.id, 'vpd', state.vpd);
+        if (state.co2 !== null)
+            this.diagnosticsEngine.recordValue(config.id, 'co2', state.co2);
         // 3) Degradationsstufe bestimmen
         state.degradation = this.safetyService.computeDegradation(state, config);
         // 4) Aktives Profil laden
         const profile = this.growConfig.climateProfiles.find(p => p.id === config.profileId);
         const lightChangeTs = this.lightChangeTimes.get(config.id) ?? Date.now();
-        const setpoint = profile
-            ? this.scheduleService.getActiveSetpoint(profile, dayNight, lightChangeTs)
+        const transitionFromNight = this.lightTransitionFromNight.get(config.id) ?? false;
+        let setpoint = profile
+            ? this.scheduleService.getActiveSetpoint(profile, dayNight, lightChangeTs, transitionFromNight)
             : null;
+        // Trocknungsrampe überschreibt Temp+Feuchte-Sollwerte (alle anderen Grenzwerte bleiben aus dem Profil)
+        if (config.phase === 'drying' && state.dryingProgress && setpoint) {
+            setpoint = {
+                ...setpoint,
+                temperature: state.dryingProgress.tempTarget,
+                humidity: state.dryingProgress.humidityTarget,
+            };
+        }
         state.activeProfile = profile;
         // 5) Regelentscheidung
         let decision = null;
@@ -938,6 +1107,8 @@ class GrowManagerAdapter extends utils.Adapter {
         }
         // 6d) Umluft-Aktoren: Wind-Simulator / Zeitfenster / alwaysOn (unabhängig von Klimaregelung)
         await this.tickCirculationActuators(config);
+        // 6e) Zeitgesteuerte Aktoren (timedActuator)
+        await this.tickScheduleActuators(config);
         // 6b) Fähigkeiten der Gruppe bewerten (für Logging/Admin-UI)
         const leafTempVal = leafTempAgg.value;
         const soilAgg = this.sensorService.aggregate(config.sensors, 'soilMoisture', config.aggregationMethod, stab);
@@ -948,7 +1119,7 @@ class GrowManagerAdapter extends utils.Adapter {
         // 6c) Luftstrommanagement
         const isDay = dayNight !== 'night';
         const airSp = state.activeProfile
-            ? this.scheduleService.getActiveSetpoint(state.activeProfile, dayNight, lightChangeTs)
+            ? this.scheduleService.getActiveSetpoint(state.activeProfile, dayNight, lightChangeTs, transitionFromNight)
             : null;
         const airDemand = this.airSystemService.computeAirDemand(config, config.airSystem, state.temperature, airSp?.temperature ?? null, state.humidity, airSp?.humidity ?? null, state.vpd, airSp?.vpdMin ?? null, airSp?.vpdMax ?? null, isDay);
         const airOutput = this.airSystemService.computeAirOutput(config.id, config, config.airSystem, airDemand);
@@ -965,6 +1136,13 @@ class GrowManagerAdapter extends utils.Adapter {
                         if (typeof airOutput.exhaustCommand === 'boolean') {
                             this.setActuatorStateWithVerify(exhaustAct, config.id, airOutput.exhaustCommand);
                         }
+                        const isOn = airOutput.exhaustCommand === true || (typeof airOutput.exhaustCommand === 'number' && airOutput.exhaustCommand > 0);
+                        if (exhaustAct.energyStateUnit !== 'kWh') {
+                            if (isOn)
+                                this.databaseService.trackActuatorOn(config.id, exhaustAct.id, exhaustAct.name, exhaustAct.ratedPowerW ?? 0);
+                            else
+                                this.databaseService.trackActuatorOff(config.id, exhaustAct.id, exhaustAct.ratedPowerW ?? 0);
+                        }
                     }
                 }
             }
@@ -976,6 +1154,13 @@ class GrowManagerAdapter extends utils.Adapter {
                         await this.setActuatorState(supplyAct.commandStateId, airOutput.supplyCommand);
                         if (typeof airOutput.supplyCommand === 'boolean') {
                             this.setActuatorStateWithVerify(supplyAct, config.id, airOutput.supplyCommand);
+                        }
+                        const isOn = airOutput.supplyCommand === true || (typeof airOutput.supplyCommand === 'number' && airOutput.supplyCommand > 0);
+                        if (supplyAct.energyStateUnit !== 'kWh') {
+                            if (isOn)
+                                this.databaseService.trackActuatorOn(config.id, supplyAct.id, supplyAct.name, supplyAct.ratedPowerW ?? 0);
+                            else
+                                this.databaseService.trackActuatorOff(config.id, supplyAct.id, supplyAct.ratedPowerW ?? 0);
                         }
                     }
                 }
@@ -990,23 +1175,39 @@ class GrowManagerAdapter extends utils.Adapter {
                 const canSw = this.actuatorService.canSwitch(act, cmd);
                 if (canSw.allowed) {
                     const changed = this.actuatorService.recordCommand(act, cmd);
-                    if (changed)
+                    if (changed) {
                         await this.setActuatorState(act.commandStateId, cmd);
+                        if (act.energyStateUnit !== 'kWh') {
+                            if (cmd)
+                                this.databaseService.trackActuatorOn(config.id, act.id, act.name, act.ratedPowerW ?? 0);
+                            else
+                                this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW ?? 0);
+                        }
+                    }
                 }
             }
         }
         // 6d) Bewässerung
         for (const zone of config.irrigationZones) {
-            if (!zone.enabled)
-                continue;
             const irriDecision = this.irrigationService.decide(zone, config.id, state.sensors, now);
             const pumpAct = config.actuators.find(a => a.id === zone.pumpActuatorId);
-            if (pumpAct && !irriDecision.blocked) {
-                const canSw = this.actuatorService.canSwitch(pumpAct, irriDecision.command);
+            if (pumpAct) {
+                // Pump-OFF is always allowed regardless of minimumOnSeconds —
+                // safety stops (dry-run, leak, zone disabled) must execute immediately.
+                const canSw = irriDecision.command
+                    ? this.actuatorService.canSwitch(pumpAct, irriDecision.command)
+                    : { allowed: true };
                 if (canSw.allowed) {
                     const changed = this.actuatorService.recordCommand(pumpAct, irriDecision.command);
-                    if (changed)
+                    if (changed) {
                         await this.setActuatorState(pumpAct.commandStateId, irriDecision.command);
+                        if (pumpAct.energyStateUnit !== 'kWh') {
+                            if (irriDecision.command)
+                                this.databaseService.trackActuatorOn(config.id, pumpAct.id, pumpAct.name, pumpAct.ratedPowerW ?? 0);
+                            else
+                                this.databaseService.trackActuatorOff(config.id, pumpAct.id, pumpAct.ratedPowerW ?? 0);
+                        }
+                    }
                 }
             }
         }
@@ -1035,9 +1236,39 @@ class GrowManagerAdapter extends utils.Adapter {
         // 7) Diagnose & Alarm
         for (const actuatorConfig of config.actuators) {
             const actState = this.actuatorService.getState(actuatorConfig.id);
-            if (actState) {
-                state.actuators.set(actuatorConfig.id, actState);
+            if (!actState)
+                continue;
+            state.actuators.set(actuatorConfig.id, actState);
+            if (actState.health === 'stuckOn') {
+                const retryTs = this.stuckOnRetryTs.get(actuatorConfig.id);
+                const now = Date.now();
+                const retryGraceMs = 90000; // 90s Wartezeit nach Retry
+                if (retryTs === undefined) {
+                    // Erster stuckOn-Treffer: AUS-Befehl nochmal senden, noch kein Alarm
+                    this.log.warn(`${actuatorConfig.name}: stuckOn erkannt – sende nochmals AUS-Befehl (Retry)`);
+                    await this.setActuatorState(actuatorConfig.commandStateId, actuatorConfig.offValue);
+                    this.stuckOnRetryTs.set(actuatorConfig.id, now);
+                    // Alarm noch nicht feuern – erst nach Grace-Period prüfen
+                }
+                else if (now - retryTs < retryGraceMs) {
+                    // Innerhalb der Grace-Period: Alarm unterdrücken, warten
+                }
+                else {
+                    // Grace-Period abgelaufen und immer noch stuckOn → Alarm feuern
+                    this.diagnosticsEngine.checkActuatorFeedback(config.id, actuatorConfig, actState);
+                }
+            }
+            else {
+                // Nicht (mehr) stuckOn: Retry-Timestamp löschen + normale Diagnose
+                this.stuckOnRetryTs.delete(actuatorConfig.id);
                 this.diagnosticsEngine.checkActuatorFeedback(config.id, actuatorConfig, actState);
+            }
+            // Unreachable-Alarm mit 60s Grace-Period (verhindert Alarm bei kurzen WiFi-Aussetzern)
+            if (actState.health === 'unreachable') {
+                const firstTs = this.unreachableFirstTs.get(actuatorConfig.id);
+                if (firstTs !== undefined && Date.now() - firstTs >= 60000) {
+                    this.alarmService.raise(AlarmService_1.ALARM_CODES.ACTUATOR_UNREACHABLE, config.id, actuatorConfig.id, 'fault', `Aktor "${actuatorConfig.name}" nicht erreichbar`);
+                }
             }
         }
         this.diagnosticsEngine.evaluateEffectChecks(this.groupStates);
@@ -1053,7 +1284,9 @@ class GrowManagerAdapter extends utils.Adapter {
         }
         // 8) Benutzerdefinierte Alarmregeln auswerten
         this.evaluateCustomAlertRules(config, state);
-        // 9) ioBroker-States aktualisieren
+        // 9) Aktor-Alarmregeln auswerten
+        this.evaluateActuatorAlertRules(config.id);
+        // 10) ioBroker-States aktualisieren
         await this.updateGroupStates(config, state);
     }
     evaluateCustomAlertRules(config, state) {
@@ -1098,14 +1331,60 @@ class GrowManagerAdapter extends utils.Adapter {
                     break;
             }
             if (triggered) {
-                const condDesc = rule.condition === 'above' ? `> ${rule.threshold}`
-                    : rule.condition === 'below' ? `< ${rule.threshold}`
-                        : rule.condition === 'outside' ? `außerhalb ${rule.thresholdMin}–${rule.thresholdMax}`
-                            : `innerhalb ${rule.thresholdMin}–${rule.thresholdMax}`;
+                const fmtThr = (v) => v != null ? +(v.toFixed(2)) : v;
+                const condDesc = rule.condition === 'above' ? `> ${fmtThr(rule.threshold)}`
+                    : rule.condition === 'below' ? `< ${fmtThr(rule.threshold)}`
+                        : rule.condition === 'outside' ? `außerhalb ${fmtThr(rule.thresholdMin)}–${fmtThr(rule.thresholdMax)}`
+                            : `innerhalb ${fmtThr(rule.thresholdMin)}–${fmtThr(rule.thresholdMax)}`;
                 this.alarmService.raise(AlarmService_1.ALARM_CODES.CUSTOM_ALERT, config.id, rule.id, rule.severity, `${rule.name}: ${rule.metric} = ${val.toFixed(2)} (${condDesc})`);
             }
             else {
                 this.alarmService.clear(AlarmService_1.ALARM_CODES.CUSTOM_ALERT, config.id, rule.id);
+            }
+        }
+    }
+    evaluateActuatorAlertRules(groupId) {
+        const rules = (this.growConfig.actuatorAlertRules ?? [])
+            .filter(r => r.enabled && r.groupId === groupId);
+        if (rules.length === 0)
+            return;
+        const group = this.growConfig.groups.find(g => g.id === groupId);
+        const now = Date.now();
+        for (const rule of rules) {
+            const actState = this.actuatorService.getState(rule.actuatorId);
+            if (!actState)
+                continue;
+            let triggered = false;
+            switch (rule.condition) {
+                case 'off_when_should_be_on':
+                    triggered = actState.health === 'noFeedback';
+                    break;
+                case 'no_power_when_on':
+                    triggered = actState.health === 'noPower';
+                    break;
+                case 'stuck_on':
+                    triggered = actState.health === 'stuckOn';
+                    break;
+            }
+            if (triggered) {
+                // Ersttrigger-Zeitstempel merken; erst nach triggerDelayMinutes auslösen
+                if (!this.actuatorRuleTriggerTs.has(rule.id)) {
+                    this.actuatorRuleTriggerTs.set(rule.id, now);
+                }
+                const firstTs = this.actuatorRuleTriggerTs.get(rule.id);
+                const delayMs = (rule.triggerDelayMinutes ?? 5) * 60000;
+                if (now - firstTs >= delayMs) {
+                    const actuatorName = group?.actuators.find(a => a.id === rule.actuatorId)?.name ?? rule.actuatorId;
+                    const condMsg = rule.condition === 'off_when_should_be_on' ? 'soll EIN sein, reagiert aber nicht' :
+                        rule.condition === 'no_power_when_on' ? 'ist EIN, verbraucht aber keinen Strom' :
+                            'bleibt AN trotz AUS-Befehl';
+                    this.alarmService.raise(AlarmService_1.ALARM_CODES.ACTUATOR_ALERT, groupId, rule.id, rule.severity, `${rule.name}: ${actuatorName} ${condMsg}`);
+                }
+            }
+            else {
+                // Zustand wieder OK → Timer und Alarm zurücksetzen
+                this.actuatorRuleTriggerTs.delete(rule.id);
+                this.alarmService.clear(AlarmService_1.ALARM_CODES.ACTUATOR_ALERT, groupId, rule.id);
             }
         }
     }
@@ -1127,14 +1406,14 @@ class GrowManagerAdapter extends utils.Adapter {
                     const changed = this.actuatorService.recordCommand(act, wantsOn);
                     if (changed) {
                         await this.setActuatorState(act.commandStateId, wantsOn ? act.onValue : act.offValue);
-                        this.setActuatorStateWithVerify(act, config.id, wantsOn ? act.onValue : act.offValue);
+                        // Kein Verify-Timer: WindSim togglet schnell; Mismatch innerhalb der Phase ist kein Fehler
                         this.log.info(`Umluft ${act.name}: → ${wantsOn ? 'EIN' : 'AUS'} (windSimulator)`);
                         // Energie-Tracking (Nennleistung)
                         if (act.energyStateUnit !== 'kWh') {
                             if (wantsOn)
-                                this.databaseService.trackActuatorOn(config.id, act.id, act.name);
-                            else if (act.ratedPowerW)
-                                this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW);
+                                this.databaseService.trackActuatorOn(config.id, act.id, act.name, act.ratedPowerW ?? 0);
+                            else
+                                this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW ?? 0);
                         }
                     }
                     continue;
@@ -1154,6 +1433,54 @@ class GrowManagerAdapter extends utils.Adapter {
                 await this.setActuatorState(act.commandStateId, wantsOn ? act.onValue : act.offValue);
                 this.setActuatorStateWithVerify(act, config.id, wantsOn ? act.onValue : act.offValue);
                 this.log.info(`Umluft ${act.name}: → ${wantsOn ? 'EIN' : 'AUS'} (${act.circulationMode})`);
+                if (act.energyStateUnit !== 'kWh') {
+                    if (wantsOn)
+                        this.databaseService.trackActuatorOn(config.id, act.id, act.name, act.ratedPowerW ?? 0);
+                    else
+                        this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW ?? 0);
+                }
+            }
+        }
+    }
+    async tickScheduleActuators(config) {
+        const now = new Date();
+        for (const act of config.actuators) {
+            if (act.type !== 'timedActuator' || !act.enabled)
+                continue;
+            if (act.shared)
+                continue;
+            const actState = this.actuatorService.getState(act.id);
+            if (!actState || actState.manualLock)
+                continue;
+            let wantsOn = this.actuatorService.isActuatorScheduleActive(act, now);
+            // Blüte-Temp-Guard (Hysterese 2°C): sperrt timedActuator wenn Blüte zu warm
+            if (wantsOn && act.bloomTempGuardMaxC != null && config.phase === 'bloom') {
+                const gs = this.groupStates.get(config.id);
+                const temp = gs?.temperature ?? null;
+                if (temp !== null) {
+                    const hyst = 2.0;
+                    const curOn = (actState.requested ?? false) !== false && (actState.requested ?? false) !== 0;
+                    const guardThreshold = curOn ? act.bloomTempGuardMaxC : act.bloomTempGuardMaxC - hyst;
+                    if (temp >= guardThreshold) {
+                        this.log.info(`Zeitplan ${act.name}: Blüte-Temp-Schutz – ${temp.toFixed(1)}°C ≥ ${guardThreshold.toFixed(1)}°C → gesperrt`);
+                        wantsOn = false;
+                    }
+                }
+            }
+            const canSwitch = this.actuatorService.canSwitch(act, wantsOn);
+            if (!canSwitch.allowed)
+                continue;
+            const changed = this.actuatorService.recordCommand(act, wantsOn);
+            if (changed) {
+                await this.setActuatorState(act.commandStateId, wantsOn ? act.onValue : act.offValue);
+                this.setActuatorStateWithVerify(act, config.id, wantsOn ? act.onValue : act.offValue);
+                this.log.info(`Zeitplan ${act.name}: → ${wantsOn ? 'EIN' : 'AUS'}`);
+                if ((act.energyStateUnit ?? 'W') !== 'kWh') {
+                    if (wantsOn)
+                        this.databaseService.trackActuatorOn(config.id, act.id, act.name, act.ratedPowerW ?? 0);
+                    else
+                        this.databaseService.trackActuatorOff(config.id, act.id, act.ratedPowerW ?? 0);
+                }
             }
         }
     }
@@ -1167,6 +1494,9 @@ class GrowManagerAdapter extends utils.Adapter {
             // Umluft-Aktoren mit eigenem Modus werden ausschließlich von tickCirculationActuators gesteuert
             if (actuatorConfig.type === 'circulationFan' &&
                 actuatorConfig.circulationMode && actuatorConfig.circulationMode !== 'alwaysOn')
+                continue;
+            // Zeitgesteuerte Aktoren werden ausschließlich von tickScheduleActuators gesteuert
+            if (actuatorConfig.type === 'timedActuator')
                 continue;
             // Gemeinsam genutzte Aktoren werden über SharedActorManager aufgelöst
             if (actuatorConfig.shared) {
@@ -1182,6 +1512,32 @@ class GrowManagerAdapter extends utils.Adapter {
                 // in runCycle() gesteuert. recordCommand() darf NICHT hier aufgerufen werden,
                 // weil sonst die Voting-Loop changed=false sieht und setActuatorState nie sendet.
                 continue;
+            }
+            // Trocknungs-Licht-Sperre: Licht-Aktoren im Trocknungsmodus dauerhaft AUS halten
+            if (config.phase === 'drying' && (config.dryingLightOff ?? true) && actuatorConfig.type === 'light') {
+                if (action.requested !== false && action.requested !== 0) {
+                    this.directDesires.set(actuatorConfig.id, false);
+                    const changed = this.actuatorService.recordCommand(actuatorConfig, false);
+                    if (changed)
+                        await this.setActuatorState(actuatorConfig.commandStateId, actuatorConfig.offValue);
+                }
+                continue;
+            }
+            // Blüte-Temperatur-Schutz: Aktor sperren wenn Gruppe in Blüte und Temp ≥ Schwelle (Hysterese 1.5°C)
+            if (actuatorConfig.bloomTempGuardMaxC != null && action.requested) {
+                const gs = this.groupStates.get(config.id);
+                if (config.phase === 'bloom' && gs?.temperature != null) {
+                    const hyst = 2.0;
+                    const actSt = this.actuatorService.getState(actuatorConfig.id);
+                    const curOn = (actSt?.requested ?? false) !== false && (actSt?.requested ?? false) !== 0;
+                    const guardThreshold = curOn
+                        ? actuatorConfig.bloomTempGuardMaxC
+                        : actuatorConfig.bloomTempGuardMaxC - hyst;
+                    if (gs.temperature >= guardThreshold) {
+                        this.log.info(`${actuatorConfig.name}: Blüte-Temp-Schutz – ${gs.temperature.toFixed(1)}°C ≥ ${guardThreshold.toFixed(1)}°C → gesperrt`);
+                        continue;
+                    }
+                }
             }
             // Aktuellen Reglerwunsch für Dashboard-Anzeige speichern (unabhängig von canSwitch)
             this.directDesires.set(actuatorConfig.id, action.requested);
@@ -1212,7 +1568,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 // Energie-Tracking: ratedPowerW-Fallback (nur wenn kein kWh-Sensor konfiguriert)
                 if (actuatorConfig.energyStateUnit !== 'kWh') {
                     if (action.requested === true || (typeof action.requested === 'number' && action.requested > 0)) {
-                        this.databaseService.trackActuatorOn(config.id, actuatorConfig.id, actuatorConfig.name);
+                        this.databaseService.trackActuatorOn(config.id, actuatorConfig.id, actuatorConfig.name, actuatorConfig.ratedPowerW ?? 0);
                     }
                     else {
                         this.databaseService.trackActuatorOff(config.id, actuatorConfig.id, actuatorConfig.ratedPowerW ?? 0);
@@ -1236,12 +1592,18 @@ class GrowManagerAdapter extends utils.Adapter {
      * Berechnet ob eine Gruppe einen Aktor vom gegebenen Typ benötigt,
      * basierend auf dem aktuellen Gruppenstand und Klimaprofil-Sollwerten.
      */
-    computeParticipantNeed(actuatorType, gs, defaultHysteresis) {
+    computeParticipantNeed(actuatorType, gs, defaultHysteresis, currentlyOn = false, groupMode) {
         const hyst = defaultHysteresis;
         const tempHyst = 1.5; // °C
+        // Inaktive Gruppen stimmen nie für Aktoren ab
+        if (!groupMode || groupMode === 'off' || groupMode === 'manual' || groupMode === 'schedule'
+            || groupMode === 'monitorOnly' || groupMode === 'maintenance') {
+            return { wantsOn: false, urgency: 0, reason: `Gruppe inaktiv (${groupMode ?? 'unbekannt'})` };
+        }
         // Sollwerte aus aktivem Profil ermitteln
         let tempSetpoint = null;
         let humSetpoint = null;
+        let humHyst = hyst; // Feuchte-Hysterese: aus Profil-Toleranz, Fallback = defaultHysteresis
         let vpdMax = null;
         let vpdMin = null;
         if (gs.activeProfile) {
@@ -1250,15 +1612,47 @@ class GrowManagerAdapter extends utils.Adapter {
             if (sp) {
                 tempSetpoint = sp.temperature ?? null;
                 humSetpoint = sp.humidity ?? null;
+                humHyst = sp.humidityTolerance ?? hyst;
                 vpdMax = sp.vpdMax ?? null;
                 vpdMin = sp.vpdMin ?? null;
             }
         }
         switch (actuatorType) {
             case 'dehumidifier': {
+                // Temperatur-only-Gruppe regelt keine Feuchte → kein Abstimmungsbedarf
+                if (groupMode === 'temperature')
+                    return { wantsOn: false, urgency: 0, reason: 'Temperaturregelung – Entfeuchter nicht benötigt' };
                 const hum = gs.humidity;
                 if (hum === null)
                     return { wantsOn: false, urgency: 0, reason: 'Kein Feuchtesensor' };
+                // Kombiniert/Feuchte-Modus: Feuchte hat Vorrang; VPD nur als Überschuss-Guard.
+                if (groupMode === 'combined' || groupMode === 'humidity') {
+                    if (vpdMax !== null && gs.vpd !== null) {
+                        // Hysterese: wenn EIN → Guard schon bei vpdMax; wenn AUS → erst Freigabe wenn VPD < vpdMax-0.05
+                        const vpdGuard = currentlyOn ? vpdMax : vpdMax - 0.05;
+                        if (gs.vpd > vpdGuard) {
+                            const excess = gs.vpd - vpdMax;
+                            return { wantsOn: false, urgency: Math.min(1, excess / 0.3), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch – Entfeuchter gesperrt` };
+                        }
+                    }
+                    const target = humSetpoint ?? 60;
+                    // currentlyOn-Hysterese: läuft weiter bis Sollwert erreicht (nicht nur bis Schwelle)
+                    if (currentlyOn && hum > target) {
+                        return { wantsOn: true, urgency: Math.min(1, (hum - target) / 10), reason: `RH ${hum.toFixed(0)}% noch über Soll ${target.toFixed(0)}% – weiter Entfeuchten` };
+                    }
+                    const excess = hum - (target + humHyst);
+                    if (excess > 0)
+                        return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Max ${(target + humHyst).toFixed(0)}% – Entfeuchten` };
+                    const humMin = target - humHyst;
+                    if (hum < humMin) {
+                        // RH unter Min → Entfeuchter darf nicht laufen, Urgency für Mehrheits-Veto
+                        return { wantsOn: false, urgency: Math.min(1, (humMin - hum) / 10), reason: `RH ${hum.toFixed(0)}% < Min ${humMin.toFixed(0)}% – Befeuchter zuständig` };
+                    }
+                    const reasonDh = hum <= target
+                        ? `RH ${hum.toFixed(0)}% ≤ Soll ${target.toFixed(0)}% – kein Bedarf`
+                        : `RH ${hum.toFixed(0)}% in Hysterese [${target.toFixed(0)}–${(target + humHyst).toFixed(0)}%]`;
+                    return { wantsOn: false, urgency: 0, reason: reasonDh };
+                }
                 // VPD-Modus: wenn beide VPD-Grenzen konfiguriert sind, entscheidet nur der VPD.
                 // Entfeuchter senkt Feuchte → erhöht VPD und erzeugt Abwärme → darf VPD
                 // nicht in den Überbereich treiben.
@@ -1272,10 +1666,20 @@ class GrowManagerAdapter extends utils.Adapter {
                         return { wantsOn: true, urgency: Math.min(1, deficit / 0.5), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu niedrig (Soll >${vpdMin.toFixed(2)}) – Entfeuchten` };
                     }
                     if (gs.vpd > vpdMax) {
-                        // VPD zu hoch → Entfeuchter würde es weiter verschlimmern → gesperrt
-                        return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch – Entfeuchter gesperrt` };
+                        // VPD zu hoch → Entfeuchter würde es weiter verschlimmern → gesperrt.
+                        // Urgency proportional zum Überschuss: bei 'any'-Modus greift jede Überschreitung
+                        // als hartes Veto (urgency > 0); bei 'majority'-Modus wird Überschuss gegen
+                        // Restbedarf der anderen Gruppe abgewogen.
+                        const excess_dh = gs.vpd - vpdMax;
+                        return { wantsOn: false, urgency: Math.min(1, excess_dh / 0.3), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch – Entfeuchter gesperrt` };
                     }
-                    // VPD im Sollbereich → keine RH-Regelung; Entfeuchter würde VPD weiter erhöhen
+                    // Hysterese: wenn gerade EIN, bis Mitte des Sollbereichs weiterlaufen
+                    const vpdMid_dh = (vpdMin + vpdMax) / 2;
+                    if (currentlyOn && gs.vpd < vpdMid_dh) {
+                        const urgency = Math.max(0, (vpdMid_dh - gs.vpd) / (vpdMid_dh - vpdMin));
+                        return { wantsOn: true, urgency, reason: `VPD ${gs.vpd.toFixed(2)} kPa noch unter Mitte ${vpdMid_dh.toFixed(2)} – weiter Entfeuchten` };
+                    }
+                    // VPD im Sollbereich (oder über Mitte) → Entfeuchter pausiert
                     return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa im Sollbereich – Entfeuchter pausiert` };
                 }
                 // Feuchtemodus (kein VPD konfiguriert): RH-Setpoint mit Guard
@@ -1286,15 +1690,56 @@ class GrowManagerAdapter extends utils.Adapter {
                     return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa im Schutzbereich (>${dehum_vpdGuard.toFixed(2)}) – Entfeuchter gesperrt` };
                 }
                 const target = humSetpoint ?? 60;
-                const excess = hum - (target + hyst);
+                if (currentlyOn && hum > target) {
+                    return { wantsOn: true, urgency: Math.min(1, (hum - target) / 10), reason: `RH ${hum.toFixed(0)}% noch über Soll ${target.toFixed(0)}% – weiter Entfeuchten` };
+                }
+                const excess = hum - (target + humHyst);
                 if (excess > 0)
-                    return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Soll ${target}% – Entfeuchten` };
-                return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
+                    return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Max ${(target + humHyst).toFixed(0)}% – Entfeuchten` };
+                const humMinF = target - humHyst;
+                if (hum < humMinF) {
+                    return { wantsOn: false, urgency: Math.min(1, (humMinF - hum) / 10), reason: `RH ${hum.toFixed(0)}% < Min ${humMinF.toFixed(0)}% – Befeuchter zuständig` };
+                }
+                const reasonDhF = hum <= target
+                    ? `RH ${hum.toFixed(0)}% ≤ Soll ${target.toFixed(0)}% – kein Bedarf`
+                    : `RH ${hum.toFixed(0)}% in Hysterese [${target.toFixed(0)}–${(target + humHyst).toFixed(0)}%]`;
+                return { wantsOn: false, urgency: 0, reason: reasonDhF };
             }
             case 'humidifier': {
+                // Temperatur-only-Gruppe regelt keine Feuchte → kein Abstimmungsbedarf
+                if (groupMode === 'temperature')
+                    return { wantsOn: false, urgency: 0, reason: 'Temperaturregelung – Befeuchter nicht benötigt' };
                 const hum = gs.humidity;
                 if (hum === null)
                     return { wantsOn: false, urgency: 0, reason: 'Kein Feuchtesensor' };
+                // Kombiniert/Feuchte-Modus: Feuchte hat Vorrang; VPD nur als Unterschuss-Guard.
+                if (groupMode === 'combined' || groupMode === 'humidity') {
+                    if (vpdMin !== null && gs.vpd !== null) {
+                        // Hysterese: wenn AUS → Guard bis VPD > vpdMin+0.05; wenn EIN → Guard ab vpdMin
+                        const vpdGuardHum = currentlyOn ? vpdMin : vpdMin + 0.05;
+                        if (gs.vpd < vpdGuardHum) {
+                            const deficit = vpdMin - gs.vpd;
+                            return { wantsOn: false, urgency: Math.min(1, deficit / 0.3), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu niedrig – Befeuchter gesperrt` };
+                        }
+                    }
+                    const target = humSetpoint ?? 50;
+                    // currentlyOn-Hysterese: läuft weiter bis Sollwert erreicht
+                    if (currentlyOn && hum < target) {
+                        return { wantsOn: true, urgency: Math.min(1, (target - hum) / 10), reason: `RH ${hum.toFixed(0)}% noch unter Soll ${target.toFixed(0)}% – weiter Befeuchten` };
+                    }
+                    const deficit = (target - humHyst) - hum;
+                    if (deficit > 0)
+                        return { wantsOn: true, urgency: Math.min(1, deficit / 10), reason: `RH ${hum.toFixed(0)}% < Min ${(target - humHyst).toFixed(0)}% – Befeuchten` };
+                    const humMax = target + humHyst;
+                    if (hum > humMax) {
+                        // RH über Max → Befeuchter darf nicht laufen, Urgency für Mehrheits-Veto
+                        return { wantsOn: false, urgency: Math.min(1, (hum - humMax) / 10), reason: `RH ${hum.toFixed(0)}% > Max ${humMax.toFixed(0)}% – Entfeuchter zuständig` };
+                    }
+                    const reasonHum = hum >= target
+                        ? `RH ${hum.toFixed(0)}% ≥ Soll ${target.toFixed(0)}% – kein Bedarf`
+                        : `RH ${hum.toFixed(0)}% in Hysterese [${(target - humHyst).toFixed(0)}–${target.toFixed(0)}%]`;
+                    return { wantsOn: false, urgency: 0, reason: reasonHum };
+                }
                 // VPD-Modus: wenn beide VPD-Grenzen konfiguriert sind, entscheidet nur der VPD.
                 if (vpdMin !== null && vpdMax !== null) {
                     if (gs.vpd === null) {
@@ -1306,9 +1751,16 @@ class GrowManagerAdapter extends utils.Adapter {
                     }
                     if (gs.vpd < vpdMin) {
                         // VPD zu niedrig → Befeuchter würde es weiter verschlimmern → gesperrt
-                        return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa zu niedrig – Befeuchter gesperrt` };
+                        const deficit_hum = vpdMin - gs.vpd;
+                        return { wantsOn: false, urgency: Math.min(1, deficit_hum / 0.3), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu niedrig – Befeuchter gesperrt` };
                     }
-                    // VPD im Sollbereich → keine RH-Regelung
+                    // Hysterese: wenn gerade EIN, bis Mitte des Sollbereichs weiterlaufen
+                    const vpdMid_hum = (vpdMin + vpdMax) / 2;
+                    if (currentlyOn && gs.vpd > vpdMid_hum) {
+                        const urgency = Math.max(0, (gs.vpd - vpdMid_hum) / (vpdMax - vpdMid_hum));
+                        return { wantsOn: true, urgency, reason: `VPD ${gs.vpd.toFixed(2)} kPa noch über Mitte ${vpdMid_hum.toFixed(2)} – weiter Befeuchten` };
+                    }
+                    // VPD im Sollbereich (oder unter Mitte) → Befeuchter pausiert
                     return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa im Sollbereich – Befeuchter pausiert` };
                 }
                 // Feuchtemodus (kein VPD konfiguriert): RH-Setpoint mit Guard
@@ -1319,20 +1771,54 @@ class GrowManagerAdapter extends utils.Adapter {
                     return { wantsOn: false, urgency: 0, reason: `VPD ${gs.vpd.toFixed(2)} kPa im Schutzbereich (<${hum_vpdGuard.toFixed(2)}) – Befeuchter gesperrt` };
                 }
                 const target = humSetpoint ?? 50;
-                const deficit = (target - hyst) - hum;
+                if (currentlyOn && hum < target) {
+                    return { wantsOn: true, urgency: Math.min(1, (target - hum) / 10), reason: `RH ${hum.toFixed(0)}% noch unter Soll ${target.toFixed(0)}% – weiter Befeuchten` };
+                }
+                const deficit = (target - humHyst) - hum;
                 if (deficit > 0)
-                    return { wantsOn: true, urgency: Math.min(1, deficit / 10), reason: `RH ${hum.toFixed(0)}% < Soll ${target}% – Befeuchten` };
-                return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
+                    return { wantsOn: true, urgency: Math.min(1, deficit / 10), reason: `RH ${hum.toFixed(0)}% < Min ${(target - humHyst).toFixed(0)}% – Befeuchten` };
+                const humMaxF = target + humHyst;
+                if (hum > humMaxF) {
+                    return { wantsOn: false, urgency: Math.min(1, (hum - humMaxF) / 10), reason: `RH ${hum.toFixed(0)}% > Max ${humMaxF.toFixed(0)}% – Entfeuchter zuständig` };
+                }
+                const reasonHumF = hum >= target
+                    ? `RH ${hum.toFixed(0)}% ≥ Soll ${target.toFixed(0)}% – kein Bedarf`
+                    : `RH ${hum.toFixed(0)}% in Hysterese [${(target - humHyst).toFixed(0)}–${target.toFixed(0)}%]`;
+                return { wantsOn: false, urgency: 0, reason: reasonHumF };
             }
             case 'cooling':
             case 'exhaustFan':
             case 'supplyFan': {
+                // Feuchte-only-Gruppe: Kühlung hilft nicht mit Feuchte → AUS
+                if (groupMode === 'humidity' && actuatorType === 'cooling') {
+                    return { wantsOn: false, urgency: 0, reason: 'Feuchtigkeitsregelung – Kühlung nicht benötigt' };
+                }
+                // Feuchte-only-Gruppe: Zu-/Abluft kann helfen wenn Feuchte zu hoch
+                if (groupMode === 'humidity' && (actuatorType === 'exhaustFan' || actuatorType === 'supplyFan')) {
+                    const hum = gs.humidity;
+                    if (hum === null)
+                        return { wantsOn: false, urgency: 0, reason: 'Kein Feuchtesensor' };
+                    const target = humSetpoint ?? 60;
+                    const excess = hum - (target + hyst);
+                    if (excess > 0)
+                        return { wantsOn: true, urgency: Math.min(1, excess / 10), reason: `RH ${hum.toFixed(0)}% > Soll ${target.toFixed(0)}% – Lüftung für Entfeuchtung` };
+                    return { wantsOn: false, urgency: 0, reason: `RH ${hum.toFixed(0)}% im Sollbereich` };
+                }
                 const target = tempSetpoint ?? 25;
                 const temp = gs.temperature;
                 if (temp !== null) {
+                    // Unterkühlung: Kühlung treibt andere Gruppe unter Minimum → urgentes Veto
+                    const undershoot = (target - tempHyst) - temp;
+                    if (undershoot > 0) {
+                        return { wantsOn: false, urgency: Math.min(1, undershoot / 5), reason: `T ${temp.toFixed(1)}°C < Min ${(target - tempHyst).toFixed(1)}°C – Kühlung gesperrt` };
+                    }
+                    // Hysterese: wenn gerade EIN, bis Sollwert (Mitte) weiterkühlen
+                    if (currentlyOn && temp > target) {
+                        return { wantsOn: true, urgency: Math.max(0, (temp - target) / tempHyst), reason: `T ${temp.toFixed(1)}°C noch über Sollwert ${target.toFixed(1)}°C – weiter Kühlen` };
+                    }
                     const excess = temp - (target + tempHyst);
                     if (excess > 0)
-                        return { wantsOn: true, urgency: Math.min(1, excess / 5), reason: `T ${temp.toFixed(1)}°C > Soll ${target}°C – Lüftung/Kühlung` };
+                        return { wantsOn: true, urgency: Math.min(1, excess / 5), reason: `T ${temp.toFixed(1)}°C > Soll ${target.toFixed(1)}°C – Lüftung/Kühlung` };
                 }
                 // VPD klar zu hoch → Lüftung/Kühlung hilft
                 if (vpdMax !== null && gs.vpd !== null && gs.vpd > vpdMax + 0.2) {
@@ -1343,7 +1829,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 // bevor Hysterese überschritten wird. Outdoor-Guard blockiert bei ungünstiger Außenluft.
                 if (actuatorType === 'supplyFan' || actuatorType === 'exhaustFan') {
                     if (temp !== null && tempSetpoint !== null && temp > tempSetpoint) {
-                        return { wantsOn: true, urgency: 0.1, reason: `T ${temp.toFixed(1)}°C > Sollwert ${tempSetpoint}°C – präventive Lüftung` };
+                        return { wantsOn: true, urgency: 0.1, reason: `T ${temp.toFixed(1)}°C > Sollwert ${tempSetpoint.toFixed(1)}°C – präventive Lüftung` };
                     }
                     if (vpdMax !== null && vpdMin !== null && gs.vpd !== null) {
                         const mid = vpdMin + (vpdMax - vpdMin) * 0.5;
@@ -1355,24 +1841,39 @@ class GrowManagerAdapter extends utils.Adapter {
                 return { wantsOn: false, urgency: 0, reason: `T/VPD im Sollbereich` };
             }
             case 'heating': {
+                // Feuchte-only-Gruppe regelt keine Temperatur → kein Abstimmungsbedarf
+                if (groupMode === 'humidity')
+                    return { wantsOn: false, urgency: 0, reason: 'Feuchtigkeitsregelung – Heizung nicht benötigt' };
                 const target = tempSetpoint ?? 20;
                 const temp = gs.temperature;
                 if (temp === null)
                     return { wantsOn: false, urgency: 0, reason: 'Kein Temperatursensor' };
+                // Überhitzung: Heizung treibt andere Gruppe über Maximum → urgentes Veto
+                const overshoot = temp - (target + tempHyst);
+                if (overshoot > 0) {
+                    return { wantsOn: false, urgency: Math.min(1, overshoot / 5), reason: `T ${temp.toFixed(1)}°C > Max ${(target + tempHyst).toFixed(1)}°C – Heizung gesperrt` };
+                }
+                // Hysterese: wenn gerade EIN, bis Sollwert (Mitte) weiterheizen
+                if (currentlyOn && temp < target) {
+                    return { wantsOn: true, urgency: Math.max(0, (target - temp) / tempHyst), reason: `T ${temp.toFixed(1)}°C noch unter Sollwert ${target.toFixed(1)}°C – weiter Heizen` };
+                }
                 const deficit = (target - tempHyst) - temp;
                 return {
                     wantsOn: deficit > 0,
                     urgency: Math.min(1, Math.max(0, deficit / 5)),
-                    reason: deficit > 0 ? `T ${temp.toFixed(1)}°C < Soll ${target}°C – Heizen` : `T ${temp.toFixed(1)}°C im Sollbereich`,
+                    reason: deficit > 0 ? `T ${temp.toFixed(1)}°C < Soll ${target.toFixed(1)}°C – Heizen` : `T ${temp.toFixed(1)}°C im Sollbereich`,
                 };
             }
             case 'circulationFan':
             case 'damper': {
+                // Feuchte-only-Gruppe: Umluft hilft nicht direkt mit Feuchte → AUS
+                if (groupMode === 'humidity')
+                    return { wantsOn: false, urgency: 0, reason: 'Feuchtigkeitsregelung – Umluft nicht benötigt' };
                 // Zirkulationslüfter: läuft wenn Temp oder VPD erhöht
                 const target = tempSetpoint ?? 25;
                 const temp = gs.temperature;
                 if (temp !== null && temp > target + tempHyst) {
-                    return { wantsOn: true, urgency: Math.min(1, (temp - target - tempHyst) / 5), reason: `T ${temp.toFixed(1)}°C > Soll ${target}°C – Umluft` };
+                    return { wantsOn: true, urgency: Math.min(1, (temp - target - tempHyst) / 5), reason: `T ${temp.toFixed(1)}°C > Soll ${target.toFixed(1)}°C – Umluft` };
                 }
                 if (vpdMax !== null && gs.vpd !== null && gs.vpd > vpdMax + 0.3) {
                     return { wantsOn: true, urgency: Math.min(1, (gs.vpd - vpdMax) / 0.5), reason: `VPD ${gs.vpd.toFixed(2)} kPa zu hoch – Umluft` };
@@ -1383,6 +1884,10 @@ class GrowManagerAdapter extends utils.Adapter {
                 // CO2 wird selten geteilt; kein Teilnehmer-Bedarf
                 return { wantsOn: false, urgency: 0, reason: 'CO2-Ventil: kein Teilnehmer-Bedarf' };
             }
+            case 'timedActuator':
+                // Zeitplan-Aktoren werden ausschließlich vom Eigentümer per Zeitplan gesteuert.
+                // Teilnehmer stimmen neutral (AUS) damit der Eigentümer-Zeitplan immer gewinnt.
+                return { wantsOn: false, urgency: 0, reason: 'Zeitgesteuerter Aktor – Zeitplan des Eigentümers gilt' };
             default:
                 return { wantsOn: false, urgency: 0, reason: 'Unbekannter Aktortyp' };
         }
@@ -1407,48 +1912,61 @@ class GrowManagerAdapter extends utils.Adapter {
         const existing = this.pendingVerify.get(actuatorConfig.id);
         if (existing)
             this.clearTimeout(existing);
-        const schedule = (isRetry) => this.setTimeout(async () => {
-            this.pendingVerify.delete(actuatorConfig.id);
-            // Tatsächlichen Gerätezustand ermitteln:
-            // - Wenn dedizierter feedbackStateId konfiguriert → direkt lesen
-            // - Sonst → letzten bestätigten (ack=true) Zustand aus ActuatorService nutzen
-            //   (commandStateId würde den von UNS geschriebenen Wert zurückliefern → immer "OK")
-            let actualOn;
-            if (actuatorConfig.feedbackStateId) {
-                const actual = await this.getForeignStateAsync(actuatorConfig.feedbackStateId);
-                if (!actual || actual.val === null || actual.val === undefined)
-                    return;
-                const actVal = actual.val;
-                actualOn = typeof actVal === 'boolean' ? actVal : actVal > 0;
-            }
-            else {
-                const tracked = this.actuatorService.getState(actuatorConfig.id);
-                if (tracked?.feedback === null || tracked?.feedback === undefined) {
-                    // Noch kein Feedback empfangen – bei Retry trotzdem Alarm
-                    if (isRetry) {
-                        this.log.error(`Aktor ${actuatorConfig.name}: kein Feedback nach Befehl ${value}`);
-                        this.alarmService.raise(AlarmService_1.ALARM_CODES.ACTUATOR_NO_FEEDBACK, groupId, actuatorConfig.id, 'warning', `Kein Gerätestatus empfangen nach Befehl "${value}"`);
+        const schedule = (isRetry) => {
+            let timerRef;
+            timerRef = this.setTimeout(async () => {
+                try {
+                    // Tatsächlichen Gerätezustand ermitteln:
+                    // - Wenn dedizierter feedbackStateId konfiguriert → direkt lesen
+                    // - Sonst → letzten bestätigten (ack=true) Zustand aus ActuatorService nutzen
+                    //   (commandStateId würde den von UNS geschriebenen Wert zurückliefern → immer "OK")
+                    let actualOn;
+                    if (actuatorConfig.feedbackStateId) {
+                        const actual = await this.getForeignStateAsync(actuatorConfig.feedbackStateId);
+                        // Nach dem await: prüfen ob ein neuer Zyklus unseren Timer überschrieben hat
+                        if (this.pendingVerify.get(actuatorConfig.id) !== timerRef)
+                            return;
+                        this.pendingVerify.delete(actuatorConfig.id);
+                        if (!actual || actual.val === null || actual.val === undefined)
+                            return;
+                        const actVal = actual.val;
+                        actualOn = typeof actVal === 'boolean' ? actVal : actVal > 0;
                     }
-                    return;
+                    else {
+                        this.pendingVerify.delete(actuatorConfig.id);
+                        const tracked = this.actuatorService.getState(actuatorConfig.id);
+                        if (tracked?.feedback === null || tracked?.feedback === undefined) {
+                            // Noch kein Feedback empfangen – bei Retry trotzdem Alarm
+                            if (isRetry) {
+                                this.log.error(`Aktor ${actuatorConfig.name}: kein Feedback nach Befehl ${value}`);
+                                this.alarmService.raise(AlarmService_1.ALARM_CODES.ACTUATOR_NO_FEEDBACK, groupId, actuatorConfig.id, 'warning', `Kein Gerätestatus empfangen nach Befehl "${value}"`);
+                            }
+                            return;
+                        }
+                        const fb = tracked.feedback;
+                        actualOn = typeof fb === 'boolean' ? fb : fb > 0;
+                    }
+                    const requestedOn = typeof value === 'boolean' ? value : value > 0;
+                    if (requestedOn === actualOn) {
+                        this.alarmService.clear(AlarmService_1.ALARM_CODES.ACTUATOR_NO_FEEDBACK, groupId, actuatorConfig.id);
+                        return;
+                    }
+                    if (!isRetry) {
+                        this.log.warn(`Aktor ${actuatorConfig.name}: Soll=${value} aber Ist=${actualOn} – 1x Retry`);
+                        await this.setActuatorState(actuatorConfig.commandStateId, value);
+                        this.pendingVerify.set(actuatorConfig.id, schedule(true));
+                    }
+                    else {
+                        this.log.error(`Aktor ${actuatorConfig.name}: Gerät reagiert nicht auf Befehl ${value}`);
+                        this.alarmService.raise(AlarmService_1.ALARM_CODES.ACTUATOR_NO_FEEDBACK, groupId, actuatorConfig.id, 'warning', `Gerät hat auf Befehl "${value}" nicht reagiert`);
+                    }
                 }
-                const fb = tracked.feedback;
-                actualOn = typeof fb === 'boolean' ? fb : fb > 0;
-            }
-            const requestedOn = typeof value === 'boolean' ? value : value > 0;
-            if (requestedOn === actualOn) {
-                this.alarmService.clear(AlarmService_1.ALARM_CODES.ACTUATOR_NO_FEEDBACK, groupId, actuatorConfig.id);
-                return;
-            }
-            if (!isRetry) {
-                this.log.warn(`Aktor ${actuatorConfig.name}: Soll=${value} aber Ist=${actualOn} – 1x Retry`);
-                await this.setActuatorState(actuatorConfig.commandStateId, value);
-                this.pendingVerify.set(actuatorConfig.id, schedule(true));
-            }
-            else {
-                this.log.error(`Aktor ${actuatorConfig.name}: Gerät reagiert nicht auf Befehl ${value}`);
-                this.alarmService.raise(AlarmService_1.ALARM_CODES.ACTUATOR_NO_FEEDBACK, groupId, actuatorConfig.id, 'warning', `Gerät hat auf Befehl "${value}" nicht reagiert`);
-            }
-        }, verifyDelaySec * 1000);
+                catch (err) {
+                    this.log.warn(`setActuatorStateWithVerify ${actuatorConfig.name}: ${err}`);
+                }
+            }, verifyDelaySec * 1000);
+            return timerRef;
+        };
         this.pendingVerify.set(actuatorConfig.id, schedule(false));
     }
     buildDashboardState() {
@@ -1462,6 +1980,7 @@ class GrowManagerAdapter extends utils.Adapter {
                 .slice(0, 5)
                 .map(a => ({ id: a.id, code: a.code, severity: a.severity, message: a.message, since: a.since }));
             const now2 = Date.now();
+            const learnedPeaks = this.databaseService.getLearnedPeakWatts(g.id);
             const actuators = g.actuators
                 .filter(a => a.enabled)
                 .map(a => {
@@ -1488,6 +2007,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     effectiveState: as?.effectiveState ?? null,
                     feedback: as?.feedback ?? null,
                     health: as?.health ?? 'unknown',
+                    shared: a.shared,
                     sharedVotingMode: a.sharedVotingMode,
                     sharedParticipants: a.sharedParticipants,
                     votes: (a.shared && a.sharedParticipants?.length)
@@ -1501,7 +2021,7 @@ class GrowManagerAdapter extends utils.Adapter {
                     windSimIsOn: wsInfo?.isOn,
                     windSimNextChangeAt: wsInfo?.nextChangeAt,
                     power: as?.power ?? null,
-                    ratedPowerW: a.ratedPowerW,
+                    ratedPowerW: a.ratedPowerW ?? learnedPeaks[a.id],
                 };
             });
             // Externe geteilte Aktoren: Aktoren aus anderen Gruppen die diese Gruppe als Teilnehmer listen
@@ -1537,7 +2057,9 @@ class GrowManagerAdapter extends utils.Adapter {
             }
             // Sollwerte aus aktivem Klimaprofil
             let setpointTemp = null;
+            let setpointTempTolerance = null;
             let setpointHumidity = null;
+            let setpointHumidityTolerance = null;
             let setpointVpdMin = null;
             let setpointVpdMax = null;
             let setpointSoilMoistureTarget = null;
@@ -1545,9 +2067,11 @@ class GrowManagerAdapter extends utils.Adapter {
             let setpointCo2Target = null;
             let setpointCo2Tolerance = null;
             if (state?.activeProfile) {
-                const sp = this.scheduleService.getActiveSetpoint(state.activeProfile, state.dayNight ?? 'day', this.lightChangeTimes.get(g.id) ?? Date.now());
+                const sp = this.scheduleService.getActiveSetpoint(state.activeProfile, state.dayNight ?? 'day', this.lightChangeTimes.get(g.id) ?? Date.now(), this.lightTransitionFromNight.get(g.id) ?? false);
                 setpointTemp = sp.temperature;
+                setpointTempTolerance = sp.temperatureTolerance;
                 setpointHumidity = sp.humidity;
+                setpointHumidityTolerance = sp.humidityTolerance;
                 setpointVpdMin = sp.vpdMin;
                 setpointVpdMax = sp.vpdMax;
                 setpointSoilMoistureTarget = sp.soilMoistureTarget ?? null;
@@ -1557,7 +2081,6 @@ class GrowManagerAdapter extends utils.Adapter {
             }
             // Zusätzliche Sensorwerte: Einzelwerte für Typen wo mehrere sinnvoll sind
             const soilAggDb = this.sensorService.aggregate(g.sensors, 'soilMoisture', g.aggregationMethod);
-            const co2Agg = this.sensorService.aggregate(g.sensors, 'co2', g.aggregationMethod);
             const leafTempAggDb = this.sensorService.aggregate(g.sensors, 'leafTemperature', g.aggregationMethod);
             const soilSensors = g.sensors
                 .filter(s => s.enabled && s.type === 'soilMoisture')
@@ -1593,8 +2116,17 @@ class GrowManagerAdapter extends utils.Adapter {
                 const ov = this.dashboardOverrides.get(a.id);
                 if (ov && ov.until > now)
                     manualOverrides[a.id] = ov;
-                else if (ov)
-                    this.dashboardOverrides.delete(a.id);
+                else if (ov) {
+                    if (this.dashboardModeOverrides.get(g.id) === 'manual') {
+                        // Gruppe noch MANUELL → Override verlängern statt löschen
+                        ov.until = now + 60 * 60000;
+                        manualOverrides[a.id] = ov;
+                    }
+                    else {
+                        this.dashboardOverrides.delete(a.id);
+                        this.actuatorService.unlockManual(a.id);
+                    }
+                }
             }
             // Manuelle Übersteuerungen auch für externe geteilte Aktoren anzeigen (Teilnehmer-Sicht)
             for (const a of actuators) {
@@ -1615,9 +2147,11 @@ class GrowManagerAdapter extends utils.Adapter {
                 temperature: state?.temperature ?? null,
                 humidity: state?.humidity ?? null,
                 vpd: state?.vpd ?? null,
+                leafVpd: state?.leafVpd ?? null,
+                leafVpdEstimated: state?.leafVpd !== null && leafTempAggDb.value === null,
                 soilMoisture: soilAggDb.value,
                 soilSensors,
-                co2: co2Agg.value,
+                co2: state?.co2 ?? null,
                 leafTemperature: leafTempAggDb.value,
                 leafSensors,
                 sensorDetails,
@@ -1629,7 +2163,9 @@ class GrowManagerAdapter extends utils.Adapter {
                 lastDecision: state?.lastDecision ? JSON.stringify(state.lastDecision) : '',
                 irrigationRunning: this.irrigationService.isAnyZoneRunning(g),
                 setpointTemp,
+                setpointTempTolerance,
                 setpointHumidity,
+                setpointHumidityTolerance,
                 setpointVpdMin,
                 setpointVpdMax,
                 setpointSoilMoistureTarget,
@@ -1645,13 +2181,30 @@ class GrowManagerAdapter extends utils.Adapter {
                 outdoorHumidity: g.outdoorSensor?.enabled && g.outdoorSensor.humidityStateId
                     ? (this.outdoorValues.get(g.outdoorSensor.humidityStateId) ?? null)
                     : null,
+                dryingProgress: state?.dryingProgress ?? null,
+                dryingLightOff: g.dryingLightOff ?? true,
             };
         });
+        const alarmHistory = this.alarmService.getAllAlarms()
+            .sort((a, b) => b.lastUpdate - a.lastUpdate)
+            .slice(0, 50)
+            .map(a => ({
+            id: a.id,
+            code: a.code,
+            groupId: a.groupId,
+            severity: a.severity,
+            message: a.message,
+            active: a.active,
+            since: a.since,
+            clearedAt: a.clearedAt,
+            repeatCount: a.repeatCount,
+        }));
         return {
             ts: Date.now(),
             adapterVersion: this.version ?? '0.1.0',
             health: 'running',
             activeAlarms: activeAlarms.length,
+            alarmHistory,
             groups,
         };
     }
@@ -1670,12 +2223,12 @@ class GrowManagerAdapter extends utils.Adapter {
             [`${base}.climate.absoluteHumidity`, state.absoluteHumidity !== null ? Math.round(state.absoluteHumidity * 10) / 10 : null],
             [`${base}.climate.condensationRisk`, state.condensationRisk],
             [`${base}.climate.sensorQuality`, state.sensorQuality],
-            [`${base}.climate.co2`, this.sensorService.aggregate(config.sensors, 'co2', config.aggregationMethod).value],
+            [`${base}.climate.co2`, this.sensorService.aggregate(config.sensors, 'co2', config.aggregationMethod, config.stabilityTimeSeconds).value],
             [`${base}.diagnostics.sensorHealth`, state.sensorQuality],
             [`${base}.diagnostics.lastDecision`, state.lastDecision ? JSON.stringify(state.lastDecision) : ''],
         ];
         if (state.activeProfile) {
-            const sp = this.scheduleService.getActiveSetpoint(state.activeProfile, state.dayNight, this.lightChangeTimes.get(config.id) ?? Date.now());
+            const sp = this.scheduleService.getActiveSetpoint(state.activeProfile, state.dayNight, this.lightChangeTimes.get(config.id) ?? Date.now(), this.lightTransitionFromNight.get(config.id) ?? false);
             updates.push([`${base}.climate.targetTemperature`, sp.temperature], [`${base}.climate.targetHumidity`, sp.humidity], [`${base}.climate.targetVpd`, (sp.vpdMin != null && sp.vpdMax != null) ? (sp.vpdMin + sp.vpdMax) / 2 : null]);
         }
         if (state.nextScheduleChange) {
@@ -1848,10 +2401,23 @@ class GrowManagerAdapter extends utils.Adapter {
         });
     }
     async handleEmergencyStop() {
+        const now = Date.now();
+        // Schreibdurchlauf maximal alle 60s — verhindert Spam, erlaubt aber Re-Apply
+        // damit Geräte die zwischenzeitlich reconnecten wieder in den sicheren Zustand gebracht werden
+        if (this.emergencyStopLastAppliedAt > 0 && now - this.emergencyStopLastAppliedAt < 60000)
+            return;
+        this.emergencyStopLastAppliedAt = now;
         for (const group of this.growConfig.groups) {
             for (const actuator of group.actuators) {
-                const safeVal = actuator.safeState === 'off' ? actuator.offValue : actuator.onValue;
+                // Manuelle Locks und Dashboard-Overrides löschen, damit Auto-Regelung
+                // nach E-Stop-Aufhebung sofort wieder die Kontrolle übernehmen kann
+                this.dashboardOverrides.delete(actuator.id);
+                this.actuatorService.unlockManual(actuator.id);
+                const safeVal = actuator.safeState === 'on' ? actuator.onValue : actuator.offValue;
                 await this.setActuatorState(actuator.commandStateId, safeVal);
+                // Update internal state so that after E-stop clears, any change from
+                // safeVal triggers a re-send (prevents device staying at safeVal forever).
+                this.actuatorService.recordCommand(actuator, safeVal);
             }
         }
     }
@@ -1921,8 +2487,10 @@ class GrowManagerAdapter extends utils.Adapter {
         if (channels.length === 0)
             return;
         this.alarmService.addListener((event) => {
-            // Nur neue oder wiederholte Alarme weiterleiten
+            // Nur aktive Alarme weiterleiten – clear-Events ignorieren
             const alarm = event.alarm;
+            if (!alarm.active)
+                return;
             const alarmText = `[${alarm.severity.toUpperCase()}] ${alarm.code}: ${alarm.message}`;
             const now = new Date();
             const nowHH = now.getHours();

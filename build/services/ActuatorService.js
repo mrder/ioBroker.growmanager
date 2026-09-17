@@ -49,10 +49,7 @@ class ActuatorService {
         if (state.manualLock) {
             return { allowed: false, reason: 'Manuell gesperrt' };
         }
-        // Override ignoriert Sperrzeiten (außer kritische Sicherheit)
-        if (state.overrideActive) {
-            return { allowed: true };
-        }
+        // Safe State / Notsperre hat immer Vorrang — auch über Override
         if (state.blocked) {
             return {
                 allowed: false,
@@ -61,6 +58,10 @@ class ActuatorService {
                     ? Math.max(0, Math.round((state.blockedUntil - Date.now()) / 1000))
                     : 0,
             };
+        }
+        // Override ignoriert Mindestzeiten und Schaltspielbegrenzung — aber nicht Safe State (oben)
+        if (state.overrideActive) {
+            return { allowed: true };
         }
         const now = Date.now();
         const timeSinceSwitch = (now - state.lastSwitchTs) / 1000;
@@ -122,18 +123,20 @@ class ActuatorService {
         // Vergleich basiert auf requested (nicht effectiveState), damit der Befehl
         // auch bei konfiguriertem Feedback-State korrekt gefeuert wird.
         const wasOn = this.isRequestingOn(config, state.requested);
+        const prevRequested = state.requested;
         state.requested = requested;
         const isNowOn = this.isRequestingOn(config, state.requested);
-        const changing = wasOn !== isNowOn || firstSync;
+        // Auch reine Prozentwertänderungen (z.B. 30%→80%) erkennen — nicht nur ON/OFF-Wechsel
+        const changing = wasOn !== isNowOn || prevRequested !== requested || firstSync;
         // Effektiven Zustand sofort aus requested ableiten (wenn kein Feedback vorhanden)
         if (state.feedback === null && state.power === null) {
             state.effectiveState = requested;
         }
         if (changing) {
-            state.lastSwitchTs = Date.now();
             const rt = this.runTime.get(config.id);
-            // firstSync-only (kein echter Zustandswechsel): Zähler nicht erhöhen
+            // firstSync-only (kein echter Zustandswechsel): Zähler + lastSwitchTs nicht setzen
             if (wasOn !== isNowOn) {
+                state.lastSwitchTs = Date.now();
                 state.switchCount++;
                 rt.switchCount++;
                 rt.lastHourSwitches.push(Date.now());
@@ -261,19 +264,20 @@ class ActuatorService {
         const cfg = config.windSimulator;
         if (!cfg)
             return true; // kein Konfig → immer EIN
+        const nowMs = now.getTime();
         let state = this.windSimStates.get(config.id);
         if (!state) {
             // Erststart: zufällige EIN-Phase beginnen
             const onDur = this.randBetween(cfg.minOnSeconds, cfg.maxOnSeconds) * 1000;
-            state = { isOn: true, nextChangeAt: Date.now() + onDur };
+            state = { isOn: true, nextChangeAt: nowMs + onDur };
             this.windSimStates.set(config.id, state);
         }
-        if (Date.now() >= state.nextChangeAt) {
+        if (nowMs >= state.nextChangeAt) {
             state.isOn = !state.isOn;
             const dur = state.isOn
                 ? this.randBetween(cfg.minOnSeconds, cfg.maxOnSeconds) * 1000
                 : this.randBetween(cfg.minOffSeconds, cfg.maxOffSeconds) * 1000;
-            state.nextChangeAt = Date.now() + dur;
+            state.nextChangeAt = nowMs + dur;
             this.log.debug(`WindSim ${config.name}: → ${state.isOn ? 'EIN' : 'AUS'} für ${Math.round(dur / 1000)}s`);
         }
         return state.isOn;
@@ -288,6 +292,25 @@ class ActuatorService {
         return windows.some(w => (0, time_1.isInTimeWindow)(now, w.startHH, w.startMM, w.endHH, w.endMM));
     }
     /**
+     * Prüft ob ein Aktor-Zeitplan (timedActuator) gerade aktiv ist.
+     * 0=Mo, 1=Di, ..., 6=So. Leeres days-Array = alle Tage.
+     */
+    isActuatorScheduleActive(config, now) {
+        const entries = config.scheduleEntries;
+        if (!entries || entries.length === 0)
+            return false;
+        // JS getDay(): 0=So,1=Mo,...,6=Sa → umrechnen auf 0=Mo,...,6=So
+        const jsDay = now.getDay();
+        const day = jsDay === 0 ? 6 : jsDay - 1;
+        return entries.some(e => {
+            if (!e.enabled)
+                return false;
+            if (e.days.length > 0 && !e.days.includes(day))
+                return false;
+            return (0, time_1.isInTimeWindow)(now, e.startHH, e.startMM, e.endHH, e.endMM);
+        });
+    }
+    /**
      * Prüft abgelaufene Overrides.
      */
     tickOverrides() {
@@ -299,6 +322,7 @@ class ActuatorService {
                     state.overrideActive = false;
                     state.overrideUntil = undefined;
                     state.manualLock = false; // Dashboard-Lock läuft zusammen mit Override ab
+                    state.lastSwitchTs = 0; // Mindestzeiten nach Override-Ablauf ignorieren
                     this.log.info(`Override für ${id} abgelaufen`);
                 }
                 this.overrideUntil.delete(id);
@@ -356,9 +380,9 @@ class ActuatorService {
         const effectiveOn = this.isEffectivelyOn(config, state);
         const timeSince = (Date.now() - state.lastSwitchTs) / 1000;
         // Kleben prüfen (EIN obwohl AUS befohlen)
-        // lastSwitchTs=0: Adapter-Start, noch kein Schaltbefehl ausgeführt → kein stuckOn
+        // needsSync=true: Adapter-Start, firstSync noch nicht ausgeführt → kein stuckOn
         // Bei geteilten Aktoren überspringen: eine andere Gruppe kann den Aktor halten
-        if (!config.shared && !requestedOn && effectiveOn && state.lastSwitchTs > 0 && timeSince > config.offDelaySeconds + 30) {
+        if (!config.shared && !requestedOn && effectiveOn && !state.needsSync && timeSince > config.offDelaySeconds + 30) {
             return 'stuckOn';
         }
         // Kein Feedback innerhalb der Frist (lastSwitchTs=0 = Adapter-Start, noch kein Befehl → überspringen)
@@ -381,7 +405,9 @@ class ActuatorService {
     }
     randBetween(minSec, maxSec) {
         const lo = Math.max(1, minSec);
-        const hi = Math.max(lo + 1, maxSec);
+        const hi = Math.max(lo, maxSec);
+        if (lo === hi)
+            return lo;
         return Math.floor(Math.random() * (hi - lo + 1)) + lo;
     }
 }

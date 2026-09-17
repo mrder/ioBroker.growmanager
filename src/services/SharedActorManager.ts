@@ -178,7 +178,16 @@ export class SharedActorManager {
         // Rohen Beschluss berechnen
         let rawCommand: boolean | number;
 
-        switch (mode) {
+        // Hartes Veto für 'any'/'primary': wenn ein Teilnehmer außerhalb seines Sollbereichs
+        // ist (urgency > 0 bei AUS-Stimme = jede Überschreitung), wird der Aktor gestoppt.
+        // Bei 'majority' wird stattdessen die Überschreitung gegen den Restbedarf der anderen
+        // Gruppe abgewogen — kleiner Überschuss kann von großem Restbedarf überstimmt werden.
+        const criticalBlock = mode !== 'majority'
+            && voteList.some(v => v.groupId !== ownerId && !v.wantsOn && v.urgency > 0);
+
+        if (criticalBlock) {
+            rawCommand = false;
+        } else switch (mode) {
             case 'any': {
                 // EIN wenn Eigentümer ODER irgendein Teilnehmer EIN will.
                 // Owner-AUS ist ein weiches Veto — kann von kritisch dringendem
